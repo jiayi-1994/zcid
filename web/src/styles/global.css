@@ -1,0 +1,368 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Brand Colors - Apple-style blue-white */
+  --zcid-color-primary: #2563EB;
+  --zcid-color-primary-light: #3B82F6;
+  --zcid-color-primary-lighter: #DBEAFE;
+  --zcid-color-primary-dark: #1D4ED8;
+  --zcid-color-accent: #F97316;
+  --zcid-color-accent-light: #FDBA74;
+
+  /* Semantic Colors */
+  --zcid-color-success: #10B981;
+  --zcid-color-warning: #F59E0B;
+  --zcid-color-danger: #EF4444;
+  --zcid-color-info: #3B82F6;
+
+  /* Backgrounds */
+  --zcid-color-bg-primary: #FFFFFF;
+  --zcid-color-bg-secondary: #F8FAFC;
+  --zcid-color-bg-tertiary: #F1F5F9;
+  --zcid-color-bg-elevated: #FFFFFF;
+  --zcid-color-bg-hover: #F1F5F9;
+  --zcid-color-bg-active: #E2E8F0;
+
+  /* Text */
+  --zcid-color-text-primary: #0F172A;
+  --zcid-color-text-secondary: #475569;
+  --zcid-color-text-tertiary: #94A3B8;
+  --zcid-color-text-inverse: #FFFFFF;
+
+  /* Borders */
+  --zcid-color-border: #E2E8F0;
+  --zcid-color-border-light: #F1F5F9;
+
+  /* Shadows */
+  --zcid-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --zcid-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --zcid-shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --zcid-shadow-xl: 0 16px 48px rgba(15, 23, 42, 0.12);
+  --zcid-shadow-primary: 0 4px 14px rgba(37, 99, 235, 0.25);
+
+  /* Radii */
+  --zcid-radius-sm: 6px;
+  --zcid-radius-md: 10px;
+  --zcid-radius-lg: 14px;
+  --zcid-radius-xl: 20px;
+  --zcid-radius-full: 9999px;
+
+  /* Spacing */
+  --zcid-space-page: 28px;
+  --zcid-space-section: 20px;
+  --zcid-space-card: 20px;
+
+  /* Typography */
+  --zcid-font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --zcid-font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Transitions */
+  --zcid-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --zcid-transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --zcid-transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-index scale */
+  --zcid-z-dropdown: 10;
+  --zcid-z-sticky: 20;
+  --zcid-z-fixed: 30;
+  --zcid-z-modal: 50;
+
+  /* Breakpoints (for reference; used in media queries) */
+  --zcid-breakpoint-sm: 640px;
+  --zcid-breakpoint-md: 768px;
+  --zcid-breakpoint-lg: 1024px;
+  --zcid-breakpoint-xl: 1280px;
+  --zcid-breakpoint-xxl: 1440px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  min-height: 100vh;
+  font-family: var(--zcid-font-family);
+  color: var(--zcid-color-text-primary);
+  background: var(--zcid-color-bg-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Global App Layout ───────────────────────── */
+
+.app-root {
+  min-height: 100vh;
+}
+
+.app-sider {
+  background: var(--zcid-color-bg-primary);
+  border-right: 1px solid var(--zcid-color-border);
+  transition: width var(--zcid-transition-normal);
+}
+
+.app-sider .arco-menu-item {
+  border-radius: var(--zcid-radius-sm);
+  margin: 2px 8px;
+  transition: all var(--zcid-transition-fast);
+}
+
+.app-sider .arco-menu-item:hover {
+  background: var(--zcid-color-bg-hover);
+}
+
+.app-sider .arco-menu-item.arco-menu-selected {
+  background: var(--zcid-color-primary-lighter);
+  color: var(--zcid-color-primary);
+  font-weight: 500;
+}
+
+.sider-logo {
+  height: 44px;
+  margin: 14px 12px;
+  border-radius: var(--zcid-radius-md);
+  background: linear-gradient(135deg, var(--zcid-color-primary) 0%, var(--zcid-color-primary-light) 100%);
+  color: var(--zcid-color-text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  box-shadow: var(--zcid-shadow-primary);
+}
+
+.app-header {
+  background: var(--zcid-color-bg-primary);
+  border-bottom: 1px solid var(--zcid-color-border);
+  backdrop-filter: blur(12px);
+}
+
+.app-header-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.user-entry {
+  padding: 4px 10px;
+  border-radius: var(--zcid-radius-sm);
+  cursor: pointer;
+  transition: background var(--zcid-transition-fast);
+}
+
+.user-entry:hover {
+  background: var(--zcid-color-bg-hover);
+}
+
+.app-content {
+  min-height: calc(100vh - 64px);
+  background: var(--zcid-color-bg-secondary);
+}
+
+/* ─── Reusable Page Layout Classes ────────────── */
+
+.page-container {
+  padding: var(--zcid-space-page);
+  animation: fadeSlideUp var(--zcid-transition-slow) ease-out;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--zcid-space-section);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--zcid-color-text-primary);
+  letter-spacing: -0.3px;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--zcid-color-text-secondary);
+}
+
+/* ─── Card Enhancements ───────────────────────── */
+
+.zcid-card {
+  background: var(--zcid-color-bg-elevated);
+  border-radius: var(--zcid-radius-lg);
+  border: 1px solid var(--zcid-color-border);
+  box-shadow: var(--zcid-shadow-sm);
+  transition: all var(--zcid-transition-normal);
+}
+
+.zcid-card-interactive {
+  cursor: pointer;
+}
+
+.zcid-card-interactive:hover {
+  box-shadow: var(--zcid-shadow-md);
+  border-color: var(--zcid-color-primary-lighter);
+  transform: translateY(-2px);
+}
+
+/* ─── Status Badge ────────────────────────────── */
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--zcid-radius-full);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.status-dot--success { background: var(--zcid-color-success); }
+.status-dot--warning { background: var(--zcid-color-warning); }
+.status-dot--danger { background: var(--zcid-color-danger); }
+.status-dot--info { background: var(--zcid-color-info); }
+.status-dot--neutral { background: var(--zcid-color-text-tertiary); }
+
+/* ─── Empty State ─────────────────────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--zcid-color-text-tertiary);
+}
+
+.empty-state-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+/* ─── Monospace / Code ────────────────────────── */
+
+.mono {
+  font-family: var(--zcid-font-mono);
+  font-size: 13px;
+}
+
+.log-viewer {
+  background: #0F172A;
+  color: #E2E8F0;
+  font-family: var(--zcid-font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  border-radius: var(--zcid-radius-md);
+  padding: 16px;
+  overflow: auto;
+  max-height: 500px;
+}
+
+/* ─── Skeleton Loading ────────────────────────── */
+
+.skeleton-line {
+  height: 14px;
+  border-radius: var(--zcid-radius-sm);
+  background: linear-gradient(90deg, var(--zcid-color-bg-tertiary) 25%, var(--zcid-color-bg-secondary) 50%, var(--zcid-color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ─── Animations ──────────────────────────────── */
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── Arco Design Overrides ───────────────────── */
+
+.arco-table-th {
+  background: var(--zcid-color-bg-tertiary) !important;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--zcid-color-text-secondary);
+}
+
+.arco-table-tr:hover .arco-table-td {
+  background: var(--zcid-color-bg-hover) !important;
+}
+
+.arco-btn-primary {
+  background: var(--zcid-color-primary);
+  border-color: var(--zcid-color-primary);
+  box-shadow: var(--zcid-shadow-sm);
+  transition: all var(--zcid-transition-fast);
+}
+
+.arco-btn-primary:hover {
+  background: var(--zcid-color-primary-dark);
+  border-color: var(--zcid-color-primary-dark);
+  box-shadow: var(--zcid-shadow-primary);
+}
+
+.arco-card {
+  border-radius: var(--zcid-radius-lg);
+  border-color: var(--zcid-color-border);
+}
+
+.arco-modal-content {
+  border-radius: var(--zcid-radius-xl);
+}
+
+.arco-input,
+.arco-select-view,
+.arco-textarea {
+  border-radius: var(--zcid-radius-sm);
+}
+
+.arco-tag {
+  border-radius: var(--zcid-radius-sm);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* ─── Reduced Motion ──────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Responsive ──────────────────────────────── */
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 16px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+}

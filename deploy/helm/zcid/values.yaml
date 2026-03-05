@@ -1,0 +1,98 @@
+# zcid Helm Chart Values
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/jiayi-1994/zcid
+  tag: "main"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: zcid.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# zcid application config
+config:
+  # Server
+  serverPort: "8080"
+  ginMode: "release"
+
+  # Database (connect to middleware PostgreSQL)
+  dbHost: "postgresql"
+  dbPort: "5432"
+  dbName: "zcid"
+  dbUser: "zcid"
+  dbSSLMode: "disable"
+
+  # Redis
+  redisHost: "redis-master"
+  redisPort: "6379"
+  redisDB: "0"
+
+  # MinIO
+  minioEndpoint: "minio:9000"
+  minioBucket: "zcid-logs"
+  minioUseSSL: "false"
+
+  # JWT
+  jwtAccessExpiry: "15m"
+  jwtRefreshExpiry: "7d"
+
+  # Encryption key (AES-256, 32 bytes hex)
+  # IMPORTANT: Change this in production!
+  encryptionKey: "0123456789abcdef0123456789abcdef"
+
+secrets:
+  # Database password
+  dbPassword: "zcid-password"
+  # Redis password (empty if no auth)
+  redisPassword: ""
+  # MinIO credentials
+  minioAccessKey: "minioadmin"
+  minioSecretKey: "minioadmin"
+  # JWT signing key
+  jwtSecret: "change-me-in-production"
+
+# Pod configuration
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Liveness & Readiness probes
+probes:
+  liveness:
+    path: /api/v1/admin/health
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readiness:
+    path: /api/v1/admin/health
+    initialDelaySeconds: 5
+    periodSeconds: 10

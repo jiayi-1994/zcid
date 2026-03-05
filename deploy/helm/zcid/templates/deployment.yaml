@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zcid.fullname" . }}
+  labels:
+    {{- include "zcid.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "zcid.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "zcid.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "zcid.serviceAccountName" . }}
+      containers:
+        - name: zcid
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.serverPort | default 8080 }}
+              protocol: TCP
+          env:
+            - name: SERVER_PORT
+              value: {{ .Values.config.serverPort | quote }}
+            - name: GIN_MODE
+              value: {{ .Values.config.ginMode | quote }}
+            - name: DB_HOST
+              value: {{ .Values.config.dbHost | quote }}
+            - name: DB_PORT
+              value: {{ .Values.config.dbPort | quote }}
+            - name: DB_NAME
+              value: {{ .Values.config.dbName | quote }}
+            - name: DB_USER
+              value: {{ .Values.config.dbUser | quote }}
+            - name: DB_SSL_MODE
+              value: {{ .Values.config.dbSSLMode | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: db-password
+            - name: REDIS_HOST
+              value: {{ .Values.config.redisHost | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.config.redisPort | quote }}
+            - name: REDIS_DB
+              value: {{ .Values.config.redisDB | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: redis-password
+            - name: MINIO_ENDPOINT
+              value: {{ .Values.config.minioEndpoint | quote }}
+            - name: MINIO_BUCKET
+              value: {{ .Values.config.minioBucket | quote }}
+            - name: MINIO_USE_SSL
+              value: {{ .Values.config.minioUseSSL | quote }}
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: minio-secret-key
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: jwt-secret
+            - name: JWT_ACCESS_EXPIRY
+              value: {{ .Values.config.jwtAccessExpiry | quote }}
+            - name: JWT_REFRESH_EXPIRY
+              value: {{ .Values.config.jwtRefreshExpiry | quote }}
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: encryption-key
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

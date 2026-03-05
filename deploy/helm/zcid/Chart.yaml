@@ -1,0 +1,15 @@
+apiVersion: v2
+name: zcid
+description: Cloud-native CI/CD platform built on Tekton and ArgoCD
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - ci/cd
+  - devops
+  - tekton
+  - argocd
+  - kubernetes
+home: https://github.com/jiayi-1994/zcid
+maintainers:
+  - name: xjy

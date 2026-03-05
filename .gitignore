@@ -1,0 +1,74 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+/vendor/
+
+# Frontend
+web/node_modules/
+web/dist/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+/bin/
+
+# Agent/MCP/Tool artifacts
+.opencode/
+.omc/
+.playwright-mcp/
+mcps/
+agent-transcripts/
+terminals/
+skills/
+
+# Screenshot artifacts
+*.png
+
+# Design/UX artifacts
+files/ux-ui/
+files/brainstorming/
+
+# Kubeconfig (sensitive)
+config/kubeconfig
+
+# Root package-lock (frontend has its own)
+/package-lock.json
+
+# Docker compose for local dev
+docker-compose.yml
+
+# Test coverage
+coverage/
+*.out
+
+# Helm packages
+*.tgz
+
+# Old charts dir (replaced by deploy/helm)
+/charts/
