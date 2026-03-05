@@ -3,30 +3,41 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"net/http/httptest"
 )
 
-// testK8sWatcher is a mock that invokes the handler after Start.
 type testK8sWatcher struct {
+	mu      sync.Mutex
 	handler func(runName, status string, stepStatuses []StepStatus)
-	ctx     context.Context
+	ready   chan struct{}
+}
+
+func newTestK8sWatcher() *testK8sWatcher {
+	return &testK8sWatcher{ready: make(chan struct{})}
 }
 
 func (t *testK8sWatcher) WatchPipelineRuns(ctx context.Context, namespace string, handler func(runName, status string, stepStatuses []StepStatus)) {
-	t.ctx = ctx
+	t.mu.Lock()
 	t.handler = handler
+	t.mu.Unlock()
+	close(t.ready)
+	<-ctx.Done()
 }
 
 func (t *testK8sWatcher) emit(runName, status string, stepStatuses []StepStatus) {
-	if t.handler != nil {
-		t.handler(runName, status, stepStatuses)
+	t.mu.Lock()
+	h := t.handler
+	t.mu.Unlock()
+	if h != nil {
+		h(runName, status, stepStatuses)
 	}
 }
 
@@ -34,7 +45,7 @@ func TestMockWatcherSendsStatus(t *testing.T) {
 	hub := NewHub()
 	go hub.Run()
 
-	mock := &testK8sWatcher{}
+	mock := newTestK8sWatcher()
 	watcher := NewPipelineWatcher(hub, mock)
 	watcher.RegisterNamespaceProject("ns1", "proj-1")
 
@@ -42,8 +53,11 @@ func TestMockWatcherSendsStatus(t *testing.T) {
 	defer cancel()
 	go watcher.Start(ctx)
 
-	// Give Start time to call WatchPipelineRuns
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-mock.ready:
+	case <-time.After(2 * time.Second):
+		t.Fatal("WatchPipelineRuns was not called in time")
+	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -59,7 +73,7 @@ func TestMockWatcherSendsStatus(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	mock.emit("run-abc", "Running", []StepStatus{{StepID: "step1", Name: "Build", Status: "running"}})
 

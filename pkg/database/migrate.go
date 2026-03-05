@@ -72,7 +72,7 @@ func buildMigrationSource(migrationsPath string) string {
 	}
 
 	cleaned := filepath.Clean(migrationsPath)
-	cleaned = filepath.ToSlash(cleaned)
+	cleaned = strings.ReplaceAll(cleaned, "\\", "/")
 
 	if strings.HasPrefix(cleaned, "/") {
 		return "file://" + cleaned
