@@ -1,4 +1,4 @@
-import { Layout, Menu, Skeleton, Typography } from '@arco-design/web-react';
+import { Layout, Menu, Skeleton } from '@arco-design/web-react';
 import { IconCloud, IconApps, IconUserGroup, IconLock, IconThunderbolt, IconSend, IconNotification } from '@arco-design/web-react/icon';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -26,12 +26,10 @@ export function ProjectLayout() {
   return (
     <AppLayout>
       <Layout style={{ height: '100%' }}>
-        <Sider width={180} style={{ background: 'var(--zcid-color-bg-primary)', borderRight: '1px solid var(--zcid-color-border)' }}>
-          <div style={{ padding: '16px 14px 10px', borderBottom: '1px solid var(--zcid-color-border)' }}>
+        <Sider width={192} className="project-sider">
+          <div className="project-sider-header">
             {project ? (
-              <Typography.Text bold ellipsis style={{ fontSize: 14 }}>
-                {project.name}
-              </Typography.Text>
+              <div className="project-sider-name">{project.name}</div>
             ) : (
               <Skeleton text={{ rows: 1 }} animation />
             )}

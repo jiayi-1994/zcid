@@ -1,4 +1,4 @@
-import { Button, Dropdown, Layout, Menu, Typography } from '@arco-design/web-react';
+import { Dropdown, Layout, Menu } from '@arco-design/web-react';
 import { IconDashboard, IconDown, IconUser, IconApps, IconLock, IconLink, IconFile, IconSettings } from '@arco-design/web-react/icon';
 import { type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -34,6 +34,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const clearSession = useAuthStore((state) => state.clearSession);
 
   const roleLabel = user ? ROLE_LABELS[user.role] : '';
+  const userInitial = user?.username?.charAt(0).toUpperCase() || 'U';
 
   const handleLogout = async () => {
     try {
@@ -41,7 +42,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         await logout(refreshToken);
       }
     } catch {
-      // 后端登出失败时仍继续本地退出
+      // ignore
     } finally {
       clearSession();
       navigate('/login', { replace: true });
@@ -50,8 +51,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <Layout className="app-root">
-      <Sider className="app-sider" width={collapsed ? 64 : 220} collapsed={collapsed}>
-        <div className="sider-logo">ZCID</div>
+      <Sider className="app-sider" width={collapsed ? 60 : 232} collapsed={collapsed}>
+        <div className="sider-logo">
+          <div className="sider-logo-icon">Z</div>
+          {!collapsed && <span className="sider-logo-text">zcid</span>}
+        </div>
         <Menu
           selectedKeys={[location.pathname]}
           onClickMenuItem={(key) => navigate(key)}
@@ -59,41 +63,41 @@ export function AppLayout({ children }: AppLayoutProps) {
           {canViewDashboard && (
             <MenuItem key="/dashboard">
               <IconDashboard />
-              {!collapsed && ' Dashboard'}
+              {!collapsed && 'Dashboard'}
             </MenuItem>
           )}
           <MenuItem key="/projects">
             <IconApps />
-            {!collapsed && ' 项目管理'}
+            {!collapsed && '项目管理'}
           </MenuItem>
           {canViewAdminUsers && (
             <MenuItem key="/admin/users">
               <IconUser />
-              {!collapsed && ' 用户管理'}
+              {!collapsed && '用户管理'}
             </MenuItem>
           )}
           {canViewAdminVariables && (
             <MenuItem key="/admin/variables">
               <IconLock />
-              {!collapsed && ' 全局变量'}
+              {!collapsed && '全局变量'}
             </MenuItem>
           )}
           {canViewAdminIntegrations && (
             <MenuItem key="/admin/integrations">
               <IconLink />
-              {!collapsed && ' 集成管理'}
+              {!collapsed && '集成管理'}
             </MenuItem>
           )}
           {canViewAuditLogs && (
             <MenuItem key="/admin/audit-logs">
               <IconFile />
-              {!collapsed && ' 审计日志'}
+              {!collapsed && '审计日志'}
             </MenuItem>
           )}
           {canViewSystemSettings && (
             <MenuItem key="/admin/settings">
               <IconSettings />
-              {!collapsed && ' 系统设置'}
+              {!collapsed && '系统设置'}
             </MenuItem>
           )}
         </Menu>
@@ -101,7 +105,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <Layout>
         <Header className="app-header">
           <div className="app-header-inner">
-            <Typography.Text style={{ fontWeight: 600, letterSpacing: '-0.5px' }}>zcid</Typography.Text>
+            <span className="app-header-breadcrumb">zcid</span>
             <Dropdown
               trigger="click"
               droplist={(
@@ -110,9 +114,14 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </Menu>
               )}
             >
-              <Button className="user-entry" type="text">
-                {user?.username} / {roleLabel} <IconDown />
-              </Button>
+              <div className="user-entry">
+                <div className="user-avatar">{userInitial}</div>
+                <div className="user-info">
+                  <span className="user-name">{user?.username}</span>
+                  <span className="user-role">{roleLabel}</span>
+                </div>
+                <IconDown style={{ fontSize: 12, color: 'var(--zcid-text-3)' }} />
+              </div>
             </Dropdown>
           </div>
         </Header>

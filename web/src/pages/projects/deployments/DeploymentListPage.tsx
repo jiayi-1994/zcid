@@ -103,7 +103,7 @@ export function DeploymentListPage() {
     {
       title: '状态',
       dataIndex: 'status',
-      render: (s: string) => <Tag color={statusColors[s] || 'default'}>{statusLabels[s] || s}</Tag>,
+      render: (s: string) => <Tag size="small" color={statusColors[s] || 'default'}>{statusLabels[s] || s}</Tag>,
     },
     { title: '同步状态', dataIndex: 'syncStatus', render: (v: string) => v ?? '-' },
     { title: '健康状态', dataIndex: 'healthStatus', render: (v: string) => v ?? '-' },
@@ -115,6 +115,7 @@ export function DeploymentListPage() {
         <Button
           type="text"
           size="small"
+          style={{ color: 'var(--zcid-primary)' }}
           onClick={() => navigate(`/projects/${projectId}/deployments/${record.id}`)}
         >
           详情
@@ -131,14 +132,22 @@ export function DeploymentListPage() {
           部署
         </Button>
       </div>
-      <Table
-        columns={columns}
-        data={data.items}
-        loading={loading}
-        rowKey="id"
-        pagination={{ current: page, total: data.total, pageSize: 20, onChange: setPage }}
-        noDataElement={<div className="empty-state">暂无部署</div>}
-      />
+      <div className="table-card">
+        <Table
+          columns={columns}
+          data={data.items}
+          loading={loading}
+          rowKey="id"
+          border={false}
+          pagination={{ current: page, total: data.total, pageSize: 20, onChange: setPage, style: { padding: '12px 16px' } }}
+          noDataElement={
+            <div className="empty-state">
+              <div className="empty-state-title">暂无部署</div>
+              <div className="empty-state-desc">触发部署后这里会显示列表</div>
+            </div>
+          }
+        />
+      </div>
       <Modal
         title="触发部署"
         visible={modalVisible}

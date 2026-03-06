@@ -113,26 +113,28 @@ export function IntegrationsPage() {
       title: '名称',
       dataIndex: 'name',
       width: 160,
+      render: (name: string) => <span style={{ fontWeight: 500 }}>{name}</span>,
     },
     {
       title: 'Provider',
       dataIndex: 'providerType',
       width: 100,
       render: (val: string) => (
-        <Tag>{PROVIDER_LABELS[val] || val}</Tag>
+        <Tag size="small">{PROVIDER_LABELS[val] || val}</Tag>
       ),
     },
     {
       title: 'Server URL',
       dataIndex: 'serverUrl',
       ellipsis: true,
+      render: (url: string) => <span style={{ color: 'var(--zcid-text-3)', fontFamily: 'var(--zcid-font-mono)', fontSize: 13 }}>{url}</span>,
     },
     {
       title: 'Token',
       dataIndex: 'tokenMask',
       width: 120,
       render: (val: string) => (
-        <span style={{ fontFamily: 'monospace', color: 'var(--color-text-3)' }}>{val}</span>
+        <span style={{ fontFamily: 'var(--zcid-font-mono)', color: 'var(--zcid-text-4)', fontSize: 13 }}>{val}</span>
       ),
     },
     {
@@ -144,11 +146,16 @@ export function IntegrationsPage() {
         return <Badge color={cfg.color} text={cfg.text} />;
       },
     },
-    { title: '描述', dataIndex: 'description', ellipsis: true },
+    {
+      title: '描述',
+      dataIndex: 'description',
+      ellipsis: true,
+      render: (v: string) => <span style={{ color: 'var(--zcid-text-3)' }}>{v || '-'}</span>,
+    },
     { title: '创建时间', dataIndex: 'createdAt', width: 180 },
     {
       title: '操作',
-      width: 280,
+      width: 200,
       render: (_: unknown, record: GitConnection) => (
         <Space size="mini">
           <Tooltip content="测试连接">
@@ -158,6 +165,7 @@ export function IntegrationsPage() {
               icon={<IconPlayArrow />}
               loading={testingId === record.id}
               onClick={() => handleTest(record.id)}
+              style={{ color: 'var(--zcid-success)' }}
             />
           </Tooltip>
           <Tooltip content="复制 Webhook Secret">
@@ -174,6 +182,7 @@ export function IntegrationsPage() {
               size="small"
               icon={<IconEdit />}
               onClick={() => setEditItem(record)}
+              style={{ color: 'var(--zcid-primary)' }}
             />
           </Tooltip>
           <Popconfirm title="确认删除此连接？" onOk={() => handleDelete(record.id)}>
@@ -190,7 +199,10 @@ export function IntegrationsPage() {
     <AppLayout>
       <div className="page-container">
         <div className="page-header">
-          <h3 className="page-title">集成管理</h3>
+          <div>
+            <h3 className="page-title">集成管理</h3>
+            <p className="page-subtitle">管理 Git 仓库连接和 Webhook 配置</p>
+          </div>
           <Space>
             <Button icon={<IconRefresh />} onClick={loadData}>刷新</Button>
             <Button type="primary" icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
@@ -198,13 +210,16 @@ export function IntegrationsPage() {
             </Button>
           </Space>
         </div>
-        <Table
-          columns={columns}
-          data={connections}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 20, showTotal: true, sizeCanChange: false }}
-        />
+        <div className="table-card">
+          <Table
+            columns={columns}
+            data={connections}
+            rowKey="id"
+            loading={loading}
+            border={false}
+            pagination={{ pageSize: 20, showTotal: true, sizeCanChange: false, style: { padding: '12px 16px' } }}
+          />
+        </div>
         <ConnectionFormModal
           visible={createVisible}
           onClose={() => setCreateVisible(false)}

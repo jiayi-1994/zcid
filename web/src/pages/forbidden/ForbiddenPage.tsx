@@ -1,4 +1,4 @@
-import { Button, Space, Typography } from '@arco-design/web-react';
+import { Button } from '@arco-design/web-react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '../../components/layout/AppLayout';
 
@@ -7,18 +7,22 @@ export function ForbiddenPage() {
 
   return (
     <AppLayout>
-      <div style={{ padding: 24 }}>
-        <Space direction="vertical" size="large">
-          <Typography.Title heading={4} style={{ margin: 0 }}>
-            403 无权限访问
-          </Typography.Title>
-          <Typography.Paragraph style={{ margin: 0 }}>
-            你没有访问当前页面的权限。
-          </Typography.Paragraph>
-          <Button type="primary" onClick={() => navigate('/dashboard', { replace: true })}>
+      <div className="forbidden-page">
+        <div>
+          <div className="forbidden-code">403</div>
+          <div className="forbidden-title">无权限访问</div>
+          <div className="forbidden-desc">
+            你没有访问当前页面的权限，请联系管理员获取相应权限。
+          </div>
+          <Button
+            type="primary"
+            size="large"
+            onClick={() => navigate('/dashboard', { replace: true })}
+            style={{ borderRadius: 'var(--zcid-radius-md)' }}
+          >
             返回 Dashboard
           </Button>
-        </Space>
+        </div>
       </div>
     </AppLayout>
   );

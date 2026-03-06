@@ -67,7 +67,7 @@ export function AdminVariablePage() {
       title: '类型',
       dataIndex: 'varType',
       render: (val: string) => (
-        <Tag color={val === 'secret' ? 'red' : 'blue'}>{val === 'secret' ? '密钥' : '普通'}</Tag>
+        <Tag size="small" color={val === 'secret' ? 'red' : 'blue'}>{val === 'secret' ? '密钥' : '普通'}</Tag>
       ),
     },
     { title: '描述', dataIndex: 'description' },
@@ -76,7 +76,7 @@ export function AdminVariablePage() {
       title: '操作',
       render: (_: unknown, record: VariableItem) => (
         <>
-          <Button type="text" size="small" onClick={() => setEditItem(record)}>
+          <Button type="text" size="small" style={{ color: 'var(--zcid-primary)' }} onClick={() => setEditItem(record)}>
             编辑
           </Button>
           <Popconfirm title="确认删除此全局变量？" onOk={() => handleDelete(record.id)}>
@@ -91,16 +91,22 @@ export function AdminVariablePage() {
     <AppLayout>
       <div className="page-container">
         <div className="page-header">
-          <h3 className="page-title">全局变量管理</h3>
+          <div>
+            <h3 className="page-title">全局变量管理</h3>
+            <p className="page-subtitle">管理跨项目共享的全局变量和密钥</p>
+          </div>
           <Button type="primary" onClick={() => setCreateVisible(true)}>新建全局变量</Button>
         </div>
-        <Table
-          columns={columns}
-          data={variables}
-          rowKey="id"
-          loading={loading}
-          pagination={false}
-        />
+        <div className="table-card">
+          <Table
+            columns={columns}
+            data={variables}
+            rowKey="id"
+            loading={loading}
+            border={false}
+            pagination={false}
+          />
+        </div>
         <VariableFormModal
           visible={createVisible}
           onClose={() => setCreateVisible(false)}

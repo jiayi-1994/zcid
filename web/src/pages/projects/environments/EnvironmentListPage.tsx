@@ -62,7 +62,7 @@ export function EnvironmentListPage() {
 
   const columns = [
     { title: '名称', dataIndex: 'name' },
-    { title: 'Namespace', dataIndex: 'namespace', render: (ns: string) => <Tag>{ns}</Tag> },
+    { title: 'Namespace', dataIndex: 'namespace', render: (ns: string) => <Tag size="small">{ns}</Tag> },
     { title: '描述', dataIndex: 'description' },
     { title: '创建时间', dataIndex: 'createdAt' },
     {
@@ -85,11 +85,18 @@ export function EnvironmentListPage() {
           </Button>
         )}
       </div>
-      <Table
-        columns={columns} data={envs} loading={loading} rowKey="id"
-        pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
-        noDataElement={<div className="empty-state">暂无环境</div>}
-      />
+      <div className="table-card">
+        <Table
+          columns={columns} data={envs} loading={loading} rowKey="id" border={false}
+          pagination={{ current: page, total, pageSize: 20, onChange: setPage, style: { padding: '12px 16px' } }}
+          noDataElement={
+            <div className="empty-state">
+              <div className="empty-state-title">暂无环境</div>
+              <div className="empty-state-desc">创建第一个环境，开始管理部署目标</div>
+            </div>
+          }
+        />
+      </div>
       <Modal
         title="新建环境" visible={modalVisible}
         onOk={handleCreate}

@@ -33,12 +33,15 @@ import (
 	"github.com/xjy/zcid/pkg/cache"
 	"github.com/xjy/zcid/pkg/argocd"
 	"github.com/xjy/zcid/pkg/crypto"
+	k8sclient "github.com/xjy/zcid/pkg/k8s"
 	"github.com/xjy/zcid/pkg/tekton"
 	"github.com/xjy/zcid/pkg/database"
 	"github.com/xjy/zcid/pkg/logging"
 	"github.com/xjy/zcid/pkg/middleware"
 	"github.com/xjy/zcid/pkg/response"
 	"github.com/xjy/zcid/pkg/storage"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"gorm.io/gorm"
 )
 
@@ -81,10 +84,33 @@ func main() {
 	}
 	slog.Info("connected to MinIO")
 
-	slog.Info("Checking Tekton/ArgoCD compatibility...")
-	slog.Warn("Tekton/ArgoCD version check: using mock (cluster not connected)")
+	var coreClient kubernetes.Interface
+	var dynClient dynamic.Interface
 
-	cleaner := crdclean.NewCRDCleaner(&crdclean.MockK8sClient{}, 7)
+	if cfg.K8s.Enabled {
+		slog.Info("K8s 集群集成已启用，初始化客户端...")
+		k8sClients, k8sErr := k8sclient.NewClients()
+		if k8sErr != nil {
+			slog.Warn("K8s 客户端初始化失败，回退到 Mock 模式", slog.Any("error", k8sErr))
+			cfg.K8s.Enabled = false
+		} else {
+			coreClient = k8sClients.CoreClient
+			dynClient = k8sClients.DynamicClient
+			slog.Info("K8s 客户端初始化成功")
+		}
+	}
+
+	if !cfg.K8s.Enabled {
+		slog.Warn("Tekton/ArgoCD: 使用 Mock 模式 (K8s 未连接)")
+	}
+
+	var crdK8s crdclean.K8sClient
+	if cfg.K8s.Enabled {
+		crdK8s = crdclean.NewRealK8sClient(dynClient, []string{cfg.K8s.Namespace})
+	} else {
+		crdK8s = &crdclean.MockK8sClient{}
+	}
+	cleaner := crdclean.NewCRDCleaner(crdK8s, 7)
 	go cleaner.StartScheduler(context.Background(), 24*time.Hour)
 
 	r := gin.New()
@@ -110,11 +136,11 @@ func main() {
 
 	registerHealthRoutes(r, db, rdb)
 	registerExampleRoutes(r)
-	registerWebSocketRoutes(r, cfg.Auth.JWTSecret)
+	registerWebSocketRoutes(r, cfg.Auth.JWTSecret, cfg.K8s.Enabled, coreClient, dynClient)
 	registerAuthRoutes(r, db, rdb, cfg.Auth.JWTSecret)
 	registerAdminRoutes(context.Background(), r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc)
-	registerProjectRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, minioClient, auditSvc)
-	registerIntegrationRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc)
+	registerProjectRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, minioClient, auditSvc, cfg, coreClient, dynClient)
+	registerIntegrationRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc, cfg, coreClient, dynClient)
 	registerFrontendRoutes(r)
 
 	_ = minioClient // used during init; retained for future use
@@ -127,11 +153,27 @@ func main() {
 	}
 }
 
-func registerWebSocketRoutes(r *gin.Engine, jwtSecret string) {
+func registerWebSocketRoutes(r *gin.Engine, jwtSecret string, k8sEnabled bool, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
 	hub := ws.NewHub()
 	go hub.Run()
-	logStream := ws.NewLogStreamManager(hub, &ws.MockLogCollector{}, &ws.PlaceholderSecretMasker{})
-	// TODO: inject real AccessChecker when RBAC integration is done; nil allows all authenticated users
+
+	var logCollector ws.LogCollector
+	var k8sWatcher ws.K8sWatcher
+	if k8sEnabled && coreClient != nil {
+		logCollector = ws.NewRealLogCollector(coreClient)
+		k8sWatcher = ws.NewRealK8sWatcher(dynClient)
+		slog.Info("WebSocket: 使用真实 K8s 日志收集器和状态监听器")
+	} else {
+		logCollector = &ws.MockLogCollector{}
+		k8sWatcher = &ws.MockK8sWatcher{}
+		slog.Info("WebSocket: 使用 Mock 日志收集器和状态监听器")
+	}
+
+	logStream := ws.NewLogStreamManager(hub, logCollector, &ws.PlaceholderSecretMasker{})
+
+	pipelineWatcher := ws.NewPipelineWatcher(hub, k8sWatcher)
+	go pipelineWatcher.Start(context.Background())
+
 	r.GET("/ws/v1/logs/:runId", ws.ServeWsLogs(hub, jwtSecret, logStream.ReplayFn(), nil))
 	r.GET("/ws/v1/pipeline-status/:projectId", ws.ServeWsStatus(hub, jwtSecret, nil))
 }
@@ -220,7 +262,7 @@ func registerAdminRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *r
 	})
 }
 
-func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, minioClient *minio.Client, auditSvc *audit.Service) {
+func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, minioClient *minio.Client, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
 	projRepo := project.NewRepo(db)
 	projService := project.NewService(projRepo)
 	projHandler := project.NewHandler(projService)
@@ -271,8 +313,15 @@ func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSec
 
 	runRepo := pipelinerun.NewRepo(db)
 	runTranslator := tekton.NewTranslator()
-	runK8s := &pipelinerun.MockK8sClient{}
-	runSecretInjector := &pipelinerun.MockSecretInjector{}
+	var runK8s pipelinerun.K8sClient
+	var runSecretInjector pipelinerun.SecretInjector
+	if cfg.K8s.Enabled && dynClient != nil {
+		runK8s = pipelinerun.NewRealK8sClient(dynClient)
+		runSecretInjector = pipelinerun.NewRealSecretInjector(coreClient)
+	} else {
+		runK8s = &pipelinerun.MockK8sClient{}
+		runSecretInjector = &pipelinerun.MockSecretInjector{}
+	}
 	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector)
 	runHandler := pipelinerun.NewHandler(runService)
 	runsGroup := pipelineGroup.Group("/:pipelineId/runs")
@@ -285,7 +334,15 @@ func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSec
 	logArchiveHandler.RegisterRoutes(pipelineRunsGroup)
 
 	deployRepo := deployment.NewRepo(db)
-	deploySvc := deployment.NewService(deployRepo, envService, &argocd.MockArgoClient{})
+	var argoClient argocd.ArgoClient
+	if cfg.ArgoCD.Enabled && cfg.ArgoCD.Server != "" {
+		argoClient = argocd.NewRestClient(cfg.ArgoCD.Server, cfg.ArgoCD.Token, cfg.ArgoCD.Insecure)
+		slog.Info("ArgoCD: 使用真实 REST 客户端", slog.String("server", cfg.ArgoCD.Server))
+	} else {
+		argoClient = &argocd.MockArgoClient{}
+		slog.Info("ArgoCD: 使用 Mock 客户端")
+	}
+	deploySvc := deployment.NewService(deployRepo, envService, argoClient)
 	deployHandler := deployment.NewHandler(deploySvc, envService)
 	deployGroup := projectScope.Group("/deployments")
 	deployHandler.RegisterRoutes(deployGroup)
@@ -305,7 +362,7 @@ func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSec
 	pipelineHandler.RegisterTemplateRoutes(templateGroup)
 }
 
-func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service) {
+func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
 	gitRepo := gitmod.NewRepo(db)
 	gitService := gitmod.NewService(gitRepo, aesCrypto)
 
@@ -342,8 +399,15 @@ func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jw
 	varService := variable.NewService(varRepo, aesCrypto)
 	runRepo := pipelinerun.NewRepo(db)
 	runTranslator := tekton.NewTranslator()
-	runK8s := &pipelinerun.MockK8sClient{}
-	runSecretInjector := &pipelinerun.MockSecretInjector{}
+	var runK8s pipelinerun.K8sClient
+	var runSecretInjector pipelinerun.SecretInjector
+	if cfg.K8s.Enabled && dynClient != nil {
+		runK8s = pipelinerun.NewRealK8sClient(dynClient)
+		runSecretInjector = pipelinerun.NewRealSecretInjector(coreClient)
+	} else {
+		runK8s = &pipelinerun.MockK8sClient{}
+		runSecretInjector = &pipelinerun.MockSecretInjector{}
+	}
 	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector)
 	webhookHandler := gitmod.NewWebhookHandler(gitService, idempotentCache, matcher, runService)
 	webhooks := v1.Group("/webhooks")

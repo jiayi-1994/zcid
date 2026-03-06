@@ -65,6 +65,14 @@ config:
   # IMPORTANT: Change this in production!
   encryptionKey: "0123456789abcdef0123456789abcdef"
 
+  # K8s integration
+  k8sEnabled: "true"
+  k8sNamespace: "zcicd"
+
+  # ArgoCD integration
+  argocdServer: "argocd-server.argocd.svc.cluster.local"
+  argocdInsecure: "true"
+
 secrets:
   # Database password
   dbPassword: "zcicd123"
@@ -75,6 +83,8 @@ secrets:
   minioSecretKey: "zcicd123"
   # JWT signing key
   jwtSecret: "zcid-jwt-secret-2026"
+  # ArgoCD API token
+  argocdToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJ6Y2lkOmFwaUtleSIsIm5iZiI6MTc3Mjc3OTAxOCwiaWF0IjoxNzcyNzc5MDE4LCJqdGkiOiJhZjI1NTJmYS02ZTJlLTRiZmYtOWM4My0yZDhhNTUzOGQzN2YifQ.Pblo4_SJ-VlNLJlhcNuRg7XFlTRklV0jY-tk77TIzvU"
 
 # Pod configuration
 nodeSelector: {}

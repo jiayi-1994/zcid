@@ -1,8 +1,8 @@
-import { Button, Card, Space, Typography } from '@arco-design/web-react';
-import { IconApps, IconLink, IconPlayArrow } from '@arco-design/web-react/icon';
+import { Button } from '@arco-design/web-react';
+import { IconApps, IconPlayArrow, IconBook } from '@arco-design/web-react/icon';
 import { useNavigate } from 'react-router-dom';
 
-export const ONBOARDING_DISMISSED_KEY = 'zcid_onboarding_dismissed';
+export const ONBOARDING_DISMISSED_KEY = 'localStorage key for dismissing onboarding';
 
 interface OnboardingCardProps {
   onDismiss?: () => void;
@@ -22,70 +22,69 @@ export function OnboardingCard({ onDismiss }: OnboardingCardProps) {
 
   const guides = [
     {
-      title: '您的项目',
-      desc: '查看所有项目，点击卡片进入项目详情。',
-      icon: <IconApps style={{ fontSize: 20, color: 'var(--zcid-color-primary)' }} />,
-      action: '查看项目',
+      title: '查看项目',
+      desc: '浏览所有项目，点击卡片进入项目详情管理。',
+      icon: <IconApps style={{ fontSize: 18 }} />,
+      iconBg: 'var(--zcid-primary-bg)',
+      iconColor: 'var(--zcid-primary)',
+      action: '前往项目',
       onClick: () => navigate('/projects'),
     },
     {
-      title: '创建第一个流水线',
-      desc: '进入项目后，在流水线页面创建您的第一个 CI/CD 流水线。',
-      icon: <IconPlayArrow style={{ fontSize: 20, color: 'var(--zcid-color-success)' }} />,
-      action: '前往项目管理',
+      title: '创建流水线',
+      desc: '进入项目后，创建您的第一个 CI/CD 流水线。',
+      icon: <IconPlayArrow style={{ fontSize: 18 }} />,
+      iconBg: 'var(--zcid-success-bg)',
+      iconColor: 'var(--zcid-success)',
+      action: '开始创建',
       onClick: () => navigate('/projects'),
     },
     {
-      title: '文档',
-      desc: '查阅使用说明和最佳实践。',
-      icon: <IconLink style={{ fontSize: 20, color: 'var(--zcid-color-accent)' }} />,
-      action: '查看文档',
+      title: '查看文档',
+      desc: '查阅使用说明和最佳实践，快速上手。',
+      icon: <IconBook style={{ fontSize: 18 }} />,
+      iconBg: 'var(--zcid-warning-bg)',
+      iconColor: 'var(--zcid-warning)',
+      action: '阅读文档',
       onClick: () => window.open('https://github.com/xjy/zcid', '_blank'),
     },
   ];
 
   return (
-    <Card
-      className="zcid-card"
-      style={{ marginBottom: 'var(--zcid-space-section)', animation: 'fadeSlideUp var(--zcid-transition-slow) ease-out' }}
-      title={
-        <Typography.Text bold style={{ fontSize: 16 }}>
-          欢迎使用 zcid
-        </Typography.Text>
-      }
-    >
-      <Space wrap size="large">
-        {guides.map((g) => (
-          <div
-            key={g.title}
-            className="zcid-card zcid-card-interactive"
-            style={{ width: 240, padding: 'var(--zcid-space-card)' }}
-            onClick={g.onClick}
-          >
-            <div style={{ marginBottom: 10 }}>{g.icon}</div>
-            <Typography.Text bold style={{ display: 'block', marginBottom: 4 }}>{g.title}</Typography.Text>
-            <Typography.Text
-              type="secondary"
-              style={{ fontSize: 13, lineHeight: '1.6', display: 'block', marginBottom: 10 }}
-            >
-              {g.desc}
-            </Typography.Text>
-            <Button type="text" size="small" style={{ padding: 0, color: 'var(--zcid-color-primary)' }}>
-              {g.action}
-            </Button>
-          </div>
-        ))}
-      </Space>
-      <div style={{ marginTop: 16, textAlign: 'right' }}>
+    <div className="onboarding-card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <h3 className="onboarding-title">欢迎使用 zcid</h3>
         <Button
           size="small"
           type="text"
           onClick={handleDismiss}
-          style={{ color: 'var(--zcid-color-text-tertiary)' }}
+          style={{ color: 'var(--zcid-text-4)', fontSize: 12 }}
         >
           不再显示
         </Button>
       </div>
-    </Card>
+      <p className="onboarding-desc">你的 CI/CD 旅程从这里开始，跟随引导快速上手</p>
+      <div className="onboarding-steps">
+        {guides.map((g) => (
+          <div key={g.title} className="onboarding-step" onClick={g.onClick}>
+            <div
+              className="onboarding-step-icon"
+              style={{ background: g.iconBg, color: g.iconColor }}
+            >
+              {g.icon}
+            </div>
+            <div className="onboarding-step-title">{g.title}</div>
+            <div className="onboarding-step-desc">{g.desc}</div>
+            <Button
+              type="text"
+              size="mini"
+              style={{ padding: 0, marginTop: 8, color: 'var(--zcid-primary)', fontWeight: 500, fontSize: 13 }}
+            >
+              {g.action} &rarr;
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Button, Card, Input, Space, Typography, Message } from '@arco-design/web-react';
+import { Button, Input, Message } from '@arco-design/web-react';
 import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { login } from '../../services/auth';
@@ -42,54 +42,64 @@ export function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        background: 'linear-gradient(180deg, var(--zcid-color-bg-secondary) 0%, var(--zcid-color-bg-tertiary) 50%, var(--zcid-color-bg-secondary) 100%)',
-      }}
-    >
-      <Card
-        className="zcid-card"
-        bodyStyle={{ padding: 24 }}
-        style={{
-          maxWidth: 420,
-          width: '100%',
-          boxShadow: 'var(--zcid-shadow-lg)',
-          animation: 'fadeSlideUp 0.4s ease-out',
-        }}
-      >
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <Typography.Title heading={4} style={{ margin: 0, letterSpacing: '-0.5px' }}>
-            登录 zcid
-          </Typography.Title>
-          <Typography.Text type="secondary" style={{ fontSize: 14 }}>
-            使用你的账号密码登录平台
-          </Typography.Text>
-          <form onSubmit={submit}>
-            <Space direction="vertical" size="medium" style={{ width: '100%' }}>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <div className="login-logo-icon">Z</div>
+          <span className="login-logo-text">zcid</span>
+        </div>
+        <h1 className="login-heading">欢迎回来</h1>
+        <p className="login-desc">使用你的账号密码登录平台</p>
+        <form onSubmit={submit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label
+                htmlFor="login-username"
+                style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--zcid-text-2)', marginBottom: 6 }}
+              >
+                用户名
+              </label>
               <Input
-                placeholder="用户名"
+                id="login-username"
+                placeholder="请输入用户名"
                 value={username}
                 onChange={setUsername}
                 autoComplete="username"
+                size="large"
               />
+            </div>
+            <div>
+              <label
+                htmlFor="login-password"
+                style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--zcid-text-2)', marginBottom: 6 }}
+              >
+                密码
+              </label>
               <Input.Password
-                placeholder="密码"
+                id="login-password"
+                placeholder="请输入密码"
                 value={password}
                 onChange={setPassword}
                 autoComplete="current-password"
+                size="large"
               />
-              <Button type="primary" htmlType="submit" long loading={loading}>
-                登录
-              </Button>
-            </Space>
-          </form>
-        </Space>
-      </Card>
+            </div>
+            <Button
+              type="primary"
+              htmlType="submit"
+              long
+              loading={loading}
+              size="large"
+              style={{ marginTop: 8, height: 44, borderRadius: 'var(--zcid-radius-md)', fontWeight: 600, fontSize: 15 }}
+            >
+              登录
+            </Button>
+          </div>
+        </form>
+        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'var(--zcid-text-4)' }}>
+          Powered by Tekton + ArgoCD
+        </div>
+      </div>
     </div>
   );
 }

@@ -88,6 +88,21 @@ spec:
                 secretKeyRef:
                   name: {{ include "zcid.fullname" . }}-secrets
                   key: encryption-key
+            - name: ZCID_K8S_ENABLED
+              value: {{ .Values.config.k8sEnabled | default "false" | quote }}
+            - name: ZCID_K8S_NAMESPACE
+              value: {{ .Values.config.k8sNamespace | default "zcicd" | quote }}
+            {{- if .Values.config.argocdServer }}
+            - name: ARGOCD_SERVER
+              value: {{ .Values.config.argocdServer | quote }}
+            - name: ARGOCD_INSECURE
+              value: {{ .Values.config.argocdInsecure | default "false" | quote }}
+            - name: ARGOCD_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: argocd-token
+            {{- end }}
           livenessProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}

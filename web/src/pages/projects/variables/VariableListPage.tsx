@@ -74,7 +74,7 @@ export function VariableListPage() {
       title: '类型',
       dataIndex: 'varType',
       render: (val: string) => (
-        <Tag color={val === 'secret' ? 'red' : 'blue'}>{val === 'secret' ? '密钥' : '普通'}</Tag>
+        <Tag size="small" color={val === 'secret' ? 'red' : 'blue'}>{val === 'secret' ? '密钥' : '普通'}</Tag>
       ),
     },
     { title: '描述', dataIndex: 'description' },
@@ -84,7 +84,7 @@ export function VariableListPage() {
           title: '操作',
           render: (_: unknown, record: VariableItem) => (
             <>
-              <Button type="text" size="small" onClick={() => setEditItem(record)}>
+              <Button type="text" size="small" style={{ color: 'var(--zcid-primary)' }} onClick={() => setEditItem(record)}>
                 编辑
               </Button>
               <Popconfirm title="确认删除此变量？" onOk={() => handleDelete(record.id)}>
@@ -104,13 +104,16 @@ export function VariableListPage() {
           <Button type="primary" onClick={() => setCreateVisible(true)}>新建变量</Button>
         )}
       </div>
-      <Table
-        columns={columns}
-        data={variables}
-        rowKey="id"
-        loading={loading}
-        pagination={false}
-      />
+      <div className="table-card">
+        <Table
+          columns={columns}
+          data={variables}
+          rowKey="id"
+          loading={loading}
+          border={false}
+          pagination={false}
+        />
+      </div>
       <VariableFormModal
         visible={createVisible}
         onClose={() => setCreateVisible(false)}

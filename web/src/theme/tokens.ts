@@ -5,4 +5,11 @@ export const zcidTheme = {
   radiusSmall: '6px',
   radiusMedium: '8px',
   radiusLarge: '12px',
+  textPrimary: '#1D2129',
+  textSecondary: '#4E5969',
+  textTertiary: '#86909C',
+  border: '#E5E6EB',
+  success: '#52C41A',
+  error: '#FF4D4F',
+  warning: '#FAAD14',
 } as const;

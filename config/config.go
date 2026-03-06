@@ -16,6 +16,20 @@ type Config struct {
 	MinIO      MinIOConfig      `yaml:"minio"`
 	Auth       AuthConfig       `yaml:"auth"`
 	Encryption EncryptionConfig `yaml:"-"`
+	K8s        K8sConfig        `yaml:"-"`
+	ArgoCD     ArgoCDConfig     `yaml:"-"`
+}
+
+type K8sConfig struct {
+	Enabled    bool   `yaml:"-"`
+	Namespace  string `yaml:"-"`
+}
+
+type ArgoCDConfig struct {
+	Enabled  bool   `yaml:"-"`
+	Server   string `yaml:"-"`
+	Token    string `yaml:"-"`
+	Insecure bool   `yaml:"-"`
 }
 
 type ServerConfig struct {
@@ -173,6 +187,32 @@ func applyEnvOverrides(cfg *Config) {
 	// Encryption
 	if v := os.Getenv("ZCID_ENCRYPTION_KEY"); v != "" {
 		cfg.Encryption.Key = v
+	}
+
+	// K8s
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" || os.Getenv("KUBECONFIG") != "" {
+		cfg.K8s.Enabled = true
+	}
+	if v := os.Getenv("ZCID_K8S_ENABLED"); v == "true" {
+		cfg.K8s.Enabled = true
+	} else if v == "false" {
+		cfg.K8s.Enabled = false
+	}
+	cfg.K8s.Namespace = os.Getenv("ZCID_K8S_NAMESPACE")
+	if cfg.K8s.Namespace == "" {
+		cfg.K8s.Namespace = "zcicd"
+	}
+
+	// ArgoCD
+	if v := os.Getenv("ARGOCD_SERVER"); v != "" {
+		cfg.ArgoCD.Server = v
+		cfg.ArgoCD.Enabled = true
+	}
+	if v := os.Getenv("ARGOCD_AUTH_TOKEN"); v != "" {
+		cfg.ArgoCD.Token = v
+	}
+	if os.Getenv("ARGOCD_INSECURE") == "true" {
+		cfg.ArgoCD.Insecure = true
 	}
 }
 

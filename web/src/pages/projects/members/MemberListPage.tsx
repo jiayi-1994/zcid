@@ -89,7 +89,7 @@ export function MemberListPage() {
           ]}
         />
       ) : (
-        <Tag>{ROLE_LABELS[role] || role}</Tag>
+        <Tag size="small">{ROLE_LABELS[role] || role}</Tag>
       ),
     },
     { title: '加入时间', dataIndex: 'joinedAt' },
@@ -113,10 +113,17 @@ export function MemberListPage() {
           </Button>
         )}
       </div>
-      <Table
-        columns={columns} data={members} loading={loading} rowKey="userId"
-        noDataElement={<div className="empty-state">暂无成员</div>}
-      />
+      <div className="table-card">
+        <Table
+          columns={columns} data={members} loading={loading} rowKey="userId" border={false}
+          noDataElement={
+            <div className="empty-state">
+              <div className="empty-state-title">暂无成员</div>
+              <div className="empty-state-desc">添加成员后这里会显示列表</div>
+            </div>
+          }
+        />
+      </div>
       <Modal
         title="添加成员" visible={modalVisible}
         onOk={handleAdd}

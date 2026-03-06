@@ -1,4 +1,5 @@
 import { Button, Table, Badge, Tag, Space, Message, Popconfirm } from '@arco-design/web-react';
+import { IconPlus } from '@arco-design/web-react/icon';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { useState, useEffect } from 'react';
 import { http } from '../../services/http';
@@ -75,23 +76,30 @@ export function AdminUsersPage() {
     {
       title: '角色',
       dataIndex: 'role',
+      width: 120,
       render: (role: string) => (
-        <Tag color={role === 'admin' ? 'blue' : 'default'}>{getRoleLabel(role)}</Tag>
+        <Tag size="small" color={role === 'admin' ? 'blue' : 'default'}>{getRoleLabel(role)}</Tag>
       ),
     },
     {
       title: '状态',
       dataIndex: 'status',
+      width: 100,
       render: (status: string) => (
         <Badge status={status === 'active' ? 'success' : 'default'} text={status} />
       ),
     },
-    { title: '创建时间', dataIndex: 'created_at' },
+    { title: '创建时间', dataIndex: 'created_at', width: 180 },
     {
       title: '操作',
+      width: 160,
       render: (_: any, record: User) => (
-        <Space>
-          <Button type="text" size="small" onClick={() => handleEdit(record)}>编辑</Button>
+        <Space size="mini">
+          <Button type="text" size="small" onClick={() => handleEdit(record)}
+            style={{ color: 'var(--zcid-primary)' }}
+          >
+            编辑
+          </Button>
           <Popconfirm
             title={`确定${record.status === 'active' ? '禁用' : '启用'}该用户？`}
             onOk={() => handleToggleStatus(record)}
@@ -109,10 +117,26 @@ export function AdminUsersPage() {
     <AppLayout>
       <div className="page-container">
         <div className="page-header">
-          <h3 className="page-title">用户管理</h3>
-          <Button type="primary" onClick={handleCreate}>新建用户</Button>
+          <div>
+            <h3 className="page-title">用户管理</h3>
+            <p className="page-subtitle">管理系统用户账号与角色</p>
+          </div>
+          <Button type="primary" icon={<IconPlus />} onClick={handleCreate}>新建用户</Button>
         </div>
-        <Table columns={columns} data={users} loading={loading} rowKey="id" noDataElement={<div className="empty-state">暂无用户数据</div>} />
+        <div className="table-card">
+          <Table
+            columns={columns}
+            data={users}
+            loading={loading}
+            rowKey="id"
+            border={false}
+            noDataElement={
+              <div className="empty-state">
+                <div className="empty-state-title">暂无用户数据</div>
+              </div>
+            }
+          />
+        </div>
         <UserFormModal
           visible={modalVisible}
           user={editingUser}

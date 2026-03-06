@@ -1,0 +1,1 @@
+{"data":{"policy.csv":"p, role:zcid-role, applications, *, */*, allow\np, role:zcid-role, projects, get, *, allow\ng, zcid, role:zcid-role"}}

@@ -85,11 +85,18 @@ export function ServiceListPage() {
           </Button>
         )}
       </div>
-      <Table
-        columns={columns} data={svcs} loading={loading} rowKey="id"
-        pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
-        noDataElement={<div className="empty-state">暂无服务</div>}
-      />
+      <div className="table-card">
+        <Table
+          columns={columns} data={svcs} loading={loading} rowKey="id" border={false}
+          pagination={{ current: page, total, pageSize: 20, onChange: setPage, style: { padding: '12px 16px' } }}
+          noDataElement={
+            <div className="empty-state">
+              <div className="empty-state-title">暂无服务</div>
+              <div className="empty-state-desc">创建服务后这里会显示列表</div>
+            </div>
+          }
+        />
+      </div>
       <Modal
         title="新建服务" visible={modalVisible}
         onOk={handleCreate}

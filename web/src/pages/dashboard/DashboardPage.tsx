@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Grid, Skeleton, Space, Statistic, Tag, Typography, Message } from '@arco-design/web-react';
-import { IconApps, IconCheckCircle, IconCloseCircle } from '@arco-design/web-react/icon';
+import { Grid, Skeleton, Tag, Message } from '@arco-design/web-react';
+import { IconApps, IconCheckCircle, IconCloseCircle, IconThunderbolt } from '@arco-design/web-react/icon';
 import { AppLayout } from '../../components/layout/AppLayout';
-import { OnboardingCard } from '../../components/onboarding/OnboardingCard';
-import { ONBOARDING_DISMISSED_KEY } from '../../components/onboarding/OnboardingCard';
+import { OnboardingCard, ONBOARDING_DISMISSED_KEY } from '../../components/onboarding/OnboardingCard';
 import { fetchDashboardData, type DashboardProject, type DashboardStats } from '../../services/dashboard';
 
 const healthColors: Record<string, string> = {
@@ -39,6 +38,21 @@ const runStatusLabels: Record<string, string> = {
   queued: '排队中',
 };
 
+function StatCard({ icon, iconClass, label, value }: {
+  icon: React.ReactNode;
+  iconClass: string;
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <div className="stat-card">
+      <div className={`stat-card-icon ${iconClass}`}>{icon}</div>
+      <div className="stat-card-label">{label}</div>
+      <div className="stat-card-value">{value}</div>
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<DashboardProject[]>([]);
@@ -71,7 +85,10 @@ export function DashboardPage() {
     <AppLayout>
       <div className="page-container">
         <div className="page-header">
-          <h2 className="page-title">Dashboard</h2>
+          <div>
+            <h2 className="page-title">Dashboard</h2>
+            <p className="page-subtitle">项目概览与构建状态一览</p>
+          </div>
         </div>
 
         {showOnboarding && (
@@ -80,79 +97,72 @@ export function DashboardPage() {
 
         {stats && (
           <Grid.Row gutter={16} style={{ marginBottom: 'var(--zcid-space-section)' }}>
-            <Grid.Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="zcid-card">
-                <Statistic
-                  title="项目总数"
-                  value={stats.totalProjects}
-                  prefix={<IconApps />}
-                />
-              </Card>
+            <Grid.Col xs={24} sm={12} md={6}>
+              <StatCard
+                icon={<IconApps />}
+                iconClass="stat-card-icon--primary"
+                label="项目总数"
+                value={stats.totalProjects}
+              />
             </Grid.Col>
-            <Grid.Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="zcid-card">
-                <Statistic
-                  title="流水线总数"
-                  value={stats.totalPipelines}
-                />
-              </Card>
+            <Grid.Col xs={24} sm={12} md={6}>
+              <StatCard
+                icon={<IconThunderbolt />}
+                iconClass="stat-card-icon--warning"
+                label="流水线总数"
+                value={stats.totalPipelines}
+              />
             </Grid.Col>
-            <Grid.Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="zcid-card">
-                <Statistic
-                  title="最近运行成功"
-                  value={stats.recentRunsSuccess}
-                  prefix={<IconCheckCircle style={{ color: 'var(--zcid-color-success)' }} />}
-                />
-              </Card>
+            <Grid.Col xs={24} sm={12} md={6}>
+              <StatCard
+                icon={<IconCheckCircle />}
+                iconClass="stat-card-icon--success"
+                label="最近运行成功"
+                value={stats.recentRunsSuccess}
+              />
             </Grid.Col>
-            <Grid.Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="zcid-card">
-                <Statistic
-                  title="最近运行失败"
-                  value={stats.recentRunsFail}
-                  prefix={<IconCloseCircle style={{ color: 'var(--zcid-color-danger)' }} />}
-                />
-              </Card>
+            <Grid.Col xs={24} sm={12} md={6}>
+              <StatCard
+                icon={<IconCloseCircle />}
+                iconClass="stat-card-icon--error"
+                label="最近运行失败"
+                value={stats.recentRunsFail}
+              />
             </Grid.Col>
           </Grid.Row>
         )}
 
-        <Typography.Title heading={5} style={{ marginTop: 0, marginBottom: 'var(--zcid-space-section)' }}>
-          项目概览
-        </Typography.Title>
+        <h3 className="section-title">项目概览</h3>
         <Grid.Row gutter={16}>
           {loading
             ? Array.from({ length: 4 }).map((_, i) => (
                 <Grid.Col key={i} xs={24} sm={12} md={8} lg={6}>
-                  <Card className="zcid-card">
-                    <Skeleton text={{ rows: 4 }} animation />
-                  </Card>
+                  <div className="stat-card">
+                    <Skeleton text={{ rows: 3 }} animation />
+                  </div>
                 </Grid.Col>
               ))
             : projects.map((p) => (
                 <Grid.Col key={p.id} xs={24} sm={12} md={8} lg={6}>
-                  <Card
-                    className="zcid-card zcid-card-interactive"
+                  <div
+                    className="project-card"
                     onClick={() => navigate(`/projects/${p.id}/environments`)}
                   >
-                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                      <Typography.Text bold>{p.name}</Typography.Text>
-                      <Typography.Text type="secondary" ellipsis={{ showTooltip: true }}>
-                        {p.description || '暂无描述'}
-                      </Typography.Text>
-                      <Space>
-                        {p.lastRunStatus && (
-                          <Tag color={runStatusColors[p.lastRunStatus] ?? 'default'}>
-                            {runStatusLabels[p.lastRunStatus] ?? p.lastRunStatus}
-                          </Tag>
-                        )}
-                        <Tag color={healthColors[p.envHealthSummary] ?? 'default'}>
-                          {healthLabels[p.envHealthSummary]}
+                    <div className="project-card-name">{p.name}</div>
+                    <div className="project-card-desc">
+                      {p.description || '暂无描述'}
+                    </div>
+                    <div className="project-card-footer">
+                      {p.lastRunStatus && (
+                        <Tag size="small" color={runStatusColors[p.lastRunStatus] ?? 'default'}>
+                          {runStatusLabels[p.lastRunStatus] ?? p.lastRunStatus}
                         </Tag>
-                      </Space>
-                    </Space>
-                  </Card>
+                      )}
+                      <Tag size="small" color={healthColors[p.envHealthSummary] ?? 'default'}>
+                        {healthLabels[p.envHealthSummary]}
+                      </Tag>
+                    </div>
+                  </div>
                 </Grid.Col>
               ))}
         </Grid.Row>
