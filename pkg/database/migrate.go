@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -71,12 +72,8 @@ func buildMigrationSource(migrationsPath string) string {
 		return migrationsPath
 	}
 
-	cleaned := filepath.Clean(migrationsPath)
-	cleaned = strings.ReplaceAll(cleaned, "\\", "/")
-
-	if strings.HasPrefix(cleaned, "/") {
-		return "file://" + cleaned
-	}
+	cleaned := strings.ReplaceAll(migrationsPath, "\\", "/")
+	cleaned = path.Clean(cleaned)
 
 	return "file://" + cleaned
 }

@@ -52,7 +52,6 @@ skills/
 
 # Design/UX artifacts
 files/ux-ui/
-files/brainstorming/
 
 # Kubeconfig (sensitive)
 config/kubeconfig
