@@ -24,6 +24,7 @@ WORKDIR /app
 COPY --from=backend /zcid-server .
 COPY --from=backend /zcid-migrate .
 COPY migrations/ ./migrations/
+COPY --from=frontend /app/web/dist ./web/dist
 
 ENV TZ=Asia/Shanghai
 EXPOSE 8080

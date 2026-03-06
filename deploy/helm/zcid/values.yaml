@@ -41,19 +41,19 @@ config:
   ginMode: "release"
 
   # Database (connect to middleware PostgreSQL)
-  dbHost: "postgresql"
+  dbHost: "zcicd-pg-postgresql"
   dbPort: "5432"
-  dbName: "zcid"
-  dbUser: "zcid"
+  dbName: "zcicd"
+  dbUser: "postgres"
   dbSSLMode: "disable"
 
   # Redis
-  redisHost: "redis-master"
+  redisHost: "zcicd-redis-master"
   redisPort: "6379"
   redisDB: "0"
 
   # MinIO
-  minioEndpoint: "minio:9000"
+  minioEndpoint: "zcicd-minio:9000"
   minioBucket: "zcid-logs"
   minioUseSSL: "false"
 
@@ -67,14 +67,14 @@ config:
 
 secrets:
   # Database password
-  dbPassword: "zcid-password"
-  # Redis password (empty if no auth)
-  redisPassword: ""
+  dbPassword: "zcicd123"
+  # Redis password
+  redisPassword: "zcicd123"
   # MinIO credentials
   minioAccessKey: "minioadmin"
-  minioSecretKey: "minioadmin"
+  minioSecretKey: "zcicd123"
   # JWT signing key
-  jwtSecret: "change-me-in-production"
+  jwtSecret: "zcid-jwt-secret-2026"
 
 # Pod configuration
 nodeSelector: {}
@@ -89,10 +89,10 @@ serviceAccount:
 # Liveness & Readiness probes
 probes:
   liveness:
-    path: /api/v1/admin/health
+    path: /healthz
     initialDelaySeconds: 15
     periodSeconds: 20
   readiness:
-    path: /api/v1/admin/health
+    path: /readyz
     initialDelaySeconds: 5
     periodSeconds: 10

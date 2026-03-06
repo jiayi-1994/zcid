@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -114,6 +115,7 @@ func main() {
 	registerAdminRoutes(context.Background(), r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc)
 	registerProjectRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, minioClient, auditSvc)
 	registerIntegrationRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc)
+	registerFrontendRoutes(r)
 
 	_ = minioClient // used during init; retained for future use
 
@@ -389,4 +391,23 @@ func registerHealthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client) {
 			"checks": checks,
 		})
 	})
+}
+
+func registerFrontendRoutes(r *gin.Engine) {
+	distPath := "web/dist"
+	if _, err := os.Stat(distPath); os.IsNotExist(err) {
+		slog.Warn("前端静态文件目录不存在，跳过前端路由", slog.String("path", distPath))
+		return
+	}
+	r.Static("/assets", distPath+"/assets")
+	r.StaticFile("/favicon.ico", distPath+"/favicon.ico")
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") ||
+			strings.HasPrefix(c.Request.URL.Path, "/ws/") {
+			c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "not found"})
+			return
+		}
+		c.File(distPath + "/index.html")
+	})
+	slog.Info("前端 SPA 路由已注册", slog.String("path", distPath))
 }

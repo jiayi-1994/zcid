@@ -83,7 +83,7 @@ spec:
               value: {{ .Values.config.jwtAccessExpiry | quote }}
             - name: JWT_REFRESH_EXPIRY
               value: {{ .Values.config.jwtRefreshExpiry | quote }}
-            - name: ENCRYPTION_KEY
+            - name: ZCID_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "zcid.fullname" . }}-secrets

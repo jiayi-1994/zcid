@@ -11,7 +11,7 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 3
-  activeDeadlineSeconds: 300
+  activeDeadlineSeconds: 600
   template:
     metadata:
       labels:
@@ -22,7 +22,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "zcid.serviceAccountName" . }}
+      serviceAccountName: default
       restartPolicy: Never
       containers:
         - name: migrate
@@ -41,10 +41,7 @@ spec:
             - name: DB_SSL_MODE
               value: {{ .Values.config.dbSSLMode | quote }}
             - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "zcid.fullname" . }}-secrets
-                  key: db-password
+              value: {{ .Values.secrets.dbPassword | quote }}
           resources:
             requests:
               cpu: 50m
