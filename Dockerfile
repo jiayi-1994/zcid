@@ -15,12 +15,14 @@ RUN go mod download
 COPY . .
 COPY --from=frontend /app/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /zcid-server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /zcid-migrate ./cmd/migrate
 
 # ── Stage 3: Runtime ────────────────────────────
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=backend /zcid-server .
+COPY --from=backend /zcid-migrate .
 COPY migrations/ ./migrations/
 
 ENV TZ=Asia/Shanghai

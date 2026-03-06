@@ -32,8 +32,6 @@ spec:
               value: {{ .Values.config.serverPort | quote }}
             - name: GIN_MODE
               value: {{ .Values.config.ginMode | quote }}
-            - name: AUTO_MIGRATE
-              value: {{ .Values.config.autoMigrate | quote }}
             - name: DB_HOST
               value: {{ .Values.config.dbHost | quote }}
             - name: DB_PORT
