@@ -8,7 +8,7 @@ CREATE TABLE git_connections (
     token_type    VARCHAR(20)  NOT NULL DEFAULT 'pat',
     status        VARCHAR(20)  NOT NULL DEFAULT 'connected',
     description   TEXT         NOT NULL DEFAULT '',
-    created_by    UUID         NOT NULL REFERENCES users(id),
+    created_by    VARCHAR(255) NOT NULL REFERENCES users(id),
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );

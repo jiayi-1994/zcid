@@ -1,13 +1,13 @@
 CREATE TABLE pipelines (
     id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id         UUID NOT NULL REFERENCES projects(id),
+    project_id         VARCHAR(255) NOT NULL REFERENCES projects(id),
     name               VARCHAR(200) NOT NULL,
     description        TEXT,
     status             VARCHAR(20) NOT NULL DEFAULT 'draft',
     config             JSONB NOT NULL DEFAULT '{}',
     trigger_type       VARCHAR(20) NOT NULL DEFAULT 'manual',
     concurrency_policy VARCHAR(20) NOT NULL DEFAULT 'queue',
-    created_by         UUID NOT NULL REFERENCES users(id),
+    created_by         VARCHAR(255) NOT NULL REFERENCES users(id),
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

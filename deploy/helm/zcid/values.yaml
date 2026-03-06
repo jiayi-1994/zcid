@@ -40,6 +40,9 @@ config:
   serverPort: "8080"
   ginMode: "release"
 
+  # Auto-run database migrations on startup
+  autoMigrate: "true"
+
   # Database (connect to middleware PostgreSQL)
   dbHost: "postgresql"
   dbPort: "5432"
