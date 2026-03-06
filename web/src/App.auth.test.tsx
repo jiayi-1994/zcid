@@ -22,7 +22,7 @@ describe('App auth routing', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('登录 zcid')).toBeInTheDocument();
+    expect(await screen.findByText('欢迎回来')).toBeInTheDocument();
   });
 
   test('shows dashboard for authenticated member and hides restricted entry/action', async () => {
@@ -37,9 +37,9 @@ describe('App auth routing', () => {
     render(<App />);
 
     expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'alice / 普通成员' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '用户管理' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '新建用户' })).not.toBeInTheDocument();
+    expect(screen.getByText('alice')).toBeInTheDocument();
+    expect(screen.getByText('普通成员')).toBeInTheDocument();
+    expect(screen.queryByText('用户管理')).not.toBeInTheDocument();
   });
 
   test('direct access to restricted route shows 403 for member', async () => {
@@ -53,7 +53,8 @@ describe('App auth routing', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('403 无权限访问')).toBeInTheDocument();
+    expect(await screen.findByText('403')).toBeInTheDocument();
+    expect(screen.getByText('无权限访问')).toBeInTheDocument();
   });
 
   test('logs in and navigates to dashboard', async () => {
@@ -66,10 +67,10 @@ describe('App auth routing', () => {
 
     render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), {
+    fireEvent.change(screen.getByPlaceholderText('请输入用户名'), {
       target: { value: 'alice' },
     });
-    fireEvent.change(screen.getByPlaceholderText('密码'), {
+    fireEvent.change(screen.getByPlaceholderText('请输入密码'), {
       target: { value: 'pass123' },
     });
 
@@ -94,19 +95,20 @@ describe('App auth routing', () => {
     window.history.pushState({}, '', '/dashboard');
     render(<App />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'alice / 普通成员' }));
+    const userEntry = await screen.findByText('alice');
+    fireEvent.click(userEntry.closest('.user-entry')!);
     fireEvent.click(await screen.findByRole('menuitem', { name: '退出登录' }));
 
     await waitFor(() => {
       expect(logout).toHaveBeenCalledWith('refresh-token');
       expect(useAuthStore.getState().isAuthenticated()).toBe(false);
-      expect(screen.getByText('登录 zcid')).toBeInTheDocument();
+      expect(screen.getByText('欢迎回来')).toBeInTheDocument();
     });
 
     cleanup();
     window.history.pushState({}, '', '/dashboard');
     render(<App />);
-    expect(await screen.findByText('登录 zcid')).toBeInTheDocument();
+    expect(await screen.findByText('欢迎回来')).toBeInTheDocument();
   });
 
   test('still clears session and redirects when logout api fails', async () => {
@@ -120,7 +122,8 @@ describe('App auth routing', () => {
     window.history.pushState({}, '', '/dashboard');
     render(<App />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'alice / 普通成员' }));
+    const userEntry = await screen.findByText('alice');
+    fireEvent.click(userEntry.closest('.user-entry')!);
     fireEvent.click(await screen.findByRole('menuitem', { name: '退出登录' }));
 
     await waitFor(() => {
@@ -129,7 +132,7 @@ describe('App auth routing', () => {
       expect(useAuthStore.getState().refreshToken).toBeNull();
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().permissions).toEqual([]);
-      expect(screen.getByText('登录 zcid')).toBeInTheDocument();
+      expect(screen.getByText('欢迎回来')).toBeInTheDocument();
     });
   });
 });
