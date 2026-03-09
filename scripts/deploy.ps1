@@ -97,7 +97,7 @@ while ($true) {
 Write-Host ""
 Write-Host "[3/4] 获取构建产物..." -ForegroundColor Green
 
-Write-Host "镜像: ghcr.io/$RepoName:$CommitHash" -ForegroundColor Gray
+Write-Host "镜像: ghcr.io/${RepoName}:${CommitHash}" -ForegroundColor Gray
 
 # ========== Step 4: 更新 K8s 集群 ==========
 Write-Host ""
