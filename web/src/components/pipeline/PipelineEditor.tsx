@@ -205,6 +205,19 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
     }
   }, [config.stages]);
 
+  // Notify parent when stages change so mode switch and save have latest data
+  const prevStagesJsonRef = useRef(JSON.stringify(config.stages));
+  useEffect(() => {
+    const nextJson = JSON.stringify(stages);
+    if (nextJson !== prevStagesJsonRef.current) {
+      prevStagesJsonRef.current = nextJson;
+      onChangeRef.current?.({
+        ...configRef.current,
+        stages,
+      });
+    }
+  }, [stages]);
+
   const handleAddStage = useCallback(() => {
     setStages((prev) => {
       const newStage: StageConfig = {
@@ -333,6 +346,7 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
 
+  // Sync React Flow state when layout changes (add/delete/move stage/step)
   useEffect(() => {
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
