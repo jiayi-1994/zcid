@@ -108,9 +108,9 @@ $HelmList = helm list -n $HelmNamespace -o json | ConvertFrom-Json
 $CurrentRevision = ($HelmList | Where-Object { $_.name -eq "zcid" }).revision
 Write-Host "Current revision: $CurrentRevision" -ForegroundColor Gray
 
-# Execute helm upgrade
-Write-Host "Running helm upgrade..." -ForegroundColor Yellow
-helm upgrade zcid $HelmChartPath -n $HelmNamespace --wait --timeout 5m
+# Execute helm upgrade with image tag
+Write-Host "Image tag: $CommitHash" -ForegroundColor Gray
+helm upgrade zcid $HelmChartPath -n $HelmNamespace --wait --timeout 5m --set image.tag=$CommitHash
 
 # Get new revision
 $HelmList = helm list -n $HelmNamespace -o json | ConvertFrom-Json
