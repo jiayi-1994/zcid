@@ -90,13 +90,13 @@ development_status:
   epic-5-retrospective: done
 
   # Epic 6: 流水线可视化编排 (6 Stories)
-  epic-6: done
+  epic-6: in-progress  # Code review found CRITICAL/HIGH issues in 6-3, 6-4, 6-6
   6-1-pipeline-crud-jsonb: done
   6-2-template-pipeline-creation: done
-  6-3-visual-pipeline-editor: done
-  6-4-yaml-mode-editor: done
+  6-3-visual-pipeline-editor: in-progress  # 2 CRITICAL + 3 HIGH + 2 MEDIUM + 2 LOW
+  6-4-yaml-mode-editor: in-progress  # 2 MEDIUM
   6-5-concurrency-trigger-rules: done
-  6-6-pipeline-list-runtime-params: done
+  6-6-pipeline-list-runtime-params: in-progress  # 1 HIGH + 1 MEDIUM
   epic-6-retrospective: done
 
   # Epic 7: 流水线执行与构建 (5 Stories)

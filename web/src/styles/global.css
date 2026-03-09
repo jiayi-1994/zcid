@@ -1053,6 +1053,42 @@ body,
   max-width: 360px;
 }
 
+/* ─── Pipeline Node Styles ─────────────────────── */
+
+.zcid-stage-node {
+  padding: 12px 16px;
+  border-radius: var(--zcid-radius-md);
+  background: var(--zcid-color-bg-tertiary);
+  border: 2px solid var(--zcid-color-border);
+  min-width: 200;
+  transition: border-color var(--zcid-transition-fast), box-shadow var(--zcid-transition-fast);
+  outline: none;
+}
+
+.zcid-stage-node:hover,
+.zcid-stage-node:focus-within {
+  border-color: var(--zcid-color-primary-light);
+  box-shadow: var(--zcid-shadow-md);
+}
+
+.zcid-step-node {
+  padding: 8px 12px;
+  border-radius: var(--zcid-radius-sm);
+  background: var(--zcid-color-bg-elevated);
+  border: 1px solid var(--zcid-color-border);
+  min-width: 180;
+  cursor: pointer;
+  transition: all var(--zcid-transition-fast);
+  outline: none;
+}
+
+.zcid-step-node:hover,
+.zcid-step-node:focus-visible {
+  box-shadow: var(--zcid-shadow-md);
+  border-color: var(--zcid-color-primary-lighter);
+  transform: translateY(-1px);
+}
+
 /* ─── Reduced Motion ────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

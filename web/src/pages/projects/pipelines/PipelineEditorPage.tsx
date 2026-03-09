@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Skeleton, Message, Typography, Button, Space, Input, Form, Modal } from '@arco-design/web-react';
+import { Skeleton, Message, Typography, Button, Space, Input, Form } from '@arco-design/web-react';
 import { IconArrowLeft, IconSettings } from '@arco-design/web-react/icon';
 import { PipelineEditor } from '../../../components/pipeline/PipelineEditor';
 import { YamlEditor } from '../../../components/pipeline/YamlEditor';
@@ -22,7 +22,10 @@ export default function PipelineEditorPage() {
   const [config, setConfig] = useState<PipelineConfig | null>(null);
   const [jsonValid, setJsonValid] = useState(true);
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const isNew = pipelineId === 'new';
+  const [dirty, setDirty] = useState(false);
+  const isNew = pipelineId === 'new' || pipelineId === 'blank';
+
+  const [headerForm] = Form.useForm();
 
   useEffect(() => {
     if (!projectId || !pipelineId || isNew) return;
@@ -33,28 +36,50 @@ export default function PipelineEditorPage() {
         setName(p.name);
         setDescription(p.description);
         setConfig(p.config);
+        headerForm.setFieldsValue({ name: p.name });
+        setDirty(false);
       })
       .catch(() => Message.error('加载流水线失败'))
       .finally(() => setLoading(false));
-  }, [projectId, pipelineId, isNew]);
+  }, [projectId, pipelineId, isNew, headerForm]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  const markDirty = useCallback(() => {
+    if (!dirty) setDirty(true);
+  }, [dirty]);
+
+  const handleNameChange = useCallback((v: string) => {
+    setName(v);
+    markDirty();
+  }, [markDirty]);
 
   const handleSave = useCallback(async (cfg: PipelineConfig) => {
     if (!projectId) return;
+    const currentName = name.trim();
+    if (!currentName) {
+      Message.error('请输入流水线名称');
+      return;
+    }
     setSaving(true);
     try {
       if (isNew) {
-        if (!name.trim()) {
-          Message.error('请输入流水线名称');
-          setSaving(false);
-          return;
-        }
-        const created = await createPipeline(projectId, { name, description, config: cfg });
+        const created = await createPipeline(projectId, { name: currentName, description, config: cfg });
         Message.success('创建成功');
+        setDirty(false);
         navigate(`/projects/${projectId}/pipelines/${created.id}`, { replace: true });
       } else if (pipelineId) {
-        await updatePipeline(projectId, pipelineId, { name, description, config: cfg });
+        await updatePipeline(projectId, pipelineId, { name: currentName, description, config: cfg });
         Message.success('保存成功');
         setConfig(cfg);
+        setDirty(false);
       }
     } catch {
       Message.error('保存失败');
@@ -102,32 +127,34 @@ export default function PipelineEditorPage() {
 
   const effectiveConfig = config ?? pipeline?.config ?? defaultConfig;
 
-  const handleConfigChange = useCallback((cfg: PipelineConfig) => {
+  const handleConfigChange = (cfg: PipelineConfig) => {
     setConfig(cfg);
     setJsonValid(true);
-  }, []);
+    markDirty();
+  };
 
-  const handleJsonValidationError = useCallback(() => {
+  const handleJsonValidationError = () => {
     setJsonValid(false);
-  }, []);
+  };
 
-  const handleSaveFromJson = useCallback(() => {
+  const handleSaveFromJson = () => {
     if (!jsonValid) {
       Message.warning('请先修正 JSON 格式错误');
       return;
     }
     handleSave(effectiveConfig);
-  }, [effectiveConfig, handleSave, jsonValid]);
+  };
+
+  const handleBack = () => {
+    if (dirty && !window.confirm('有未保存的更改，确定离开吗？')) return;
+    navigate(`/projects/${projectId}/pipelines`);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--zcid-color-border)', background: 'var(--zcid-color-bg-primary)' }}>
         <Space align="center">
-          <Button
-            type="text"
-            icon={<IconArrowLeft />}
-            onClick={() => navigate(`/projects/${projectId}/pipelines`)}
-          />
+          <Button type="text" icon={<IconArrowLeft />} onClick={handleBack} />
           <Title heading={6} style={{ margin: 0 }}>
             {isNew ? '创建流水线' : `编辑: ${name}`}
           </Title>
@@ -142,13 +169,19 @@ export default function PipelineEditorPage() {
             </Button>
           )}
         </Space>
-        <div style={{ marginTop: 8, display: 'flex', gap: 12 }}>
-          <Form.Item label="名称" style={{ marginBottom: 0, flex: 1 }}>
-            <Input value={name} onChange={setName} placeholder="流水线名称" />
-          </Form.Item>
-          <Form.Item label="描述" style={{ marginBottom: 0, flex: 2 }}>
-            <Input value={description} onChange={setDescription} placeholder="描述（可选）" />
-          </Form.Item>
+        <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
+          <Form form={headerForm} style={{ flex: 1, marginBottom: 0 }}>
+            <Form.Item
+              field="name"
+              rules={[{ required: true, message: '请输入流水线名称' }]}
+              style={{ marginBottom: 0 }}
+            >
+              <Input value={name} onChange={handleNameChange} placeholder="流水线名称" />
+            </Form.Item>
+          </Form>
+          <div style={{ flex: 2, color: 'var(--color-text-3)', fontSize: 13 }}>
+            {description ? description : <span style={{ opacity: 0.5 }}>无描述（可在设置中编辑）</span>}
+          </div>
         </div>
       </div>
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

@@ -22,6 +22,7 @@ const PipelineListPage = lazy(() => import('./pages/projects/pipelines/PipelineL
 const PipelineEditorPage = lazy(() => import('./pages/projects/pipelines/PipelineEditorPage'));
 const PipelineRunListPage = lazy(() => import('./pages/projects/pipelines/PipelineRunListPage'));
 const PipelineRunDetailPage = lazy(() => import('./pages/projects/pipelines/PipelineRunDetailPage'));
+const TemplateSelectPage = lazy(() => import('./pages/projects/pipelines/TemplateSelectPage'));
 const NotificationRulesPage = lazy(() => import('./pages/projects/notifications/NotificationRulesPage'));
 const AuditLogPage = lazy(() => import('./pages/admin/audit/AuditLogPage'));
 const SystemSettingsPage = lazy(() => import('./pages/admin/settings/SystemSettingsPage'));
@@ -74,6 +75,8 @@ function App() {
             <Route path="members" element={<MemberListPage />} />
             <Route path="variables" element={<VariableListPage />} />
             <Route path="pipelines" element={<Suspense fallback={<div />}><PipelineListPage /></Suspense>} />
+            <Route path="pipelines/new" element={<Suspense fallback={<div />}><TemplateSelectPage /></Suspense>} />
+            <Route path="pipelines/blank" element={<Suspense fallback={<div />}><PipelineEditorPage /></Suspense>} />
             <Route path="pipelines/:pipelineId" element={<Suspense fallback={<div />}><PipelineEditorPage /></Suspense>} />
             <Route path="pipelines/:pipelineId/runs" element={<Suspense fallback={<div />}><PipelineRunListPage /></Suspense>} />
             <Route path="pipelines/:pipelineId/runs/:runId" element={<Suspense fallback={<div />}><PipelineRunDetailPage /></Suspense>} />

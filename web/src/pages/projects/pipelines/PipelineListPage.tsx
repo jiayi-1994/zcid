@@ -2,10 +2,13 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Table, Button, Space, Tag, Popconfirm, Message } from '@arco-design/web-react';
 import { IconPlus, IconCopy, IconDelete, IconEdit, IconPlayArrow } from '@arco-design/web-react/icon';
-import { fetchPipelines, deletePipeline, copyPipeline, type PipelineSummary, type PipelineList } from '../../../services/pipeline';
+import { fetchPipelines, deletePipeline, copyPipeline, type PipelineSummary } from '../../../services/pipeline';
 import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal';
 import { ListFilters } from '../../../components/common/ListFilters';
 import { useQueryFilters } from '../../../hooks/useQueryFilters';
+
+const PAGE_SIZE = 20;
+const LOAD_ALL_SIZE = 500;
 
 const statusColors: Record<string, string> = {
   draft: 'gray',
@@ -38,17 +41,17 @@ export default function PipelineListPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [filters, setFilters] = useQueryFilters(PIPELINE_FILTER_DEFAULTS);
-  const [data, setData] = useState<PipelineList>({ items: [], total: 0, page: 1, pageSize: 20 });
+  const [allItems, setAllItems] = useState<PipelineSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [runModalPipeline, setRunModalPipeline] = useState<PipelineSummary | null>(null);
 
-  const loadData = useCallback(async (p: number) => {
+  const loadData = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
     try {
-      const result = await fetchPipelines(projectId, p, 20);
-      setData(result);
+      const result = await fetchPipelines(projectId, 1, LOAD_ALL_SIZE);
+      setAllItems(result.items);
     } catch {
       Message.error('加载流水线列表失败');
     } finally {
@@ -56,10 +59,10 @@ export default function PipelineListPage() {
     }
   }, [projectId]);
 
-  useEffect(() => { loadData(page); }, [page, loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const filteredItems = useMemo(() => {
-    return data.items.filter((item) => {
+    return allItems.filter((item) => {
       if (filters.status && item.status !== filters.status) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -67,29 +70,36 @@ export default function PipelineListPage() {
       }
       return true;
     });
-  }, [data.items, filters.status, filters.search]);
+  }, [allItems, filters.status, filters.search]);
 
-  const handleDelete = async (pipelineId: string) => {
+  useEffect(() => { setPage(1); }, [filters.status, filters.search]);
+
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredItems.slice(start, start + PAGE_SIZE);
+  }, [filteredItems, page]);
+
+  const handleDelete = useCallback(async (pipelineId: string) => {
     if (!projectId) return;
     try {
       await deletePipeline(projectId, pipelineId);
       Message.success('删除成功');
-      loadData(page);
+      loadData();
     } catch {
       Message.error('删除失败');
     }
-  };
+  }, [projectId, loadData]);
 
-  const handleCopy = async (pipelineId: string) => {
+  const handleCopy = useCallback(async (pipelineId: string) => {
     if (!projectId) return;
     try {
       await copyPipeline(projectId, pipelineId);
       Message.success('复制成功');
-      loadData(page);
+      loadData();
     } catch {
       Message.error('复制失败');
     }
-  };
+  }, [projectId, loadData]);
 
   const columns = useMemo(() => [
     {
@@ -172,12 +182,12 @@ export default function PipelineListPage() {
       <Table
         rowKey="id"
         columns={columns}
-        data={filteredItems}
+        data={paginatedItems}
         loading={loading}
         pagination={{
           current: page,
-          pageSize: 20,
-          total: data.total,
+          pageSize: PAGE_SIZE,
+          total: filteredItems.length,
           onChange: setPage,
           showTotal: true,
         }}

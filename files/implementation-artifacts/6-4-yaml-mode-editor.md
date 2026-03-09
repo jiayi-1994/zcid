@@ -37,6 +37,10 @@ so that 我可以选择使用可视化拖拽或直接编辑 JSON 配置。
 - [x] Task 3: 创建 ModeSwitch.tsx（Radio.Group 切换）
 - [x] Task 4: 更新 PipelineEditorPage 集成模式切换与条件渲染
 
+### Review Follow-ups (AI)
+- [ ] [AI-Review][MEDIUM] YamlEditor: 每次击键触发 JSON.parse + onChange 无防抖，大型配置下会导致输入延迟 [web/src/components/pipeline/YamlEditor.tsx:28-39]
+- [ ] [AI-Review][MEDIUM] configYaml.ts 文件名暗示 YAML 但实际只处理 JSON，应重命名为 configJson.ts 以消除歧义 [web/src/lib/pipeline/configYaml.ts]
+
 ## Dev Agent Record
 
 ### Agent Model Used

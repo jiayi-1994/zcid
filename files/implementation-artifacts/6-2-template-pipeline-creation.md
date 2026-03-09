@@ -13,7 +13,7 @@ so that 不需要从零配置即可快速开始。
 1. **查询可用模板列表**
    - Given 用户在创建流水线页面
    - When GET /api/v1/pipeline-templates
-   - Then 返回预置模板列表（Go 微服务/Java Maven/前端 Node/通用 Docker）
+   - Then 返回预置模板列表（Go 微服务/Java Maven/前端 Node/Java JAR 传统构建/通用 Docker）
 
 2. **查询模板详情**
    - Given 模板列表已加载
@@ -98,6 +98,9 @@ zcid/
 - Code Review 发现跨项目访问漏洞，所有操作需通过 projectID 过滤
 - 使用 partial unique index 解决软删除后名称重用问题
 - 枚举值必须在 service 层验证
+
+### Review Follow-ups (AI)
+- [ ] [AI-Review][LOW] 后端模板注册表包含 5 个模板（多了 java-jar-traditional），但 AC #1 仅定义 4 个，应更新 AC 文档或讨论是否保留 [internal/pipeline/template.go]
 
 ## Dev Agent Record
 

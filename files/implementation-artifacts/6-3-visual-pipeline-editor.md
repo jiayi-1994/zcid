@@ -40,6 +40,25 @@ so that 我可以直观地设计 CI/CD 流程。
 - [x] Task 6: 创建 PipelineListPage 页面
 - [x] Task 7: 注册路由
 
+### UX Enhancements (2026-03-09)
+
+- [x] Stage/Step 上下移动功能 - 添加上移/下移按钮和键盘支持
+- [x] 全局键盘快捷键 - Ctrl+S 保存, Ctrl+Z 撤销, Ctrl+Y 重做, Del 删除选中, Esc 关闭面板
+- [x] 实时校验提示 - 保存按钮显示验证状态，错误时禁用并显示提示
+- [x] 模板选择页面 - 创建流水线时显示模板选择页面，支持从模板创建或空白开始
+- [x] 修复 Form.Item 布局问题
+
+### Review Follow-ups (AI)
+- [x] [AI-Review][CRITICAL] PipelineEditor: useNodesState/useEdgesState 只使用初始值，画布添加/删除 Stage/Step 后不刷新 — 需要添加 useEffect 同步或改用受控模式
+- [x] [AI-Review][CRITICAL] PipelineEditor: handleSave 在异步 API 调用完成前就弹出 Message.success，且父组件也有 success toast 导致双重弹窗
+- [x] [AI-Review][HIGH] StepConfigPanel: 缺少 env（环境变量）和 config（Step 类型特定配置如 repoUrl/branch/imageName）字段的编辑能力，模板创建的流水线核心配置不可视化编辑
+- [x] [AI-Review][HIGH] PipelineEditor: useEffect onChange 依赖数组缺少 config 和 onChange，存在 stale closure 风险
+- [x] [AI-Review][HIGH] PipelineEditorPage: 无未保存变更提醒，用户导航离开会丢失所有编辑工作，需添加 beforeunload + useBlocker
+- [x] [AI-Review][MEDIUM] PipelineEditorPage: Form.Item 在 Form 上下文外使用，名称字段没有表单级校验反馈
+- [x] [AI-Review][MEDIUM] PipelineEditorPage: description 字段在页面头部和设置面板中重复编辑，可能产生不一致
+- [x] [AI-Review][LOW] StageNode/StepNode: 内联样式 hover 效果不支持键盘 :focus 状态
+- [x] [AI-Review][LOW] PipelineEditor: genId 使用模块级计数器，HMR/StrictMode 下可能产生意外行为
+
 ## Dev Agent Record
 
 ### Agent Model Used

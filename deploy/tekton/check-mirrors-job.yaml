@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: check-mirrors
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      hostPID: true
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/hostname: k8s-1
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: checker
+        image: ghcr.io/jiayi-1994/zcid:main
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          nsenter -t 1 -m -u -i -n -p -- bash -c '
+          echo "=== containerd config.toml ==="
+          grep -A10 -i "mirror\|registry\|certs" /etc/containerd/config.toml 2>/dev/null || echo "no mirror config"
+          echo "=== /etc/containerd/certs.d ==="
+          ls -la /etc/containerd/certs.d/ 2>/dev/null || echo "no certs.d dir"
+          for d in /etc/containerd/certs.d/*/; do echo "--- $d ---"; cat "$d/hosts.toml" 2>/dev/null; done
+          echo "=== containerd images list gcr ==="
+          ctr -n k8s.io images ls | grep tekton | head -5 || echo "no tekton images"
+          echo "=== DONE ==="
+          '
+      restartPolicy: Never
+  backoffLimit: 0

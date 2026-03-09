@@ -1,8 +1,7 @@
 import { memo } from 'react';
 import { type NodeProps } from '@xyflow/react';
-import { Tag, Typography } from '@arco-design/web-react';
-import { IconDelete } from '@arco-design/web-react/icon';
-import { Button } from '@arco-design/web-react';
+import { Tag, Typography, Button, Tooltip } from '@arco-design/web-react';
+import { IconDelete, IconUp, IconDown } from '@arco-design/web-react/icon';
 
 const { Text } = Typography;
 
@@ -17,50 +16,73 @@ export interface StepNodeData {
   label: string;
   stepId: string;
   stageId: string;
+  stepIndex: number;
+  totalSteps: number;
   type: string;
   image?: string;
   onSelect?: (stageId: string, stepId: string) => void;
   onDelete?: (stageId: string, stepId: string) => void;
+  onMove?: (stageId: string, stepId: string, direction: 'up' | 'down') => void;
 }
 
 function StepNodeComponent({ data }: NodeProps) {
-  const { label, stepId, stageId, type, image, onSelect, onDelete } = data as unknown as StepNodeData;
+  const { label, stepId, stageId, stepIndex, totalSteps, type, image, onSelect, onDelete, onMove } = data as unknown as StepNodeData;
+  const canMoveUp = stepIndex > 0;
+  const canMoveDown = stepIndex < totalSteps - 1;
 
   return (
     <div
+      className="zcid-step-node"
+      tabIndex={0}
+      role="button"
       onClick={() => onSelect?.(stageId, stepId)}
-      style={{
-        padding: '8px 12px',
-        borderRadius: 'var(--zcid-radius-sm)',
-        background: 'var(--zcid-color-bg-elevated)',
-        border: '1px solid var(--zcid-color-border)',
-        minWidth: 180,
-        cursor: 'pointer',
-        transition: 'all var(--zcid-transition-fast)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = 'var(--zcid-shadow-md)';
-        e.currentTarget.style.borderColor = 'var(--zcid-color-primary-lighter)';
-        e.currentTarget.style.transform = 'translateY(-1px)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = 'none';
-        e.currentTarget.style.borderColor = 'var(--zcid-color-border)';
-        e.currentTarget.style.transform = 'translateY(0)';
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect?.(stageId, stepId);
+        }
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ fontSize: 13, fontWeight: 500 }}>{label}</Text>
-        <Button
-          size="mini"
-          type="text"
-          status="danger"
-          icon={<IconDelete />}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete?.(stageId, stepId);
-          }}
-        />
+        <div style={{ display: 'flex', gap: 2 }}>
+          <Tooltip content="上移">
+            <Button
+              size="mini"
+              type="text"
+              icon={<IconUp />}
+              disabled={!canMoveUp}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove?.(stageId, stepId, 'up');
+              }}
+            />
+          </Tooltip>
+          <Tooltip content="下移">
+            <Button
+              size="mini"
+              type="text"
+              icon={<IconDown />}
+              disabled={!canMoveDown}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove?.(stageId, stepId, 'down');
+              }}
+            />
+          </Tooltip>
+          <Tooltip content="删除">
+            <Button
+              size="mini"
+              type="text"
+              status="danger"
+              icon={<IconDelete />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.(stageId, stepId);
+              }}
+            />
+          </Tooltip>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
         <Tag size="small" color={stepTypeColors[type] || 'gray'}>{type}</Tag>

@@ -1,6 +1,6 @@
 # Story 6.6: 流水线列表与运行时参数
 
-Status: done
+Status: in-progress
 
 ## Story
 
@@ -30,6 +30,10 @@ so that 我可以快速找到目标流水线并启动运行（执行功能在 Ep
 - [x] Task 1: 在 PipelineListPage 添加状态筛选（Select）
 - [x] Task 2: 创建 RunPipelineModal.tsx（占位文案）
 - [x] Task 3: 在列表操作列添加"运行"按钮
+
+### Review Follow-ups (AI)
+- [ ] [AI-Review][HIGH] PipelineListPage: 客户端筛选 + 服务端分页逻辑冲突 — 筛选只作用于当前页 20 条数据，其他页的匹配项丢失，total 计数不准确 [web/src/pages/projects/pipelines/PipelineListPage.tsx:61-70]
+- [ ] [AI-Review][MEDIUM] PipelineListPage: handleDelete/handleCopy 未用 useCallback，导致 columns useMemo 依赖每次渲染都变化，memo 完全无效 [web/src/pages/projects/pipelines/PipelineListPage.tsx:72-152]
 
 ## Dev Agent Record
 
