@@ -14,3 +14,19 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 });
+
+// Mock arco-design Message to avoid ReactDOM.render issue in React 19
+vi.mock('@arco-design/web-react', async () => {
+  const actual = await vi.importActual('@arco-design/web-react');
+  return {
+    ...actual,
+    Message: {
+      success: vi.fn(),
+      error: vi.fn(),
+      warning: vi.fn(),
+      info: vi.fn(),
+      loading: vi.fn(),
+      clear: vi.fn(),
+    },
+  };
+});
