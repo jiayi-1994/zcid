@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table, Button, Space, Tag, Popconfirm, Message } from '@arco-design/web-react';
-import { IconPlus, IconCopy, IconDelete, IconEdit, IconPlayArrow } from '@arco-design/web-react/icon';
+import { Table, Button, Space, Tag, Popconfirm, Message, Dropdown, Menu, Tooltip } from '@arco-design/web-react';
+import { IconPlus, IconDelete, IconPlayArrow, IconMore, IconCopy, IconEdit, IconHistory } from '@arco-design/web-react/icon';
 import { fetchPipelines, fetchPipeline, deletePipeline, copyPipeline, type PipelineSummary, type PipelineConfig } from '../../../services/pipeline';
 import { triggerPipelineRun } from '../../../services/pipelineRun';
 import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal';
@@ -131,55 +131,73 @@ export default function PipelineListPage() {
       title: '名称',
       dataIndex: 'name',
       render: (name: string, record: PipelineSummary) => (
-        <Button type="text" onClick={() => navigate(`/projects/${projectId}/pipelines/${record.id}`)}>
+        <Button type="text" style={{ padding: 0, fontWeight: 500 }} onClick={() => navigate(`/projects/${projectId}/pipelines/${record.id}`)}>
           {name}
         </Button>
       ),
     },
-    { title: '描述', dataIndex: 'description' },
+    { title: '描述', dataIndex: 'description', render: (v: string) => <span style={{ color: 'var(--color-text-3)' }}>{v || '-'}</span> },
     {
       title: '状态',
       dataIndex: 'status',
-      render: (status: string) => <Tag color={statusColors[status] || 'default'}>{statusLabels[status] || status}</Tag>,
+      width: 100,
+      render: (status: string) => <Tag color={statusColors[status] || 'default'} size="small">{statusLabels[status] || status}</Tag>,
     },
     {
       title: '触发方式',
       dataIndex: 'triggerType',
-      render: (type: string) => triggerLabels[type] || type,
+      width: 100,
+      render: (type: string) => <span style={{ color: 'var(--color-text-2)' }}>{triggerLabels[type] || type}</span>,
     },
     {
       title: '更新时间',
       dataIndex: 'updatedAt',
-      render: (time: string) => new Date(time).toLocaleString(),
+      width: 180,
+      render: (time: string) => <span style={{ color: 'var(--color-text-3)', fontSize: 13 }}>{new Date(time).toLocaleString()}</span>,
     },
     {
       title: '操作',
+      width: 200,
       render: (_: unknown, record: PipelineSummary) => (
-        <Space>
-          <Button
-            size="small"
-            type="text"
-            icon={<IconPlayArrow />}
-            onClick={() => handleOpenRunModal(record)}
+        <Space size={4}>
+          <Tooltip content="运行流水线">
+            <Button
+              size="small"
+              type="primary"
+              icon={<IconPlayArrow />}
+              onClick={() => handleOpenRunModal(record)}
+              style={{ borderRadius: 4 }}
+            >
+              运行
+            </Button>
+          </Tooltip>
+          <Tooltip content="运行历史">
+            <Button
+              size="small"
+              type="outline"
+              icon={<IconHistory />}
+              onClick={() => navigate(`/projects/${projectId}/pipelines/${record.id}/runs`)}
+              style={{ borderRadius: 4 }}
+            />
+          </Tooltip>
+          <Dropdown
+            droplist={
+              <Menu onClickMenuItem={(key) => {
+                if (key === 'edit') navigate(`/projects/${projectId}/pipelines/${record.id}`);
+                else if (key === 'copy') handleCopy(record.id);
+              }}>
+                <Menu.Item key="edit"><IconEdit style={{ marginRight: 8 }} />编辑</Menu.Item>
+                <Menu.Item key="copy"><IconCopy style={{ marginRight: 8 }} />复制</Menu.Item>
+              </Menu>
+            }
+            position="br"
           >
-            运行
-          </Button>
-          <Button
-            size="small"
-            type="text"
-            onClick={() => navigate(`/projects/${projectId}/pipelines/${record.id}/runs`)}
-          >
-            运行历史
-          </Button>
-          <Button
-            size="small"
-            type="text"
-            icon={<IconEdit />}
-            onClick={() => navigate(`/projects/${projectId}/pipelines/${record.id}`)}
-          />
-          <Button size="small" type="text" icon={<IconCopy />} onClick={() => handleCopy(record.id)} />
+            <Button size="small" type="text" icon={<IconMore />} style={{ borderRadius: 4 }} />
+          </Dropdown>
           <Popconfirm title="确定删除此流水线？" onOk={() => handleDelete(record.id)}>
-            <Button size="small" type="text" status="danger" icon={<IconDelete />} />
+            <Tooltip content="删除">
+              <Button size="small" type="text" status="danger" icon={<IconDelete />} style={{ borderRadius: 4 }} />
+            </Tooltip>
           </Popconfirm>
         </Space>
       ),
@@ -190,7 +208,7 @@ export default function PipelineListPage() {
     <div className="page-container">
       <div className="page-header">
         <h3 className="page-title">流水线</h3>
-        <Space>
+        <Space size={12}>
           <ListFilters
             filters={[
               { key: 'search', type: 'search', placeholder: '按名称搜索' },
@@ -199,7 +217,7 @@ export default function PipelineListPage() {
             values={filters}
             onChange={setFilters}
           />
-          <Button type="primary" icon={<IconPlus />} onClick={() => navigate(`/projects/${projectId}/pipelines/new`)}>
+          <Button type="primary" icon={<IconPlus />} onClick={() => navigate(`/projects/${projectId}/pipelines/new`)} style={{ borderRadius: 6 }}>
             创建流水线
           </Button>
         </Space>
@@ -209,12 +227,17 @@ export default function PipelineListPage() {
         columns={columns}
         data={paginatedItems}
         loading={loading}
+        border={false}
+        stripe
+        hover
+        style={{ borderRadius: 8 }}
         pagination={{
           current: page,
           pageSize: PAGE_SIZE,
           total: filteredItems.length,
           onChange: setPage,
           showTotal: true,
+          style: { marginTop: 16 },
         }}
       />
       <RunPipelineModal

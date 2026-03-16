@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table, Button, Space, Tag, Message, Popconfirm } from '@arco-design/web-react';
-import { IconPlayArrow, IconArrowLeft, IconEye, IconClose } from '@arco-design/web-react/icon';
+import { Table, Button, Space, Tag, Message, Popconfirm, Tooltip, Divider } from '@arco-design/web-react';
+import { IconPlayArrow, IconArrowLeft, IconEye, IconClose, IconBranch } from '@arco-design/web-react/icon';
 import {
   fetchPipelineRuns,
   cancelPipelineRun,
@@ -14,10 +14,19 @@ import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal'
 import { ListFilters } from '../../../components/common/ListFilters';
 import { useQueryFilters } from '../../../hooks/useQueryFilters';
 
+const statusConfig: Record<string, { color: string; bg: string }> = {
+  pending:   { color: '#86909C', bg: '#F2F3F5' },
+  queued:    { color: '#165DFF', bg: '#E8F3FF' },
+  running:   { color: '#0FC6C2', bg: '#E8FFFB' },
+  succeeded: { color: '#00B42A', bg: '#E8FFEA' },
+  failed:    { color: '#F53F3F', bg: '#FFECE8' },
+  cancelled: { color: '#FF7D00', bg: '#FFF7E8' },
+};
+
 const statusColors: Record<string, string> = {
   pending: 'gray',
   queued: 'blue',
-  running: 'arcoblue', // processing-like
+  running: 'arcoblue',
   succeeded: 'green',
   failed: 'red',
   cancelled: 'orange',
@@ -174,9 +183,21 @@ export default function PipelineRunListPage() {
       {
         title: '状态',
         dataIndex: 'status',
-        render: (status: string) => (
-          <Tag color={statusColors[status] || 'default'}>{statusLabels[status] || status}</Tag>
-        ),
+        width: 110,
+        render: (status: string) => {
+          const cfg = statusConfig[status] || { color: '#86909C', bg: '#F2F3F5' };
+          return (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '3px 10px', borderRadius: 12,
+              background: cfg.bg, color: cfg.color,
+              fontWeight: 600, fontSize: 12,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color }} />
+              {statusLabels[status] || status}
+            </span>
+          );
+        },
       },
       {
         title: '触发方式',
@@ -191,7 +212,9 @@ export default function PipelineRunListPage() {
       {
         title: '分支',
         dataIndex: 'gitBranch',
-        render: (v: string | undefined) => v ?? '-',
+        render: (v: string | undefined) => v ? (
+          <Space size={4}><IconBranch style={{ fontSize: 13, color: 'var(--color-text-3)' }} /><span>{v}</span></Space>
+        ) : '-',
       },
       {
         title: '耗时',
@@ -205,21 +228,27 @@ export default function PipelineRunListPage() {
       },
       {
         title: '操作',
+        width: 160,
         render: (_: unknown, record: PipelineRunSummary) => (
-          <Space>
-            <Button
-              size="small"
-              type="text"
-              icon={<IconEye />}
-              onClick={() => navigate(`/projects/${projectId}/pipelines/${pipelineId}/runs/${record.id}`)}
-            >
-              详情
-            </Button>
+          <Space size={4}>
+            <Tooltip content="查看详情">
+              <Button
+                size="small"
+                type="outline"
+                icon={<IconEye />}
+                onClick={() => navigate(`/projects/${projectId}/pipelines/${pipelineId}/runs/${record.id}`)}
+                style={{ borderRadius: 4 }}
+              >
+                详情
+              </Button>
+            </Tooltip>
             {(record.status === 'pending' || record.status === 'queued' || record.status === 'running') && (
               <Popconfirm title="确定取消此运行？" onOk={() => handleCancel(record.id)}>
-                <Button size="small" type="text" status="warning" icon={<IconClose />}>
-                  取消
-                </Button>
+                <Tooltip content="取消运行">
+                  <Button size="small" type="outline" status="danger" icon={<IconClose />} style={{ borderRadius: 4 }}>
+                    取消
+                  </Button>
+                </Tooltip>
               </Popconfirm>
             )}
           </Space>
@@ -260,12 +289,17 @@ export default function PipelineRunListPage() {
         columns={columns}
         data={filteredItems}
         loading={loading}
+        border={false}
+        stripe
+        hover
+        style={{ borderRadius: 8 }}
         pagination={{
           current: page,
           pageSize: 20,
           total: data.total,
           onChange: setPage,
           showTotal: true,
+          style: { marginTop: 16 },
         }}
       />
       <RunPipelineModal

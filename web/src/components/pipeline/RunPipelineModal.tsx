@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Modal, Form, Input, Button, Select, Message } from '@arco-design/web-react';
+import { Modal, Form, Input, Button, Select, Space, Tag, Divider, Typography } from '@arco-design/web-react';
+import { IconBranch, IconCode } from '@arco-design/web-react/icon';
 import type { PipelineSummary, PipelineConfig } from '../../services/pipeline';
 import { fetchConnections, listBranches, type GitBranch, type GitConnection } from '../../services/integration';
 
+const { Text } = Typography;
 const DEFAULT_BRANCHES = ['main', 'master', 'develop', 'staging', 'release'];
 
 interface RunPipelineModalProps {
@@ -60,6 +62,12 @@ function matchConnection(repoUrl: string, connections: GitConnection[]): GitConn
   }
 }
 
+const triggerLabels: Record<string, string> = {
+  manual: '手动触发',
+  webhook: 'Webhook 触发',
+  scheduled: '定时触发',
+};
+
 export function RunPipelineModal({ visible, pipeline, pipelineConfig, onClose, onSubmit }: RunPipelineModalProps) {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
@@ -94,7 +102,6 @@ export function RunPipelineModal({ visible, pipeline, pipelineConfig, onClose, o
         }
         return;
       }
-
       const branches = await listBranches(conn.id, repoFullName);
       if (branches.length > 0) {
         const names = branches.map((b: GitBranch) => b.name);
@@ -117,9 +124,7 @@ export function RunPipelineModal({ visible, pipeline, pipelineConfig, onClose, o
   }, [pipelineConfig, form]);
 
   useEffect(() => {
-    if (visible) {
-      loadBranches();
-    }
+    if (visible) loadBranches();
   }, [visible, loadBranches]);
 
   const handleSubmit = async () => {
@@ -150,30 +155,54 @@ export function RunPipelineModal({ visible, pipeline, pipelineConfig, onClose, o
 
   return (
     <Modal
-      title={`运行流水线: ${pipeline?.name ?? ''}`}
+      title={null}
       visible={visible}
       onCancel={onClose}
+      style={{ borderRadius: 12, overflow: 'hidden' }}
       footer={
-        <>
-          <Button onClick={onClose}>取消</Button>
-          <Button type="primary" loading={loading} onClick={handleSubmit}>
-            运行
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '4px 0' }}>
+          <Button onClick={onClose} style={{ borderRadius: 6 }}>取消</Button>
+          <Button type="primary" loading={loading} onClick={handleSubmit} icon={<IconCode />} style={{ borderRadius: 6 }}>
+            开始运行
           </Button>
-        </>
+        </div>
       }
     >
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10,
+            background: 'linear-gradient(135deg, #165DFF 0%, #0FC6C2 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <IconCode style={{ color: '#fff', fontSize: 20 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-1)' }}>
+              运行 {pipeline?.name ?? '流水线'}
+            </div>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              {triggerLabels[pipeline?.triggerType ?? ''] || '手动触发'} · {pipeline?.concurrencyPolicy === 'reject' ? '拒绝并发' : '队列模式'}
+            </Text>
+          </div>
+        </div>
+      </div>
+
       <Form form={form} layout="vertical">
-        <Form.Item label="Git 分支" field="gitBranch">
+        <Form.Item label={
+          <Space size={4}><IconBranch style={{ fontSize: 14 }} /><span>构建分支</span></Space>
+        } field="gitBranch">
           <Select
             showSearch
             allowCreate
             placeholder="选择或输入分支名"
             loading={branchLoading}
             options={branchOptions.map((b) => ({ label: b, value: b }))}
+            style={{ borderRadius: 6 }}
           />
         </Form.Item>
-        <Form.Item label="Git Commit" field="gitCommit">
-          <Input placeholder="可选，指定 commit SHA" />
+        <Form.Item label="Git Commit（可选）" field="gitCommit">
+          <Input placeholder="指定 commit SHA，留空则使用分支最新" style={{ borderRadius: 6 }} />
         </Form.Item>
       </Form>
     </Modal>
