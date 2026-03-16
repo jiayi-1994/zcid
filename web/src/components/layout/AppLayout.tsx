@@ -2,11 +2,10 @@ import { Dropdown, Layout, Menu } from '@arco-design/web-react';
 import { IconDashboard, IconDown, IconUser, IconApps, IconLock, IconLink, IconFile, IconSettings } from '@arco-design/web-react/icon';
 import { type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed';
 import { logout } from '../../services/auth';
 import { type SystemRole, useAuthStore } from '../../stores/auth';
 
-const { Sider, Header, Content } = Layout;
+const { Header, Content } = Layout;
 const MenuItem = Menu.Item;
 
 const ROLE_LABELS: Record<SystemRole, string> = {
@@ -20,7 +19,6 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const collapsed = useSidebarCollapsed();
   const navigate = useNavigate();
   const location = useLocation();
   const canViewDashboard = useAuthStore((state) => state.hasPermission('route:dashboard:view'));
@@ -44,18 +42,17 @@ export function AppLayout({ children }: AppLayoutProps) {
     finally { clearSession(); navigate('/login', { replace: true }); }
   };
 
-  const siderW = collapsed ? 60 : 220;
-
   return (
-    <Layout className="app-root">
-      <Sider className="app-sider" width={siderW} collapsible={false}>
+    <div className="app-root" style={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Sidebar - plain div to avoid Arco Sider collapse behavior */}
+      <div className="app-sider" style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div className="sider-logo">
           <div className="sider-logo-icon">Z</div>
-          {!collapsed && <span className="sider-logo-text">zcid</span>}
+          <span className="sider-logo-text">zcid</span>
         </div>
 
-        {!collapsed && <div className="sider-section-label">工作台</div>}
-        <Menu selectedKeys={[location.pathname]} onClickMenuItem={(key) => navigate(key)}>
+        <div className="sider-section-label">工作台</div>
+        <Menu selectedKeys={[location.pathname]} onClickMenuItem={(key) => navigate(key)} style={{ background: 'transparent', borderRight: 'none' }}>
           {canViewDashboard && (
             <MenuItem key="/dashboard"><IconDashboard /> Dashboard</MenuItem>
           )}
@@ -64,8 +61,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         {hasAdminSection && (
           <>
-            {!collapsed && <div className="sider-section-label">系统管理</div>}
-            <Menu selectedKeys={[location.pathname]} onClickMenuItem={(key) => navigate(key)}>
+            <div className="sider-section-label" style={{ marginTop: 8 }}>系统管理</div>
+            <Menu selectedKeys={[location.pathname]} onClickMenuItem={(key) => navigate(key)} style={{ background: 'transparent', borderRight: 'none' }}>
               {canViewAdminUsers && (
                 <MenuItem key="/admin/users"><IconUser /> 用户管理</MenuItem>
               )}
@@ -97,10 +94,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             )}
           >
             <div className="user-entry" style={{
-              display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
+              display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 10px', borderRadius: 8,
               cursor: 'pointer', transition: 'background 0.15s',
-              justifyContent: collapsed ? 'center' : 'flex-start',
               color: 'rgba(255,255,255,0.9)',
             }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
@@ -114,49 +110,27 @@ export function AppLayout({ children }: AppLayoutProps) {
               }}>
                 {userInitial}
               </div>
-              {!collapsed && (
-                <>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {user?.username}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{roleLabel}</div>
-                  </div>
-                  <IconDown style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }} />
-                </>
-              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.username}
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{roleLabel}</div>
+              </div>
+              <IconDown style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }} />
             </div>
           </Dropdown>
         </div>
-      </Sider>
-      <Layout>
+      </div>
+
+      {/* Main content area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <Header className="app-header">
           <div className="app-header-inner">
             <span className="app-header-breadcrumb">zcid</span>
-            {/* User entry only shows in header when sidebar is collapsed */}
-            {collapsed && (
-              <Dropdown
-                trigger="click"
-                droplist={(
-                  <Menu onClickMenuItem={(key) => key === 'logout' && void handleLogout()}>
-                    <MenuItem key="logout">退出登录</MenuItem>
-                  </Menu>
-                )}
-              >
-                <div className="user-entry">
-                  <div className="user-avatar">{userInitial}</div>
-                  <div className="user-info">
-                    <span className="user-name">{user?.username}</span>
-                    <span className="user-role">{roleLabel}</span>
-                  </div>
-                  <IconDown style={{ fontSize: 12, color: 'var(--zcid-text-3)' }} />
-                </div>
-              </Dropdown>
-            )}
           </div>
         </Header>
         <Content className="app-content">{children}</Content>
-      </Layout>
-    </Layout>
+      </div>
+    </div>
   );
 }
