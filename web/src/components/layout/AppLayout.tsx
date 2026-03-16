@@ -48,7 +48,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <Layout className="app-root">
-      <Sider className="app-sider" width={siderW} collapsed={collapsed}>
+      <Sider className="app-sider" width={siderW} collapsible={false}>
         <div className="sider-logo">
           <div className="sider-logo-icon">Z</div>
           {!collapsed && <span className="sider-logo-text">zcid</span>}
