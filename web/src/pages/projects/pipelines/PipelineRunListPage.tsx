@@ -9,7 +9,7 @@ import {
   type PipelineRunSummary,
   type PipelineRunList,
 } from '../../../services/pipelineRun';
-import { fetchPipeline, type PipelineSummary } from '../../../services/pipeline';
+import { fetchPipeline, type PipelineSummary, type PipelineConfig } from '../../../services/pipeline';
 import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal';
 import { ListFilters } from '../../../components/common/ListFilters';
 import { useQueryFilters } from '../../../hooks/useQueryFilters';
@@ -76,6 +76,7 @@ export default function PipelineRunListPage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useQueryFilters(RUN_FILTER_DEFAULTS);
   const [pipeline, setPipeline] = useState<PipelineSummary | null>(null);
+  const [pipelineConfig, setPipelineConfig] = useState<PipelineConfig | null>(null);
   const [data, setData] = useState<PipelineRunList>({ items: [], total: 0, page: 1, pageSize: 20 });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -109,6 +110,7 @@ export default function PipelineRunListPage() {
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
       });
+      setPipelineConfig(p.config);
     } catch {
       Message.error('加载流水线失败');
     }
@@ -269,6 +271,7 @@ export default function PipelineRunListPage() {
       <RunPipelineModal
         visible={runModalVisible}
         pipeline={pipeline}
+        pipelineConfig={pipelineConfig}
         onClose={() => setRunModalVisible(false)}
         onSubmit={handleRunSubmit}
       />

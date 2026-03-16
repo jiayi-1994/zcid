@@ -157,7 +157,16 @@ export function StepConfigPanel({ visible, step, onClose, onSave }: StepConfigPa
             <Divider style={{ margin: '12px 0' }} />
             {configFields.map((f) => (
               <Form.Item key={f.key} label={f.label} field={`config_${f.key}`}>
-                <Input placeholder={f.placeholder} />
+                {currentType === 'git-clone' && f.key === 'branch' ? (
+                  <Select
+                    showSearch
+                    allowCreate
+                    placeholder={f.placeholder}
+                    options={['main', 'master', 'develop', 'staging', 'release'].map((b) => ({ label: b, value: b }))}
+                  />
+                ) : (
+                  <Input placeholder={f.placeholder} />
+                )}
               </Form.Item>
             ))}
           </>

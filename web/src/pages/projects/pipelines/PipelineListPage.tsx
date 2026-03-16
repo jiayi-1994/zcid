@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Table, Button, Space, Tag, Popconfirm, Message } from '@arco-design/web-react';
 import { IconPlus, IconCopy, IconDelete, IconEdit, IconPlayArrow } from '@arco-design/web-react/icon';
-import { fetchPipelines, deletePipeline, copyPipeline, type PipelineSummary } from '../../../services/pipeline';
+import { fetchPipelines, fetchPipeline, deletePipeline, copyPipeline, type PipelineSummary, type PipelineConfig } from '../../../services/pipeline';
 import { triggerPipelineRun } from '../../../services/pipelineRun';
 import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal';
 import { ListFilters } from '../../../components/common/ListFilters';
@@ -46,6 +46,7 @@ export default function PipelineListPage() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [runModalPipeline, setRunModalPipeline] = useState<PipelineSummary | null>(null);
+  const [runModalConfig, setRunModalConfig] = useState<PipelineConfig | null>(null);
 
   const loadData = useCallback(async () => {
     if (!projectId) return;
@@ -102,6 +103,18 @@ export default function PipelineListPage() {
     }
   }, [projectId, loadData]);
 
+  const handleOpenRunModal = useCallback(async (record: PipelineSummary) => {
+    setRunModalPipeline(record);
+    if (projectId) {
+      try {
+        const full = await fetchPipeline(projectId, record.id);
+        setRunModalConfig(full.config);
+      } catch {
+        setRunModalConfig(null);
+      }
+    }
+  }, [projectId]);
+
   const handleRunSubmit = useCallback(async (params: { params?: Record<string, string>; gitBranch?: string; gitCommit?: string }) => {
     if (!projectId || !runModalPipeline) return;
     try {
@@ -147,7 +160,7 @@ export default function PipelineListPage() {
             size="small"
             type="text"
             icon={<IconPlayArrow />}
-            onClick={() => setRunModalPipeline(record)}
+            onClick={() => handleOpenRunModal(record)}
           >
             运行
           </Button>
@@ -171,7 +184,7 @@ export default function PipelineListPage() {
         </Space>
       ),
     },
-  ], [projectId, navigate, handleDelete, handleCopy]);
+  ], [projectId, navigate, handleDelete, handleCopy, handleOpenRunModal]);
 
   return (
     <div className="page-container">
@@ -207,7 +220,8 @@ export default function PipelineListPage() {
       <RunPipelineModal
         visible={!!runModalPipeline}
         pipeline={runModalPipeline}
-        onClose={() => setRunModalPipeline(null)}
+        pipelineConfig={runModalConfig}
+        onClose={() => { setRunModalPipeline(null); setRunModalConfig(null); }}
         onSubmit={handleRunSubmit}
       />
     </div>

@@ -65,3 +65,20 @@ export async function getWebhookSecret(connId: string): Promise<string> {
   );
   return res.data.data.webhookSecret;
 }
+
+export interface GitBranch {
+  name: string;
+  isDefault: boolean;
+}
+
+export async function listBranches(
+  connId: string,
+  repoFullName: string,
+  refresh = false,
+): Promise<GitBranch[]> {
+  const res = await http.get<ApiResponse<{ items: GitBranch[] }>>(
+    `/admin/integrations/${connId}/repos/${encodeURIComponent(repoFullName)}/branches`,
+    { params: refresh ? { refresh: 'true' } : undefined },
+  );
+  return res.data.data.items ?? [];
+}
