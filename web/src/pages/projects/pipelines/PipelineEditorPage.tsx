@@ -23,7 +23,7 @@ export default function PipelineEditorPage() {
   const [jsonValid, setJsonValid] = useState(true);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const isNew = pipelineId === 'new' || pipelineId === 'blank';
+  const isNew = !pipelineId;
 
   const [headerForm] = Form.useForm();
 
