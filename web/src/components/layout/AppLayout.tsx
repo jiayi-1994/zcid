@@ -36,17 +36,12 @@ export function AppLayout({ children }: AppLayoutProps) {
   const roleLabel = user ? ROLE_LABELS[user.role] : '';
   const userInitial = user?.username?.charAt(0).toUpperCase() || 'U';
 
+  const hasAdminSection = canViewAdminUsers || canViewAdminVariables || canViewAdminIntegrations || canViewAuditLogs || canViewSystemSettings;
+
   const handleLogout = async () => {
-    try {
-      if (refreshToken) {
-        await logout(refreshToken);
-      }
-    } catch {
-      // ignore
-    } finally {
-      clearSession();
-      navigate('/login', { replace: true });
-    }
+    try { if (refreshToken) await logout(refreshToken); }
+    catch { /* ignore */ }
+    finally { clearSession(); navigate('/login', { replace: true }); }
   };
 
   return (
@@ -56,56 +51,34 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="sider-logo-icon">Z</div>
           {!collapsed && <span className="sider-logo-text">zcid</span>}
         </div>
-        <Menu
-          selectedKeys={[location.pathname]}
-          onClickMenuItem={(key) => navigate(key)}
-        >
+        <Menu selectedKeys={[location.pathname]} onClickMenuItem={(key) => navigate(key)}>
+          {!collapsed && <div className="sider-section-label">工作台</div>}
           {canViewDashboard && (
-            <MenuItem key="/dashboard">
-              <IconDashboard />
-              {!collapsed && 'Dashboard'}
-            </MenuItem>
+            <MenuItem key="/dashboard"><IconDashboard />{!collapsed && 'Dashboard'}</MenuItem>
           )}
-          <MenuItem key="/projects">
-            <IconApps />
-            {!collapsed && '项目管理'}
-          </MenuItem>
+          <MenuItem key="/projects"><IconApps />{!collapsed && '项目管理'}</MenuItem>
+
+          {hasAdminSection && !collapsed && <div className="sider-section-label" style={{ marginTop: 8 }}>系统管理</div>}
           {canViewAdminUsers && (
-            <MenuItem key="/admin/users">
-              <IconUser />
-              {!collapsed && '用户管理'}
-            </MenuItem>
+            <MenuItem key="/admin/users"><IconUser />{!collapsed && '用户管理'}</MenuItem>
           )}
           {canViewAdminVariables && (
-            <MenuItem key="/admin/variables">
-              <IconLock />
-              {!collapsed && '全局变量'}
-            </MenuItem>
+            <MenuItem key="/admin/variables"><IconLock />{!collapsed && '全局变量'}</MenuItem>
           )}
           {canViewAdminIntegrations && (
-            <MenuItem key="/admin/integrations">
-              <IconLink />
-              {!collapsed && '集成管理'}
-            </MenuItem>
+            <MenuItem key="/admin/integrations"><IconLink />{!collapsed && '集成管理'}</MenuItem>
           )}
           {canViewAuditLogs && (
-            <MenuItem key="/admin/audit-logs">
-              <IconFile />
-              {!collapsed && '审计日志'}
-            </MenuItem>
+            <MenuItem key="/admin/audit-logs"><IconFile />{!collapsed && '审计日志'}</MenuItem>
           )}
           {canViewSystemSettings && (
-            <MenuItem key="/admin/settings">
-              <IconSettings />
-              {!collapsed && '系统设置'}
-            </MenuItem>
+            <MenuItem key="/admin/settings"><IconSettings />{!collapsed && '系统设置'}</MenuItem>
           )}
         </Menu>
-      </Sider>
-      <Layout>
-        <Header className="app-header">
-          <div className="app-header-inner">
-            <span className="app-header-breadcrumb">zcid</span>
+
+        {/* Bottom user section */}
+        {!collapsed && (
+          <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
             <Dropdown
               trigger="click"
               droplist={(
@@ -114,15 +87,57 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </Menu>
               )}
             >
-              <div className="user-entry">
-                <div className="user-avatar">{userInitial}</div>
-                <div className="user-info">
-                  <span className="user-name">{user?.username}</span>
-                  <span className="user-role">{roleLabel}</span>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 10px', borderRadius: 8,
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: 'linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)',
+                  color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {userInitial}
                 </div>
-                <IconDown style={{ fontSize: 12, color: 'var(--zcid-text-3)' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user?.username}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{roleLabel}</div>
+                </div>
+                <IconDown style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }} />
               </div>
             </Dropdown>
+          </div>
+        )}
+      </Sider>
+      <Layout>
+        <Header className="app-header">
+          <div className="app-header-inner">
+            <span className="app-header-breadcrumb">zcid</span>
+            {collapsed && (
+              <Dropdown
+                trigger="click"
+                droplist={(
+                  <Menu onClickMenuItem={(key) => key === 'logout' && void handleLogout()}>
+                    <MenuItem key="logout">退出登录</MenuItem>
+                  </Menu>
+                )}
+              >
+                <div className="user-entry">
+                  <div className="user-avatar">{userInitial}</div>
+                  <div className="user-info">
+                    <span className="user-name">{user?.username}</span>
+                    <span className="user-role">{roleLabel}</span>
+                  </div>
+                  <IconDown style={{ fontSize: 12, color: 'var(--zcid-text-3)' }} />
+                </div>
+              </Dropdown>
+            )}
           </div>
         </Header>
         <Content className="app-content">{children}</Content>
