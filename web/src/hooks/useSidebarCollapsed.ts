@@ -6,11 +6,11 @@ export function useSidebarCollapsed(): boolean {
     if (typeof window === 'undefined') {
       return false;
     }
-    return window.innerWidth < BREAKPOINTS.xl;
+    return window.innerWidth < BREAKPOINTS.md;
   });
 
   useEffect(() => {
-    const onResize = () => setCollapsed(window.innerWidth < BREAKPOINTS.xl);
+    const onResize = () => setCollapsed(window.innerWidth < BREAKPOINTS.md);
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);

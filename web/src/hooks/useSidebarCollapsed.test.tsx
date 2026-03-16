@@ -8,14 +8,14 @@ function Probe() {
 }
 
 describe('useSidebarCollapsed', () => {
-  test('returns collapsed when width is below 1280', () => {
-    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1200 });
+  test('returns collapsed when width is below 768', () => {
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 600 });
     render(<Probe />);
     expect(screen.getByTestId('state')).toHaveTextContent('collapsed');
   });
 
-  test('returns expanded when width is at least 1280', () => {
-    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1400 });
+  test('returns expanded when width is at least 768', () => {
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1200 });
     render(<Probe />);
     expect(screen.getByTestId('state')).toHaveTextContent('expanded');
   });
