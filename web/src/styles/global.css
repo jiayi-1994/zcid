@@ -148,51 +148,50 @@ body,
   height: 100%;
 }
 
-.app-sider .arco-menu {
-  flex: 1;
-  border-right: none !important;
-  background: transparent !important;
-}
-
-.app-sider .arco-menu-inner {
-  padding: 8px 12px;
-}
-
-.app-sider .arco-menu-item {
-  border-radius: var(--zcid-radius-md);
-  margin: 2px 0;
+/* Custom nav items for sidebar (no Arco Menu dependency) */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 0 12px;
   height: 38px;
-  line-height: 38px;
+  border-radius: var(--zcid-radius-md);
+  margin: 2px 0;
   font-size: 14px;
   color: rgba(255,255,255,0.65);
+  cursor: pointer;
   transition: all var(--zcid-transition-fast);
+  user-select: none;
+  outline: none;
 }
 
-.app-sider .arco-menu-item:hover {
+.nav-item:hover {
   background: rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.95);
 }
 
-.app-sider .arco-menu-item.arco-menu-selected {
-  background: linear-gradient(135deg, var(--zcid-primary) 0%, #4096FF 100%);
-  color: #fff;
+.nav-item-active {
+  background: linear-gradient(135deg, var(--zcid-primary) 0%, #4096FF 100%) !important;
+  color: #fff !important;
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(22, 119, 255, 0.35);
 }
 
-.app-sider .arco-menu-item.arco-menu-selected::after {
-  display: none;
+.nav-item-icon {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
-.app-sider .arco-menu-item .arco-icon {
-  font-size: 18px;
-  margin-right: 10px;
-  vertical-align: middle;
+.nav-item-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .app-sider .sider-section-label {
-  padding: 16px 12px 6px;
+  padding: 16px 0 6px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;

@@ -18,6 +18,23 @@ interface AppLayoutProps {
   children?: ReactNode;
 }
 
+function NavItem({ icon, label, path, active, onClick }: {
+  icon: ReactNode; label: string; path: string; active: boolean; onClick: (path: string) => void;
+}) {
+  return (
+    <div
+      className={`nav-item ${active ? 'nav-item-active' : ''}`}
+      onClick={() => onClick(path)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick(path); }}
+    >
+      <span className="nav-item-icon">{icon}</span>
+      <span className="nav-item-label">{label}</span>
+    </div>
+  );
+}
+
 export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -42,48 +59,36 @@ export function AppLayout({ children }: AppLayoutProps) {
     finally { clearSession(); navigate('/login', { replace: true }); }
   };
 
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
+
   return (
     <div className="app-root" style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar - plain div to avoid Arco Sider collapse behavior */}
+      {/* Custom sidebar */}
       <div className="app-sider" style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div className="sider-logo">
           <div className="sider-logo-icon">Z</div>
           <span className="sider-logo-text">zcid</span>
         </div>
 
-        <div className="sider-section-label">工作台</div>
-        <Menu selectedKeys={[location.pathname]} onClickMenuItem={(key) => navigate(key)} style={{ background: 'transparent', borderRight: 'none' }}>
-          {canViewDashboard && (
-            <MenuItem key="/dashboard"><IconDashboard /> Dashboard</MenuItem>
-          )}
-          <MenuItem key="/projects"><IconApps /> 项目管理</MenuItem>
-        </Menu>
+        <div style={{ flex: 1, overflow: 'auto', padding: '8px 12px' }}>
+          <div className="sider-section-label">工作台</div>
+          {canViewDashboard && <NavItem icon={<IconDashboard />} label="Dashboard" path="/dashboard" active={isActive('/dashboard')} onClick={navigate} />}
+          <NavItem icon={<IconApps />} label="项目管理" path="/projects" active={isActive('/projects')} onClick={navigate} />
 
-        {hasAdminSection && (
-          <>
-            <div className="sider-section-label" style={{ marginTop: 8 }}>系统管理</div>
-            <Menu selectedKeys={[location.pathname]} onClickMenuItem={(key) => navigate(key)} style={{ background: 'transparent', borderRight: 'none' }}>
-              {canViewAdminUsers && (
-                <MenuItem key="/admin/users"><IconUser /> 用户管理</MenuItem>
-              )}
-              {canViewAdminVariables && (
-                <MenuItem key="/admin/variables"><IconLock /> 全局变量</MenuItem>
-              )}
-              {canViewAdminIntegrations && (
-                <MenuItem key="/admin/integrations"><IconLink /> 集成管理</MenuItem>
-              )}
-              {canViewAuditLogs && (
-                <MenuItem key="/admin/audit-logs"><IconFile /> 审计日志</MenuItem>
-              )}
-              {canViewSystemSettings && (
-                <MenuItem key="/admin/settings"><IconSettings /> 系统设置</MenuItem>
-              )}
-            </Menu>
-          </>
-        )}
+          {hasAdminSection && (
+            <>
+              <div className="sider-section-label" style={{ marginTop: 12 }}>系统管理</div>
+              {canViewAdminUsers && <NavItem icon={<IconUser />} label="用户管理" path="/admin/users" active={isActive('/admin/users')} onClick={navigate} />}
+              {canViewAdminVariables && <NavItem icon={<IconLock />} label="全局变量" path="/admin/variables" active={isActive('/admin/variables')} onClick={navigate} />}
+              {canViewAdminIntegrations && <NavItem icon={<IconLink />} label="集成管理" path="/admin/integrations" active={isActive('/admin/integrations')} onClick={navigate} />}
+              {canViewAuditLogs && <NavItem icon={<IconFile />} label="审计日志" path="/admin/audit-logs" active={isActive('/admin/audit-logs')} onClick={navigate} />}
+              {canViewSystemSettings && <NavItem icon={<IconSettings />} label="系统设置" path="/admin/settings" active={isActive('/admin/settings')} onClick={navigate} />}
+            </>
+          )}
+        </div>
 
         {/* Bottom user section */}
-        <div style={{ marginTop: 'auto', padding: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+        <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
           <Dropdown
             trigger="click"
             position="tr"
