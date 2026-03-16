@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Table, Button, Space, Tag, Popconfirm, Message } from '@arco-design/web-react';
 import { IconPlus, IconCopy, IconDelete, IconEdit, IconPlayArrow } from '@arco-design/web-react/icon';
 import { fetchPipelines, deletePipeline, copyPipeline, type PipelineSummary } from '../../../services/pipeline';
+import { triggerPipelineRun } from '../../../services/pipelineRun';
 import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal';
 import { ListFilters } from '../../../components/common/ListFilters';
 import { useQueryFilters } from '../../../hooks/useQueryFilters';
@@ -101,6 +102,17 @@ export default function PipelineListPage() {
     }
   }, [projectId, loadData]);
 
+  const handleRunSubmit = useCallback(async (params: { params?: Record<string, string>; gitBranch?: string; gitCommit?: string }) => {
+    if (!projectId || !runModalPipeline) return;
+    try {
+      await triggerPipelineRun(projectId, runModalPipeline.id, params);
+      Message.success('已触发运行');
+      setRunModalPipeline(null);
+    } catch {
+      Message.error('触发运行失败');
+    }
+  }, [projectId, runModalPipeline]);
+
   const columns = useMemo(() => [
     {
       title: '名称',
@@ -196,6 +208,7 @@ export default function PipelineListPage() {
         visible={!!runModalPipeline}
         pipeline={runModalPipeline}
         onClose={() => setRunModalPipeline(null)}
+        onSubmit={handleRunSubmit}
       />
     </div>
   );
