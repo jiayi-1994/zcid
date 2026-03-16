@@ -135,17 +135,14 @@ body,
 }
 
 .app-sider {
-  background: linear-gradient(180deg, #1A1F2E 0%, #141824 100%) !important;
+  background: linear-gradient(180deg, #1A1F2E 0%, #141824 100%);
   border-right: none;
-  transition: width var(--zcid-transition-normal);
   overflow: hidden;
   box-shadow: 2px 0 8px rgba(0,0,0,0.15);
 }
 
-.app-sider .arco-layout-sider-children {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+.app-sider * {
+  box-sizing: border-box;
 }
 
 /* Custom nav items for sidebar (no Arco Menu dependency) */
@@ -156,9 +153,11 @@ body,
   padding: 0 12px;
   height: 38px;
   border-radius: var(--zcid-radius-md);
-  margin: 2px 0;
+  margin: 3px 0;
   font-size: 14px;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255,255,255,0.7);
+  background: transparent;
+  border: none;
   cursor: pointer;
   transition: all var(--zcid-transition-fast);
   user-select: none;
@@ -166,8 +165,8 @@ body,
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.95);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
 }
 
 .nav-item-active {
@@ -182,21 +181,27 @@ body,
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  color: inherit;
 }
 
 .nav-item-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: inherit;
 }
 
 .app-sider .sider-section-label {
-  padding: 16px 0 6px;
+  padding: 14px 0 6px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.35);
+}
+
+.app-sider .sider-section-label:first-child {
+  padding-top: 4px;
 }
 
 /* ─── Sidebar Logo ──────────────────────────────── */
