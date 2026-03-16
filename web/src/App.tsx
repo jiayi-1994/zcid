@@ -76,12 +76,27 @@ function App() {
             <Route path="variables" element={<VariableListPage />} />
             <Route path="pipelines" element={<Suspense fallback={<div />}><PipelineListPage /></Suspense>} />
             <Route path="pipelines/new" element={<Suspense fallback={<div />}><TemplateSelectPage /></Suspense>} />
-            <Route path="pipelines/blank" element={<Suspense fallback={<div />}><PipelineEditorPage /></Suspense>} />
-            <Route path="pipelines/:pipelineId" element={<Suspense fallback={<div />}><PipelineEditorPage /></Suspense>} />
             <Route path="pipelines/:pipelineId/runs" element={<Suspense fallback={<div />}><PipelineRunListPage /></Suspense>} />
             <Route path="pipelines/:pipelineId/runs/:runId" element={<Suspense fallback={<div />}><PipelineRunDetailPage /></Suspense>} />
             <Route path="notifications" element={<Suspense fallback={<div />}><NotificationRulesPage /></Suspense>} />
           </Route>
+          {/* Fullscreen pipeline editor — outside ProjectLayout for maximum canvas space */}
+          <Route
+            path="/projects/:id/pipelines/blank"
+            element={
+              <RequireAuth>
+                <Suspense fallback={<div />}><PipelineEditorPage /></Suspense>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/projects/:id/pipelines/:pipelineId"
+            element={
+              <RequireAuth>
+                <Suspense fallback={<div />}><PipelineEditorPage /></Suspense>
+              </RequireAuth>
+            }
+          />
           <Route
             path="/admin/variables"
             element={
