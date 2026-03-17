@@ -177,6 +177,20 @@ USE_PROXY=1 BITNAMI_REPO=bitnami bash deploy/install.sh
 
 ---
 
+## 一键卸载
+
+```bash
+# 卸载所有组件，保留数据（PVC）以便重新部署
+bash deploy/uninstall.sh
+
+# 彻底清除，包括持久化数据和 Namespace
+DELETE_DATA=1 bash deploy/uninstall.sh
+```
+
+卸载顺序与安装相反：zcid → ArgoCD → Tekton → MinIO → Redis → PostgreSQL。默认保留 PVC 数据，方便重装后恢复。
+
+---
+
 ## 分步部署
 
 ### Step 1: 创建 Namespace
