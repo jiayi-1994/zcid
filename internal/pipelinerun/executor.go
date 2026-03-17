@@ -3,60 +3,100 @@ package pipelinerun
 import (
 	"context"
 	"log/slog"
+	"math/rand"
+	"sync"
+	"time"
 
 	"github.com/xjy/zcid/pkg/tekton"
 )
 
-// SecretInjector creates a temporary K8s secret for pipeline run secrets (FR13).
 type SecretInjector interface {
 	InjectSecrets(ctx context.Context, namespace, runID string, secrets map[string]string) (secretName string, err error)
 }
 
-// MockSecretInjector creates no real secret; logs and returns a placeholder name.
-// TODO: Replace with real K8s secret creation when cluster is available.
 type MockSecretInjector struct{}
 
 func (m *MockSecretInjector) InjectSecrets(ctx context.Context, namespace, runID string, secrets map[string]string) (string, error) {
-	_ = ctx
-	_ = namespace
-	_ = runID
-	_ = secrets
 	slog.Info("MOCK: Would create K8s secret for pipeline run", "runID", runID, "keys", len(secrets))
 	return "zcid-run-" + runID, nil
 }
 
-// K8sClient abstracts Kubernetes/Tekton operations for pipeline execution.
-// TODO: Replace with real K8s client when cluster is available.
 type K8sClient interface {
 	SubmitPipelineRun(ctx context.Context, namespace string, pr *tekton.PipelineRun) error
 	DeletePipelineRun(ctx context.Context, namespace, name string) error
 	GetPipelineRunStatus(ctx context.Context, namespace, name string) (string, error)
 }
 
-// MockK8sClient implements K8sClient with no-op stubs for local development.
-type MockK8sClient struct{}
+type mockRun struct {
+	status    string
+	startedAt time.Time
+}
 
-// SubmitPipelineRun logs and returns success without submitting to K8s.
-func (m *MockK8sClient) SubmitPipelineRun(ctx context.Context, namespace string, pr *tekton.PipelineRun) error {
-	// TODO: Replace with real K8s client when cluster is available
-	name := ""
-	if pr.ObjectMeta.Name != "" {
-		name = pr.ObjectMeta.Name
+type MockK8sClient struct {
+	mu   sync.Mutex
+	runs map[string]*mockRun
+}
+
+func (m *MockK8sClient) init() {
+	if m.runs == nil {
+		m.runs = make(map[string]*mockRun)
 	}
-	slog.Info("MOCK: Would submit PipelineRun", "name", name, "namespace", namespace)
+}
+
+func (m *MockK8sClient) SubmitPipelineRun(ctx context.Context, namespace string, pr *tekton.PipelineRun) error {
+	m.mu.Lock()
+	m.init()
+	name := pr.ObjectMeta.Name
+	m.runs[name] = &mockRun{status: "Pending", startedAt: time.Now()}
+	m.mu.Unlock()
+
+	slog.Info("MOCK: Submitted PipelineRun", "name", name, "namespace", namespace)
+
+	go m.simulateLifecycle(name)
 	return nil
 }
 
-// DeletePipelineRun logs and returns success without deleting from K8s.
+func (m *MockK8sClient) simulateLifecycle(name string) {
+	time.Sleep(2 * time.Second)
+	m.mu.Lock()
+	if r, ok := m.runs[name]; ok {
+		r.status = "Running"
+	}
+	m.mu.Unlock()
+	slog.Info("MOCK: PipelineRun status → Running", "name", name)
+
+	duration := 5 + rand.Intn(10)
+	time.Sleep(time.Duration(duration) * time.Second)
+
+	finalStatus := "Succeeded"
+	if rand.Intn(10) < 2 {
+		finalStatus = "Failed"
+	}
+
+	m.mu.Lock()
+	if r, ok := m.runs[name]; ok {
+		r.status = finalStatus
+	}
+	m.mu.Unlock()
+	slog.Info("MOCK: PipelineRun status → "+finalStatus, "name", name)
+}
+
 func (m *MockK8sClient) DeletePipelineRun(ctx context.Context, namespace, name string) error {
-	// TODO: Replace with real K8s client when cluster is available
-	slog.Info("MOCK: Would delete PipelineRun", "name", name, "namespace", namespace)
+	m.mu.Lock()
+	m.init()
+	delete(m.runs, name)
+	m.mu.Unlock()
+	slog.Info("MOCK: Deleted PipelineRun", "name", name, "namespace", namespace)
 	return nil
 }
 
-// GetPipelineRunStatus returns a mock status without querying K8s.
 func (m *MockK8sClient) GetPipelineRunStatus(ctx context.Context, namespace, name string) (string, error) {
-	// TODO: Replace with real K8s client when cluster is available
-	slog.Info("MOCK: Would get PipelineRun status", "name", name, "namespace", namespace)
-	return "Running", nil
+	m.mu.Lock()
+	m.init()
+	r, ok := m.runs[name]
+	m.mu.Unlock()
+	if !ok {
+		return "Unknown", nil
+	}
+	return r.status, nil
 }

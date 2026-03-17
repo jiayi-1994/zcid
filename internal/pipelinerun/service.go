@@ -181,10 +181,62 @@ func (s *Service) TriggerRun(ctx context.Context, projectID, pipelineID, userID 
 		return nil, response.NewBizError(response.CodeRunSubmitFailed, "提交流水线运行失败", err.Error())
 	}
 
-	// TODO: Schedule cleanup of temp K8s secret after run completes
 	_ = secretName
 
+	go s.syncRunStatus(run.ID, projectID, namespace, tektonName)
+
 	return toResponse(run), nil
+}
+
+func (s *Service) syncRunStatus(runID, projectID, namespace, tektonName string) {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(30 * time.Minute)
+	var started bool
+
+	for {
+		select {
+		case <-timeout:
+			_ = s.repo.UpdateStatus(context.Background(), runID, projectID, StatusFailed, ptr("运行超时"))
+			return
+		case <-ticker.C:
+			status, err := s.k8sClient.GetPipelineRunStatus(context.Background(), namespace, tektonName)
+			if err != nil {
+				continue
+			}
+
+			switch status {
+			case "Running":
+				if !started {
+					started = true
+					now := time.Now()
+					_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
+						"status":     StatusRunning,
+						"started_at": now,
+						"updated_at": now,
+					})
+				}
+			case "Succeeded":
+				now := time.Now()
+				_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
+					"status":      StatusSucceeded,
+					"finished_at": now,
+					"updated_at":  now,
+				})
+				return
+			case "Failed":
+				now := time.Now()
+				_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
+					"status":        StatusFailed,
+					"finished_at":   now,
+					"updated_at":    now,
+					"error_message": "Pipeline execution failed",
+				})
+				return
+			}
+		}
+	}
 }
 
 func (s *Service) CancelRun(ctx context.Context, projectID, runID string) error {
