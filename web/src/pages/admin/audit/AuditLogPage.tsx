@@ -85,16 +85,16 @@ export function AuditLogPage() {
       },
     },
     {
-      title: '接口路径',
+      title: '接口',
       dataIndex: 'action',
-      width: 200,
+      width: 160,
+      ellipsis: true,
       render: (val: string) => {
         const path = extractPath(val);
+        const short = path.length > 22 ? path.substring(0, 22) + '…' : path;
         return (
           <Tooltip content={val} mini>
-            <code style={{ fontSize: 11, color: 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: 190 }}>
-              {path}
-            </code>
+            <code style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{short}</code>
           </Tooltip>
         );
       },
