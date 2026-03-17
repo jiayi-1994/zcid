@@ -183,7 +183,7 @@ USE_PROXY=1 STORAGE_CLASS=ceph-rbd BITNAMI_REPO=bitnami bash deploy/install.sh
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
-| `STORAGE_CLASS` | 空（集群默认） | 中间件 PVC 使用的 StorageClass，留空则使用集群默认 |
+| `STORAGE_CLASS` | 自动探测 | 中间件 PVC 使用的 StorageClass。未设置时自动探测：优先使用集群默认 SC，若无默认则使用唯一 SC |
 | `PERSISTENCE` | `true` | 设为 `false` 禁用 PVC 持久化（使用 emptyDir，适合测试环境） |
 | `USE_PROXY` | 空 | 设为 `1` 启用中国镜像代理 |
 | `BITNAMI_REPO` | `bitnamilegacy` | Bitnami Docker 镜像仓库前缀 |

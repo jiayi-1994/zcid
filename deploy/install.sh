@@ -10,7 +10,7 @@ PROXY=${USE_PROXY:+docker.gh-proxy.com/}
 BITNAMI_REPO=${BITNAMI_REPO:-bitnamilegacy}
 
 # StorageClass 设置
-#   留空 = 使用集群默认 StorageClass
+#   未设置 = 自动探测（优先默认 SC，否则使用集群唯一 SC）
 #   设为具体值 = 使用指定 StorageClass（如 edge-lvm, local-path, standard 等）
 STORAGE_CLASS=${STORAGE_CLASS:-}
 
@@ -18,6 +18,29 @@ STORAGE_CLASS=${STORAGE_CLASS:-}
 #   PERSISTENCE=true  (默认) 使用 PVC 持久化数据
 #   PERSISTENCE=false 使用 emptyDir，无需 StorageClass/PV（适合测试环境）
 PERSISTENCE=${PERSISTENCE:-true}
+
+# 自动探测 StorageClass（仅当 PERSISTENCE=true 且未显式指定 STORAGE_CLASS 时）
+if [ "$PERSISTENCE" != "false" ] && [ -z "$STORAGE_CLASS" ]; then
+  DEFAULT_SC=$(kubectl get storageclass -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{end}' 2>/dev/null)
+  if [ -n "$DEFAULT_SC" ]; then
+    STORAGE_CLASS="$DEFAULT_SC"
+    echo "  自动探测到默认 StorageClass: ${STORAGE_CLASS}"
+  else
+    SC_LIST=$(kubectl get storageclass -o jsonpath='{.items[*].metadata.name}' 2>/dev/null)
+    SC_COUNT=$(echo "$SC_LIST" | wc -w)
+    if [ "$SC_COUNT" -eq 1 ]; then
+      STORAGE_CLASS="$SC_LIST"
+      echo "  集群仅有一个 StorageClass，自动使用: ${STORAGE_CLASS}"
+    elif [ "$SC_COUNT" -eq 0 ]; then
+      echo "  ⚠ 警告: 集群中没有 StorageClass，PVC 可能无法绑定"
+      echo "  建议: 设置 PERSISTENCE=false 或安装存储供给器"
+    else
+      echo "  ⚠ 警告: 集群中有多个 StorageClass 但无默认值:"
+      echo "    $SC_LIST"
+      echo "  建议: 通过 STORAGE_CLASS=<name> 显式指定，否则 PVC 可能无法绑定"
+    fi
+  fi
+fi
 
 echo "===== Step 1: Namespace ====="
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
@@ -32,7 +55,7 @@ if [ -n "$STORAGE_CLASS" ]; then
   STORAGE_ARGS="--set global.storageClass=${STORAGE_CLASS}"
   echo "  StorageClass: ${STORAGE_CLASS}"
 else
-  echo "  StorageClass: (集群默认)"
+  echo "  StorageClass: (未指定)"
 fi
 
 # 构建持久化参数
