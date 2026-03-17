@@ -1,4 +1,4 @@
-CREATE TABLE git_connections (
+CREATE TABLE IF NOT EXISTS git_connections (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name          VARCHAR(100) NOT NULL,
     provider_type VARCHAR(20)  NOT NULL,
@@ -13,6 +13,6 @@ CREATE TABLE git_connections (
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX uk_git_connections_name ON git_connections(name) WHERE status != 'deleted';
-CREATE INDEX idx_git_connections_provider_type ON git_connections(provider_type);
-CREATE INDEX idx_git_connections_status ON git_connections(status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_git_connections_name ON git_connections(name) WHERE status != 'deleted';
+CREATE INDEX IF NOT EXISTS idx_git_connections_provider_type ON git_connections(provider_type);
+CREATE INDEX IF NOT EXISTS idx_git_connections_status ON git_connections(status);
