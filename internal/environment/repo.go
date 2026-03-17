@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/xjy/zcid/pkg/database"
 	"gorm.io/gorm"
 )
 
@@ -30,7 +31,7 @@ func (r *Repo) Create(ctx context.Context, e *Environment) error {
 	}
 
 	err := r.db.WithContext(ctx).Create(e).Error
-	if isUniqueConstraintError(err) {
+	if database.IsUniqueConstraintError(err) {
 		msg := strings.ToLower(err.Error())
 		if strings.Contains(msg, "uk_environments_namespace") {
 			return ErrNamespaceTaken
@@ -83,7 +84,7 @@ func (r *Repo) Update(ctx context.Context, id, projectID string, updates map[str
 	res := r.db.WithContext(ctx).Model(&Environment{}).
 		Where("id = ? AND project_id = ? AND status != ?", id, projectID, StatusDeleted).
 		Updates(updates)
-	if isUniqueConstraintError(res.Error) {
+	if database.IsUniqueConstraintError(res.Error) {
 		msg := strings.ToLower(res.Error.Error())
 		if strings.Contains(msg, "uk_environments_namespace") {
 			return ErrNamespaceTaken
@@ -110,12 +111,4 @@ func (r *Repo) SoftDelete(ctx context.Context, id, projectID string) error {
 		return ErrNotFound
 	}
 	return nil
-}
-
-func isUniqueConstraintError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint")
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/xjy/zcid/pkg/database"
 	"gorm.io/gorm"
 )
 
@@ -29,7 +30,7 @@ func (r *Repo) Create(ctx context.Context, s *ServiceDef) error {
 	}
 
 	err := r.db.WithContext(ctx).Create(s).Error
-	if isUniqueConstraintError(err) {
+	if database.IsUniqueConstraintError(err) {
 		return ErrNameTaken
 	}
 	if err != nil {
@@ -78,7 +79,7 @@ func (r *Repo) Update(ctx context.Context, id, projectID string, updates map[str
 	res := r.db.WithContext(ctx).Model(&ServiceDef{}).
 		Where("id = ? AND project_id = ? AND status != ?", id, projectID, StatusDeleted).
 		Updates(updates)
-	if isUniqueConstraintError(res.Error) {
+	if database.IsUniqueConstraintError(res.Error) {
 		return ErrNameTaken
 	}
 	if res.Error != nil {
@@ -101,12 +102,4 @@ func (r *Repo) SoftDelete(ctx context.Context, id, projectID string) error {
 		return ErrNotFound
 	}
 	return nil
-}
-
-func isUniqueConstraintError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint")
 }

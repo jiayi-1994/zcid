@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/xjy/zcid/pkg/database"
 	"gorm.io/gorm"
 )
 
@@ -39,7 +40,7 @@ func (r *Repo) Create(ctx context.Context, p *Pipeline) error {
 	}
 
 	err := r.db.WithContext(ctx).Create(p).Error
-	if isUniqueConstraintError(err) {
+	if database.IsUniqueConstraintError(err) {
 		return ErrNameDuplicate
 	}
 	if err != nil {
@@ -100,7 +101,7 @@ func (r *Repo) Update(ctx context.Context, id, projectID string, updates map[str
 	res := r.db.WithContext(ctx).Model(&Pipeline{}).
 		Where("id = ? AND project_id = ? AND status != ?", id, projectID, StatusDeleted).
 		Updates(updates)
-	if isUniqueConstraintError(res.Error) {
+	if database.IsUniqueConstraintError(res.Error) {
 		return ErrNameDuplicate
 	}
 	if res.Error != nil {
@@ -136,12 +137,4 @@ func (r *Repo) ExistsByNameAndProject(ctx context.Context, projectID, name strin
 		return false, fmt.Errorf("check pipeline name: %w", err)
 	}
 	return count > 0, nil
-}
-
-func isUniqueConstraintError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint")
 }

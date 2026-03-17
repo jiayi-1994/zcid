@@ -2,9 +2,9 @@ package variable
 
 import (
 	"errors"
-	"strings"
 	"time"
 
+	"github.com/xjy/zcid/pkg/database"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +23,7 @@ func NewRepo(db *gorm.DB) *Repo {
 
 func (r *Repo) Create(v *Variable) error {
 	if err := r.db.Create(v).Error; err != nil {
-		if isUniqueConstraintError(err) {
+		if database.IsUniqueConstraintError(err) {
 			return ErrKeyDuplicate
 		}
 		return err
@@ -75,7 +75,7 @@ func (r *Repo) Update(id string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now()
 	result := r.db.Model(&Variable{}).Where("id = ? AND status != ?", id, StatusDeleted).Updates(updates)
 	if result.Error != nil {
-		if isUniqueConstraintError(result.Error) {
+		if database.IsUniqueConstraintError(result.Error) {
 			return ErrKeyDuplicate
 		}
 		return result.Error
@@ -117,9 +117,4 @@ func (r *Repo) ListByPipelineScope(projectID, pipelineID string) ([]Variable, er
 		ScopePipeline, projectID, pipelineID, StatusDeleted,
 	).Order("key ASC").Find(&vars).Error
 	return vars, err
-}
-
-func isUniqueConstraintError(err error) bool {
-	return strings.Contains(err.Error(), "duplicate key") ||
-		strings.Contains(err.Error(), "UNIQUE constraint")
 }
