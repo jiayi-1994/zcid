@@ -106,7 +106,54 @@ func (s *Service) TriggerDeploy(ctx context.Context, projectID, userID string, r
 	d.SyncStatus = &syncStatus
 	d.HealthStatus = &healthStatus
 
+	go s.syncDeployStatus(d.ID, projectID)
+
 	return d, nil
+}
+
+func (s *Service) syncDeployStatus(deployID, projectID string) {
+	ticker := time.NewTicker(4 * time.Second)
+	defer ticker.Stop()
+	timeout := time.After(10 * time.Minute)
+
+	for {
+		select {
+		case <-timeout:
+			_ = s.repo.Update(context.Background(), deployID, projectID, map[string]any{
+				"status": string(StatusFailed), "error_message": "部署超时",
+			})
+			return
+		case <-ticker.C:
+			d, err := s.repo.FindByID(context.Background(), deployID, projectID)
+			if err != nil || d.ArgoAppName == nil {
+				return
+			}
+			status, err := s.argoClient.GetAppStatus(context.Background(), *d.ArgoAppName)
+			if err != nil {
+				continue
+			}
+			updates := map[string]any{
+				"sync_status":   status.Sync,
+				"health_status": status.Health,
+				"updated_at":    time.Now(),
+			}
+			switch status.Health {
+			case "Healthy":
+				updates["status"] = string(StatusHealthy)
+				updates["finished_at"] = time.Now()
+				_ = s.repo.Update(context.Background(), deployID, projectID, updates)
+				return
+			case "Degraded":
+				updates["status"] = string(StatusDegraded)
+				updates["finished_at"] = time.Now()
+				_ = s.repo.Update(context.Background(), deployID, projectID, updates)
+				return
+			case "Progressing":
+				updates["status"] = string(StatusSyncing)
+				_ = s.repo.Update(context.Background(), deployID, projectID, updates)
+			}
+		}
+	}
 }
 
 func (s *Service) GetDeployStatus(ctx context.Context, projectID, deployID string) (*Deployment, error) {
