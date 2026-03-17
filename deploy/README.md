@@ -34,6 +34,97 @@
 
 ---
 
+## 中国网络环境配置
+
+国内服务器拉取 `gcr.io`、`ghcr.io`、`registry.k8s.io`、`quay.io` 等海外镜像仓库时经常超时。推荐使用 GitHub 镜像代理加速。
+
+### 镜像代理对照表
+
+| 原始仓库 | 代理地址 | 使用场景 |
+|---------|---------|---------|
+| `ghcr.io` | `docker.gh-proxy.com/ghcr.io` | zcid 平台镜像、Tekton (ghcr 版本) |
+| `gcr.io` | `docker.gh-proxy.com/gcr.io` | Tekton (官方版本) |
+| `registry.k8s.io` | `docker.gh-proxy.com/registry.k8s.io` | K8s 系统组件 |
+| `quay.io` | `docker.gh-proxy.com/quay.io` | ArgoCD |
+| `docker.io` | `docker.gh-proxy.com/docker.io` | 基础镜像 (alpine, ubuntu 等) |
+
+### 方案 1：配置 containerd 全局镜像代理（推荐）
+
+在所有 K8s 节点上配置 containerd 镜像代理，对所有部署操作全局生效：
+
+```bash
+# 在每个 K8s 节点执行
+sudo mkdir -p /etc/containerd/certs.d/ghcr.io
+sudo tee /etc/containerd/certs.d/ghcr.io/hosts.toml <<EOF
+[host."https://docker.gh-proxy.com/ghcr.io"]
+  capabilities = ["pull", "resolve"]
+EOF
+
+sudo mkdir -p /etc/containerd/certs.d/gcr.io
+sudo tee /etc/containerd/certs.d/gcr.io/hosts.toml <<EOF
+[host."https://docker.gh-proxy.com/gcr.io"]
+  capabilities = ["pull", "resolve"]
+EOF
+
+sudo mkdir -p /etc/containerd/certs.d/quay.io
+sudo tee /etc/containerd/certs.d/quay.io/hosts.toml <<EOF
+[host."https://docker.gh-proxy.com/quay.io"]
+  capabilities = ["pull", "resolve"]
+EOF
+
+sudo mkdir -p /etc/containerd/certs.d/registry.k8s.io
+sudo tee /etc/containerd/certs.d/registry.k8s.io/hosts.toml <<EOF
+[host."https://docker.gh-proxy.com/registry.k8s.io"]
+  capabilities = ["pull", "resolve"]
+EOF
+
+# 重启 containerd
+sudo systemctl restart containerd
+```
+
+> 配置后无需修改任何 YAML 文件中的镜像地址，containerd 会自动通过代理拉取。
+
+### 方案 2：使用已替换镜像地址的 Tekton 部署文件
+
+项目中已提供将 `gcr.io` 替换为 `ghcr.io` 的 Tekton 部署文件，在中国网络环境下可直接使用：
+
+```bash
+# 使用 ghcr.io 版本（替代 gcr.io，国内更快）
+kubectl apply -f deploy/tekton/tekton-v0.62.0-ghcr.yaml
+
+# 如果 ghcr.io 也较慢，可以手动替换为代理地址：
+sed 's|ghcr.io|docker.gh-proxy.com/ghcr.io|g' deploy/tekton/tekton-v0.62.0-ghcr.yaml | kubectl apply -f -
+```
+
+### 方案 3：替换 zcid 和 ArgoCD 镜像地址
+
+```bash
+# zcid Helm chart - 使用代理拉取平台镜像
+helm install zcid deploy/helm/zcid/ -n zcid \
+  --set image.repository=docker.gh-proxy.com/ghcr.io/jiayi-1994/zcid \
+  ...
+
+# ArgoCD - 使用代理拉取 manifest
+curl -sSL https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.0/manifests/install.yaml \
+  | sed 's|quay.io|docker.gh-proxy.com/quay.io|g' \
+  | sed 's|ghcr.io|docker.gh-proxy.com/ghcr.io|g' \
+  | kubectl apply -n argocd -f -
+```
+
+### 方案 4：Helm 仓库代理
+
+如果 `charts.bitnami.com` 也无法访问：
+
+```bash
+# 使用国内 Helm 仓库镜像
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# 或使用阿里云 Helm 镜像
+helm repo add bitnami-ali https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
+```
+
+---
+
 ## 部署架构
 
 ```
@@ -66,12 +157,17 @@
 
 ## 快速部署
 
-适用于测试环境的一键部署脚本：
+适用于测试环境的一键部署脚本。
+
+> **中国网络环境**：执行 `USE_PROXY=1 bash deploy/install.sh` 自动使用镜像代理。
 
 ```bash
 #!/bin/bash
 set -e
 NAMESPACE=zcid
+
+# 镜像代理设置（中国网络环境设置 USE_PROXY=1）
+PROXY=${USE_PROXY:+docker.gh-proxy.com/}
 
 echo "===== Step 1: Namespace ====="
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
@@ -95,19 +191,36 @@ helm upgrade --install minio bitnami/minio -n $NAMESPACE \
   --set defaultBuckets=zcid-logs --set persistence.size=10Gi --wait --timeout=300s
 
 echo "===== Step 3: Tekton ====="
-kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.62.0/release.yaml
+if [ -n "$USE_PROXY" ]; then
+  echo "  (使用 ghcr 镜像 + 代理)"
+  sed "s|ghcr.io|${PROXY}ghcr.io|g" deploy/tekton/tekton-v0.62.0-ghcr.yaml | kubectl apply -f -
+else
+  kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.62.0/release.yaml
+fi
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=tekton-pipelines \
   -n tekton-pipelines --timeout=300s
 kubectl apply -f deploy/tekton/zcid-tekton-rbac.yaml
 
 echo "===== Step 4: ArgoCD ====="
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.0/manifests/install.yaml
+if [ -n "$USE_PROXY" ]; then
+  echo "  (使用镜像代理)"
+  curl -sSL https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.0/manifests/install.yaml \
+    | sed "s|quay.io|${PROXY}quay.io|g" \
+    | sed "s|ghcr.io|${PROXY}ghcr.io|g" \
+    | kubectl apply -n argocd -f -
+else
+  kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.0/manifests/install.yaml
+fi
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server \
   -n argocd --timeout=300s
 kubectl apply -f deploy/argocd/zcid-argocd-project.yaml
 
 echo "===== Step 5: zcid ====="
+ZCID_IMAGE="ghcr.io/jiayi-1994/zcid"
+[ -n "$USE_PROXY" ] && ZCID_IMAGE="${PROXY}${ZCID_IMAGE}"
+
 helm upgrade --install zcid deploy/helm/zcid/ -n $NAMESPACE \
+  --set image.repository=$ZCID_IMAGE \
   --set secrets.dbPassword=zcicd123 \
   --set secrets.redisPassword="" \
   --set secrets.minioSecretKey=zcicd123 \
@@ -125,7 +238,15 @@ echo "  浏览器打开 http://localhost:8080"
 echo "  账号: admin / admin123"
 ```
 
-保存为 `deploy/install.sh`，执行 `bash deploy/install.sh` 即可。
+保存为 `deploy/install.sh`：
+
+```bash
+# 海外环境
+bash deploy/install.sh
+
+# 中国环境（自动使用 docker.gh-proxy.com 镜像代理）
+USE_PROXY=1 bash deploy/install.sh
+```
 
 ---
 
@@ -176,7 +297,13 @@ kubectl get pods -n zcid
 
 ```bash
 # 安装 Tekton Pipelines v0.62
+# 海外环境：
 kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.62.0/release.yaml
+
+# 中国环境（使用项目内 ghcr 版本 + 代理）：
+sed 's|ghcr.io|docker.gh-proxy.com/ghcr.io|g' deploy/tekton/tekton-v0.62.0-ghcr.yaml | kubectl apply -f -
+
+# 等待就绪
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=tekton-pipelines \
   -n tekton-pipelines --timeout=300s
 
@@ -193,8 +320,16 @@ kubectl patch configmap feature-flags -n tekton-pipelines \
 详细文档：[`argocd/README.md`](argocd/README.md)
 
 ```bash
-# 安装 ArgoCD
+# 海外环境：
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.0/manifests/install.yaml
+
+# 中国环境（使用镜像代理）：
+curl -sSL https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.0/manifests/install.yaml \
+  | sed 's|quay.io|docker.gh-proxy.com/quay.io|g' \
+  | sed 's|ghcr.io|docker.gh-proxy.com/ghcr.io|g' \
+  | kubectl apply -n argocd -f -
+
+# 等待就绪
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server \
   -n argocd --timeout=300s
 
@@ -332,6 +467,14 @@ helm upgrade zcid deploy/helm/zcid/ -n zcid --set image.tag=new-version
 ```bash
 kubectl logs -f deploy/zcid -n zcid
 ```
+
+### Q: 中国环境部署时镜像拉取超时怎么办？
+
+三种方案（任选其一）：
+
+1. **containerd 全局代理**（推荐）— 配置一次，所有拉取自动走代理，见上方「中国网络环境配置」
+2. **一键脚本加代理**：`USE_PROXY=1 bash deploy/install.sh`
+3. **手动 sed 替换**：在 `kubectl apply` 前用 `sed` 将镜像地址替换为 `docker.gh-proxy.com/` 前缀
 
 ### Q: 如何连接外部数据库？
 
