@@ -41,19 +41,22 @@ config:
   ginMode: "release"
 
   # Database (connect to middleware PostgreSQL)
-  dbHost: "zcicd-pg-postgresql"
+  # Service name = <helm-release>-postgresql (install.sh uses release name "postgresql")
+  dbHost: "postgresql-postgresql"
   dbPort: "5432"
   dbName: "zcicd"
   dbUser: "postgres"
   dbSSLMode: "disable"
 
   # Redis
-  redisHost: "zcicd-redis-master"
+  # Service name = <helm-release>-master (install.sh uses release name "redis")
+  redisHost: "redis-master"
   redisPort: "6379"
   redisDB: "0"
 
   # MinIO
-  minioEndpoint: "zcicd-minio:9000"
+  # Service name = <helm-release> (install.sh uses release name "minio")
+  minioEndpoint: "minio:9000"
   minioBucket: "zcid-logs"
   minioUseSSL: "false"
 

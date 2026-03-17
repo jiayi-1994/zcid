@@ -108,8 +108,13 @@ ZCID_IMAGE="ghcr.io/jiayi-1994/zcid"
 
 helm upgrade --install zcid deploy/helm/zcid/ -n $NAMESPACE \
   --set image.repository=$ZCID_IMAGE \
+  --set image.tag=latest \
+  --set config.dbHost=postgresql-postgresql \
+  --set config.redisHost=redis-master \
+  --set config.minioEndpoint=minio:9000 \
   --set secrets.dbPassword=zcicd123 \
   --set secrets.redisPassword="" \
+  --set secrets.minioAccessKey=minioadmin \
   --set secrets.minioSecretKey=zcicd123 \
   --set secrets.jwtSecret=zcid-jwt-test-$(date +%s) \
   --set config.encryptionKey=0123456789abcdef0123456789abcdef \
