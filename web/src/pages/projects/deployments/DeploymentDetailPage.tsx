@@ -18,6 +18,7 @@ import {
   rollbackDeploy,
   type Deployment,
 } from '../../../services/deployment';
+import { extractErrorMessage } from '../../../services/http';
 
 const statusColors: Record<string, string> = {
   pending: 'gray',
@@ -77,8 +78,8 @@ export function DeploymentDetailPage() {
       const d = await resyncDeploy(projectId, deployId);
       setDeploy(d);
       Message.success('已触发重新同步');
-    } catch (err: any) {
-      Message.error(err.response?.data?.message || '重新同步失败');
+    } catch (err: unknown) {
+      Message.error(extractErrorMessage(err, '重新同步失败'));
     }
   };
 
@@ -89,8 +90,8 @@ export function DeploymentDetailPage() {
       setDeploy(d);
       Message.success('已触发回滚');
       loadData();
-    } catch (err: any) {
-      Message.error(err.response?.data?.message || '回滚失败');
+    } catch (err: unknown) {
+      Message.error(extractErrorMessage(err, '回滚失败'));
     }
   };
 

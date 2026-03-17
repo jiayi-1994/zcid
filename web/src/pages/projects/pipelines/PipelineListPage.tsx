@@ -9,7 +9,7 @@ import { ListFilters } from '../../../components/common/ListFilters';
 import { useQueryFilters } from '../../../hooks/useQueryFilters';
 
 const PAGE_SIZE = 20;
-const LOAD_ALL_SIZE = 500;
+const LOAD_ALL_SIZE = 200;
 
 const statusColors: Record<string, string> = {
   draft: 'gray',

@@ -1,6 +1,6 @@
 import { Modal, Form, Input, Select, Message } from '@arco-design/web-react';
 import { useState } from 'react';
-import { http } from '../../services/http';
+import { http, extractErrorMessage } from '../../services/http';
 
 interface UserFormModalProps {
   visible: boolean;
@@ -31,8 +31,8 @@ export function UserFormModal({ visible, user, onClose, onSuccess }: UserFormMod
       onSuccess();
       onClose();
       form.resetFields();
-    } catch (error: any) {
-      Message.error(error.response?.data?.message || '操作失败');
+    } catch (error: unknown) {
+      Message.error(extractErrorMessage(error, '操作失败'));
     } finally {
       setLoading(false);
     }

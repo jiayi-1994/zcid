@@ -112,4 +112,13 @@ http.interceptors.response.use(
   },
 );
 
+export function extractErrorMessage(err: unknown, fallback = '操作失败'): string {
+  if (axios.isAxiosError(err)) {
+    const serverMsg = err.response?.data?.message;
+    if (typeof serverMsg === 'string' && serverMsg) return serverMsg;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 export { http };

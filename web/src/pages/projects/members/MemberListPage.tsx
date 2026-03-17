@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/auth';
 import { fetchMembers, addMember, removeMember, updateMemberRole, type MemberItem } from '../../../services/project';
+import { extractErrorMessage } from '../../../services/http';
 
 const FormItem = Form.Item;
 
@@ -27,8 +28,8 @@ export function MemberListPage() {
     try {
       const data = await fetchMembers(projectId);
       setMembers(data.items ?? []);
-    } catch (err: any) {
-      Message.error(err.response?.data?.message || '加载成员列表失败');
+    } catch (err: unknown) {
+      Message.error(extractErrorMessage(err, '加载成员列表失败'));
     } finally {
       setLoading(false);
     }
@@ -45,8 +46,9 @@ export function MemberListPage() {
       form.resetFields();
       setModalVisible(false);
       loadData();
-    } catch (err: any) {
-      if (err.response?.data?.message) Message.error(err.response.data.message);
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err, '');
+      if (msg) Message.error(msg);
     } finally {
       setSubmitLoading(false);
     }
@@ -57,8 +59,8 @@ export function MemberListPage() {
       await removeMember(projectId!, userId);
       Message.success('成员已移除');
       loadData();
-    } catch (err: any) {
-      Message.error(err.response?.data?.message || '移除失败');
+    } catch (err: unknown) {
+      Message.error(extractErrorMessage(err, '移除失败'));
     }
   };
 
@@ -67,8 +69,8 @@ export function MemberListPage() {
       await updateMemberRole(projectId!, userId, newRole);
       Message.success('角色已更新');
       loadData();
-    } catch (err: any) {
-      Message.error(err.response?.data?.message || '更新失败');
+    } catch (err: unknown) {
+      Message.error(extractErrorMessage(err, '更新失败'));
     }
   };
 
@@ -95,7 +97,7 @@ export function MemberListPage() {
     { title: '加入时间', dataIndex: 'joinedAt' },
     {
       title: '操作',
-      render: (_: any, record: MemberItem) => isAdmin ? (
+      render: (_: unknown, record: MemberItem) => isAdmin ? (
         <Popconfirm title="确定移除？" onOk={() => handleRemove(record.userId)}>
           <Button type="text" size="small" status="danger">移除</Button>
         </Popconfirm>

@@ -1,4 +1,4 @@
-import { Button, Grid, Message, Popconfirm, Tag, Skeleton, Input } from '@arco-design/web-react';
+import { Button, Grid, Message, Popconfirm, Tag, Skeleton, Input, Pagination } from '@arco-design/web-react';
 import { IconPlus, IconSearch, IconThunderbolt, IconClockCircle, IconArrowRight } from '@arco-design/web-react/icon';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -107,19 +107,24 @@ function ProjectCard({ project, onEnter, onDelete, canDelete }: {
   );
 }
 
+const PROJECT_PAGE_SIZE = 12;
+
 export function ProjectListPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const navigate = useNavigate();
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin');
 
-  const loadProjects = useCallback(async () => {
+  const loadProjects = useCallback(async (p: number) => {
     setLoading(true);
     try {
-      const data = await fetchProjects(1, 100);
+      const data = await fetchProjects(p, PROJECT_PAGE_SIZE);
       setProjects(data.items ?? []);
+      setTotal(data.total);
     } catch {
       Message.error('加载项目列表失败');
     } finally {
@@ -127,7 +132,7 @@ export function ProjectListPage() {
     }
   }, []);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  useEffect(() => { loadProjects(page); }, [loadProjects, page]);
 
   const filteredProjects = useMemo(() => {
     if (!search.trim()) return projects;
@@ -139,7 +144,7 @@ export function ProjectListPage() {
     try {
       await deleteProject(id);
       Message.success('项目已删除');
-      loadProjects();
+      loadProjects(page);
     } catch {
       Message.error('删除失败');
     }
@@ -177,7 +182,7 @@ export function ProjectListPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <IconThunderbolt style={{ fontSize: 16, color: '#165DFF' }} />
-            <span style={{ fontSize: 13, color: '#4E5969' }}>共 <strong style={{ color: '#1D2129' }}>{projects.length}</strong> 个项目</span>
+            <span style={{ fontSize: 13, color: '#4E5969' }}>共 <strong style={{ color: '#1D2129' }}>{total}</strong> 个项目</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#00B42A' }} />
@@ -214,24 +219,37 @@ export function ProjectListPage() {
             )}
           </div>
         ) : (
-          <Row gutter={[16, 16]}>
-            {filteredProjects.map((p) => (
-              <Col key={p.id} xs={24} sm={12} md={8} lg={6}>
-                <ProjectCard
-                  project={p}
-                  onEnter={(id) => navigate(`/projects/${id}/pipelines`)}
-                  onDelete={handleDelete}
-                  canDelete={isAdmin}
+          <>
+            <Row gutter={[16, 16]}>
+              {filteredProjects.map((p) => (
+                <Col key={p.id} xs={24} sm={12} md={8} lg={6}>
+                  <ProjectCard
+                    project={p}
+                    onEnter={(id) => navigate(`/projects/${id}/pipelines`)}
+                    onDelete={handleDelete}
+                    canDelete={isAdmin}
+                  />
+                </Col>
+              ))}
+            </Row>
+            {total > PROJECT_PAGE_SIZE && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <Pagination
+                  current={page}
+                  pageSize={PROJECT_PAGE_SIZE}
+                  total={total}
+                  onChange={setPage}
+                  showTotal
                 />
-              </Col>
-            ))}
-          </Row>
+              </div>
+            )}
+          </>
         )}
 
         <ProjectFormModal
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
-          onSuccess={() => { setModalVisible(false); loadProjects(); }}
+          onSuccess={() => { setModalVisible(false); loadProjects(page); }}
         />
       </div>
     </AppLayout>
