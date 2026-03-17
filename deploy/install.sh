@@ -9,6 +9,9 @@ PROXY=${USE_PROXY:+docker.gh-proxy.com/}
 # 如需使用付费 Bitnami Secure Images，将此值改为 bitnami
 BITNAMI_REPO=${BITNAMI_REPO:-bitnamilegacy}
 
+# Docker Hub 镜像地址（启用代理时走 docker.gh-proxy.com）
+DOCKER_REGISTRY="${PROXY}docker.io"
+
 # StorageClass 设置
 #   留空 = 使用集群默认 StorageClass
 #   设为具体值 = 使用指定 StorageClass（如 edge-lvm, local-path, standard 等）
@@ -24,7 +27,7 @@ kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f 
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 
 echo "===== Step 2: Middleware (PostgreSQL + Redis + MinIO) ====="
-echo "  (镜像仓库: docker.io/${BITNAMI_REPO})"
+echo "  (镜像仓库: ${DOCKER_REGISTRY}/${BITNAMI_REPO})"
 
 # 构建 StorageClass 参数
 STORAGE_ARGS=""
@@ -52,23 +55,24 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 
 helm upgrade --install postgresql bitnami/postgresql -n $NAMESPACE \
-  --set global.imageRegistry=docker.io \
-  --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/postgresql \
+  --set global.imageRegistry=${DOCKER_REGISTRY} \
+  --set image.registry=${DOCKER_REGISTRY} --set image.repository=${BITNAMI_REPO}/postgresql \
   $STORAGE_ARGS \
   --set auth.database=zcicd --set auth.username=postgres \
   --set auth.postgresPassword=zcicd123 \
   $PG_PERSIST_ARGS --wait --timeout=300s
 
 helm upgrade --install redis bitnami/redis -n $NAMESPACE \
-  --set global.imageRegistry=docker.io \
-  --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/redis \
+  --set global.imageRegistry=${DOCKER_REGISTRY} \
+  --set image.registry=${DOCKER_REGISTRY} --set image.repository=${BITNAMI_REPO}/redis \
   $STORAGE_ARGS \
   --set architecture=standalone --set auth.enabled=false \
   $REDIS_PERSIST_ARGS --wait --timeout=300s
 
 helm upgrade --install minio bitnami/minio -n $NAMESPACE \
-  --set global.imageRegistry=docker.io \
-  --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/minio \
+  --set global.imageRegistry=${DOCKER_REGISTRY} \
+  --set image.registry=${DOCKER_REGISTRY} --set image.repository=${BITNAMI_REPO}/minio \
+  --set clientImage.registry=${DOCKER_REGISTRY} --set clientImage.repository=${BITNAMI_REPO}/minio \
   $STORAGE_ARGS \
   --set auth.rootUser=minioadmin --set auth.rootPassword=zcicd123 \
   --set defaultBuckets=zcid-logs $MINIO_PERSIST_ARGS --wait --timeout=300s
