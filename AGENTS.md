@@ -50,7 +50,8 @@ See `README.md` "Local Development" section. Key commands:
 ### Gotchas
 
 - MinIO needs write permissions on its data directory (`/data/minio`). If you see "file access denied", run `sudo chmod -R 777 /data/minio` before starting MinIO.
-- The backend requires `config/config.yaml` to exist (copied from `config/config.yaml.example`) with DB password and MinIO secret key filled in.
+- The backend requires `config/config.yaml` to exist (copied from `config/config.yaml.example`) with DB password and MinIO secret key filled in. The repo already ships a `config/config.yaml` with working dev defaults (DB password `password`, MinIO `minioadmin/minioadmin`).
 - The `ZCID_ENCRYPTION_KEY` env var must be set when running the backend for variable encryption features to work.
 - Redis is started without a password in local dev. The config.yaml `redis.password` field should be left empty.
 - Without K8s, Tekton, and ArgoCD, the app automatically uses mock clients — no configuration needed.
+- The PostgreSQL database and `zcid` user must be created before running migrations. Use: `sudo -u postgres psql -c "CREATE USER zcid WITH PASSWORD 'password';"` and `sudo -u postgres psql -c "CREATE DATABASE zcid OWNER zcid;"`.
