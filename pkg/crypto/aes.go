@@ -18,10 +18,10 @@ const (
 )
 
 var (
-	ErrKeyNotSet    = errors.New("encryption key not set")
-	ErrKeyTooShort  = errors.New("encryption key must be 32 bytes")
-	ErrDecryptFail  = errors.New("failed to decrypt value")
-	ErrInvalidData  = errors.New("invalid encrypted data")
+	ErrKeyNotSet   = errors.New("encryption key not set")
+	ErrKeyTooShort = errors.New("encryption key must be 32 bytes")
+	ErrDecryptFail = errors.New("failed to decrypt value")
+	ErrInvalidData = errors.New("invalid encrypted data")
 )
 
 type AESCrypto struct {

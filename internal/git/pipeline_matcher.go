@@ -9,8 +9,8 @@ import (
 
 // PipelineMatcher implements PipelineMatchService for webhook-to-pipeline matching.
 type PipelineMatcher struct {
-	pipelineRepo   pipelineByTriggerType
-	gitConnRepo    gitConnectionLister
+	pipelineRepo pipelineByTriggerType
+	gitConnRepo  gitConnectionLister
 }
 
 type pipelineByTriggerType interface {

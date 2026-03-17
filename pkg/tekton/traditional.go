@@ -13,15 +13,15 @@ var unsafeShellChars = regexp.MustCompile("[;|`$&><]")
 
 // TraditionalBuildConfig holds configuration for non-containerized (traditional) build chains
 type TraditionalBuildConfig struct {
-	GitURL         string
-	Branch         string
-	Commit         string
-	BuildImage     string
-	BuildCommand   string
-	ArtifactPath   string
-	MinioEndpoint  string
-	MinioBucket    string
-	MinioSecret    string
+	GitURL        string
+	Branch        string
+	Commit        string
+	BuildImage    string
+	BuildCommand  string
+	ArtifactPath  string
+	MinioEndpoint string
+	MinioBucket   string
+	MinioSecret   string
 }
 
 func validateShellSafe(name, value string) error {

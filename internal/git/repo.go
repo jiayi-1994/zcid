@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("git connection not found")
+	ErrNotFound      = errors.New("git connection not found")
 	ErrNameDuplicate = errors.New("git connection name already exists")
 )
 

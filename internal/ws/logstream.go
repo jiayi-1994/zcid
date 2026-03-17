@@ -88,6 +88,7 @@ func (p *PlaceholderSecretMasker) GetSecretsToMask(runID string) []string {
 
 // MockLogCollector implements LogCollector with no-op behavior.
 type MockLogCollector struct{}
+
 // TODO: Replace with real K8s log streaming (e.g. corev1.PodInterface.GetLogs with stream).
 func (m *MockLogCollector) StreamLogs(ctx context.Context, namespace, podName string, handler func(line string)) {
 	slog.Info("MOCK: StreamLogs", slog.String("namespace", namespace), slog.String("podName", podName))
@@ -96,12 +97,12 @@ func (m *MockLogCollector) StreamLogs(ctx context.Context, namespace, podName st
 
 // LogStreamManager manages log buffers and streams logs to the hub.
 type LogStreamManager struct {
-	hub        *Hub
-	buffers    map[string]*LogBuffer
-	cancels    map[string]context.CancelFunc
-	collector  LogCollector
-	masker     SecretMasker
-	mu         sync.RWMutex
+	hub       *Hub
+	buffers   map[string]*LogBuffer
+	cancels   map[string]context.CancelFunc
+	collector LogCollector
+	masker    SecretMasker
+	mu        sync.RWMutex
 }
 
 // NewLogStreamManager creates a LogStreamManager.
@@ -155,9 +156,9 @@ func (m *LogStreamManager) StartStreaming(runID, namespace, podName string) {
 		}
 		seq := buffer.Append(ll)
 		msg := WSMessage{
-			Type: MsgTypeLog,
-			Seq:  seq,
-			Data: LogData{Line: masked, StepID: ll.StepID, Level: ll.Level},
+			Type:      MsgTypeLog,
+			Seq:       seq,
+			Data:      LogData{Line: masked, StepID: ll.StepID, Level: ll.Level},
 			Timestamp: ll.Timestamp,
 		}
 		buf, err := json.Marshal(msg)
@@ -183,9 +184,9 @@ func (m *LogStreamManager) ReplayFn() ReplayFn {
 		for _, ll := range lines {
 			// Content already masked when appended
 			msg := WSMessage{
-				Type: MsgTypeLog,
-				Seq:  ll.Seq,
-				Data: LogData{Line: ll.Content, StepID: ll.StepID, Level: ll.Level},
+				Type:      MsgTypeLog,
+				Seq:       ll.Seq,
+				Data:      LogData{Line: ll.Content, StepID: ll.StepID, Level: ll.Level},
 				Timestamp: ll.Timestamp,
 			}
 			buf, err := json.Marshal(msg)

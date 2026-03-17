@@ -1,12 +1,12 @@
 package registry
 
 type CreateRegistryRequest struct {
-	Name     string `json:"name" binding:"required,max=200"`
-	Type     string `json:"type" binding:"required"`
-	URL      string `json:"url" binding:"required,max=500"`
-	Username string `json:"username" binding:"max=200"`
-	Password string `json:"password"`
-	IsDefault bool  `json:"isDefault"`
+	Name      string `json:"name" binding:"required,max=200"`
+	Type      string `json:"type" binding:"required"`
+	URL       string `json:"url" binding:"required,max=500"`
+	Username  string `json:"username" binding:"max=200"`
+	Password  string `json:"password"`
+	IsDefault bool   `json:"isDefault"`
 }
 
 type UpdateRegistryRequest struct {

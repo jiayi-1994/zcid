@@ -10,8 +10,8 @@ import (
 )
 
 type SystemSettings struct {
-	K8sClusterURL   string `json:"k8sClusterUrl"`
-	DefaultRegistry  string `json:"defaultRegistry"`
+	K8sClusterURL   string            `json:"k8sClusterUrl"`
+	DefaultRegistry string            `json:"defaultRegistry"`
 	GlobalSettings  map[string]string `json:"globalSettings,omitempty"`
 }
 
@@ -29,7 +29,7 @@ type IntegrationStatus struct {
 var (
 	settingsMu sync.RWMutex
 	settings   = &SystemSettings{
-		K8sClusterURL:  "https://kubernetes.default.svc",
+		K8sClusterURL:   "https://kubernetes.default.svc",
 		DefaultRegistry: "docker.io",
 		GlobalSettings:  map[string]string{},
 	}
@@ -39,7 +39,7 @@ func GetSettings() SystemSettings {
 	settingsMu.RLock()
 	defer settingsMu.RUnlock()
 	cpy := SystemSettings{
-		K8sClusterURL:  settings.K8sClusterURL,
+		K8sClusterURL:   settings.K8sClusterURL,
 		DefaultRegistry: settings.DefaultRegistry,
 	}
 	if settings.GlobalSettings != nil {

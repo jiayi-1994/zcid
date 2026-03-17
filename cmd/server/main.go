@@ -17,34 +17,35 @@ import (
 	"github.com/xjy/zcid/config"
 	"github.com/xjy/zcid/internal/admin"
 	"github.com/xjy/zcid/internal/audit"
-	"github.com/xjy/zcid/internal/crdclean"
 	"github.com/xjy/zcid/internal/auth"
+	"github.com/xjy/zcid/internal/crdclean"
 	"github.com/xjy/zcid/internal/deployment"
 	"github.com/xjy/zcid/internal/environment"
 	gitmod "github.com/xjy/zcid/internal/git"
-	"github.com/xjy/zcid/internal/registry"
+	"github.com/xjy/zcid/internal/logarchive"
+	"github.com/xjy/zcid/internal/notification"
 	"github.com/xjy/zcid/internal/pipeline"
 	"github.com/xjy/zcid/internal/pipelinerun"
 	"github.com/xjy/zcid/internal/project"
 	"github.com/xjy/zcid/internal/rbac"
+	"github.com/xjy/zcid/internal/registry"
 	"github.com/xjy/zcid/internal/svcdef"
-	"github.com/xjy/zcid/internal/logarchive"
-	"github.com/xjy/zcid/internal/notification"
 	"github.com/xjy/zcid/internal/variable"
 	"github.com/xjy/zcid/internal/ws"
-	"github.com/xjy/zcid/pkg/cache"
 	"github.com/xjy/zcid/pkg/argocd"
+	"github.com/xjy/zcid/pkg/cache"
 	"github.com/xjy/zcid/pkg/crypto"
-	k8sclient "github.com/xjy/zcid/pkg/k8s"
-	"github.com/xjy/zcid/pkg/tekton"
 	"github.com/xjy/zcid/pkg/database"
+	k8sclient "github.com/xjy/zcid/pkg/k8s"
 	"github.com/xjy/zcid/pkg/logging"
 	"github.com/xjy/zcid/pkg/middleware"
 	"github.com/xjy/zcid/pkg/response"
 	"github.com/xjy/zcid/pkg/storage"
+	"github.com/xjy/zcid/pkg/tekton"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gorm.io/gorm"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"gorm.io/gorm"
 )
 
 func main() {
@@ -118,7 +119,10 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.RequestID())
 	r.Use(middleware.ErrorRecovery())
+	r.Use(middleware.PrometheusMetrics())
 	r.Use(middleware.AccessLogger())
+
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	var aesCrypto *crypto.AESCrypto
 	if cfg.Encryption.Key != "" {

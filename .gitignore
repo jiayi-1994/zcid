@@ -71,3 +71,4 @@ coverage/
 
 # Old charts dir (replaced by deploy/helm)
 /charts/
+web/dump.rdb
