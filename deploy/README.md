@@ -162,8 +162,11 @@ helm repo add bitnami-ali https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
 > **Bitnami 镜像迁移注意**：2025 年 8 月起，Bitnami 已将免费 Docker 镜像从 `docker.io/bitnami/` 迁移到 `docker.io/bitnamilegacy/`，且不再更新。脚本默认使用 `bitnamilegacy`。如已购买 Bitnami Secure Images 订阅，可设置 `BITNAMI_REPO=bitnami` 使用付费仓库。
 
 ```bash
-# 海外环境
+# 海外环境（默认 StorageClass: edge-lvm）
 bash deploy/install.sh
+
+# 指定 StorageClass
+STORAGE_CLASS=local-path bash deploy/install.sh
 
 # 中国环境（自动使用 docker.gh-proxy.com 镜像代理）
 USE_PROXY=1 bash deploy/install.sh
@@ -171,9 +174,15 @@ USE_PROXY=1 bash deploy/install.sh
 # 使用付费 Bitnami 仓库
 BITNAMI_REPO=bitnami bash deploy/install.sh
 
-# 中国环境 + 付费 Bitnami
-USE_PROXY=1 BITNAMI_REPO=bitnami bash deploy/install.sh
+# 完整自定义示例
+USE_PROXY=1 STORAGE_CLASS=ceph-rbd BITNAMI_REPO=bitnami bash deploy/install.sh
 ```
+
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `STORAGE_CLASS` | `edge-lvm` | 中间件 PVC 使用的 StorageClass |
+| `USE_PROXY` | 空 | 设为 `1` 启用中国镜像代理 |
+| `BITNAMI_REPO` | `bitnamilegacy` | Bitnami Docker 镜像仓库前缀 |
 
 ---
 
@@ -209,9 +218,10 @@ kubectl create namespace argocd
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami && helm repo update
 
-# PostgreSQL（注意 image.repository 使用 bitnamilegacy）
+# PostgreSQL（注意 image.repository 使用 bitnamilegacy，storageClass 按集群实际调整）
 helm install postgresql bitnami/postgresql -n zcid \
   --set image.registry=docker.io --set image.repository=bitnamilegacy/postgresql \
+  --set global.storageClass=edge-lvm \
   --set auth.database=zcicd \
   --set auth.username=postgres \
   --set auth.postgresPassword=<your-password> \
@@ -220,11 +230,13 @@ helm install postgresql bitnami/postgresql -n zcid \
 # Redis
 helm install redis bitnami/redis -n zcid \
   --set image.registry=docker.io --set image.repository=bitnamilegacy/redis \
+  --set global.storageClass=edge-lvm \
   --set architecture=standalone --set auth.enabled=false
 
 # MinIO
 helm install minio bitnami/minio -n zcid \
   --set image.registry=docker.io --set image.repository=bitnamilegacy/minio \
+  --set global.storageClass=edge-lvm \
   --set auth.rootUser=minioadmin \
   --set auth.rootPassword=<your-password> \
   --set defaultBuckets=zcid-logs

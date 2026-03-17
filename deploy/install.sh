@@ -9,18 +9,22 @@ PROXY=${USE_PROXY:+docker.gh-proxy.com/}
 # 如需使用付费 Bitnami Secure Images，将此值改为 bitnami
 BITNAMI_REPO=${BITNAMI_REPO:-bitnamilegacy}
 
+# StorageClass 设置（默认 edge-lvm，按实际集群调整）
+STORAGE_CLASS=${STORAGE_CLASS:-edge-lvm}
+
 echo "===== Step 1: Namespace ====="
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 
 echo "===== Step 2: Middleware (PostgreSQL + Redis + MinIO) ====="
-echo "  (使用镜像仓库: docker.io/${BITNAMI_REPO})"
+echo "  (镜像仓库: docker.io/${BITNAMI_REPO}, StorageClass: ${STORAGE_CLASS})"
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 
 helm upgrade --install postgresql bitnami/postgresql -n $NAMESPACE \
   --set global.imageRegistry=docker.io \
   --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/postgresql \
+  --set global.storageClass=${STORAGE_CLASS} \
   --set auth.database=zcicd --set auth.username=postgres \
   --set auth.postgresPassword=zcicd123 \
   --set primary.persistence.size=10Gi --wait --timeout=300s
@@ -28,12 +32,14 @@ helm upgrade --install postgresql bitnami/postgresql -n $NAMESPACE \
 helm upgrade --install redis bitnami/redis -n $NAMESPACE \
   --set global.imageRegistry=docker.io \
   --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/redis \
+  --set global.storageClass=${STORAGE_CLASS} \
   --set architecture=standalone --set auth.enabled=false \
   --set master.persistence.size=1Gi --wait --timeout=300s
 
 helm upgrade --install minio bitnami/minio -n $NAMESPACE \
   --set global.imageRegistry=docker.io \
   --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/minio \
+  --set global.storageClass=${STORAGE_CLASS} \
   --set auth.rootUser=minioadmin --set auth.rootPassword=zcicd123 \
   --set defaultBuckets=zcid-logs --set persistence.size=10Gi --wait --timeout=300s
 
