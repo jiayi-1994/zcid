@@ -88,7 +88,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         {/* Bottom user section */}
-        <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+        <div style={{ padding: '12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <Dropdown
             trigger="click"
             position="tr"
@@ -102,26 +102,26 @@ export function AppLayout({ children }: AppLayoutProps) {
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 10px', borderRadius: 8,
               cursor: 'pointer', transition: 'background 0.15s',
-              color: 'rgba(255,255,255,0.9)',
+              color: 'var(--foreground)',
             }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
               <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: 'linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)',
+                width: 28, height: 28, borderRadius: 6,
+                background: '#18181B',
                 color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 700, flexShrink: 0,
+                fontSize: 12, fontWeight: 600, flexShrink: 0,
               }}>
                 {userInitial}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user?.username}
                 </div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{roleLabel}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{roleLabel}</div>
               </div>
-              <IconDown style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }} />
+              <IconDown style={{ fontSize: 10, color: 'var(--muted-foreground)' }} />
             </div>
           </Dropdown>
         </div>
