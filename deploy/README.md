@@ -162,11 +162,14 @@ helm repo add bitnami-ali https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
 > **Bitnami 镜像迁移注意**：2025 年 8 月起，Bitnami 已将免费 Docker 镜像从 `docker.io/bitnami/` 迁移到 `docker.io/bitnamilegacy/`，且不再更新。脚本默认使用 `bitnamilegacy`。如已购买 Bitnami Secure Images 订阅，可设置 `BITNAMI_REPO=bitnami` 使用付费仓库。
 
 ```bash
-# 海外环境（默认 StorageClass: edge-lvm）
+# 最简部署（使用集群默认 StorageClass）
 bash deploy/install.sh
 
 # 指定 StorageClass
 STORAGE_CLASS=local-path bash deploy/install.sh
+
+# 无持久化存储（测试环境，无需 StorageClass/PV）
+PERSISTENCE=false bash deploy/install.sh
 
 # 中国环境（自动使用 docker.gh-proxy.com 镜像代理）
 USE_PROXY=1 bash deploy/install.sh
@@ -180,7 +183,8 @@ USE_PROXY=1 STORAGE_CLASS=ceph-rbd BITNAMI_REPO=bitnami bash deploy/install.sh
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
-| `STORAGE_CLASS` | `edge-lvm` | 中间件 PVC 使用的 StorageClass |
+| `STORAGE_CLASS` | 空（集群默认） | 中间件 PVC 使用的 StorageClass，留空则使用集群默认 |
+| `PERSISTENCE` | `true` | 设为 `false` 禁用 PVC 持久化（使用 emptyDir，适合测试环境） |
 | `USE_PROXY` | 空 | 设为 `1` 启用中国镜像代理 |
 | `BITNAMI_REPO` | `bitnamilegacy` | Bitnami Docker 镜像仓库前缀 |
 
@@ -218,10 +222,10 @@ kubectl create namespace argocd
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami && helm repo update
 
-# PostgreSQL（注意 image.repository 使用 bitnamilegacy，storageClass 按集群实际调整）
+# PostgreSQL（注意 image.repository 使用 bitnamilegacy）
+# storageClass 留空使用集群默认，或指定为集群中已有的 StorageClass
 helm install postgresql bitnami/postgresql -n zcid \
   --set image.registry=docker.io --set image.repository=bitnamilegacy/postgresql \
-  --set global.storageClass=edge-lvm \
   --set auth.database=zcicd \
   --set auth.username=postgres \
   --set auth.postgresPassword=<your-password> \
@@ -230,13 +234,11 @@ helm install postgresql bitnami/postgresql -n zcid \
 # Redis
 helm install redis bitnami/redis -n zcid \
   --set image.registry=docker.io --set image.repository=bitnamilegacy/redis \
-  --set global.storageClass=edge-lvm \
   --set architecture=standalone --set auth.enabled=false
 
 # MinIO
 helm install minio bitnami/minio -n zcid \
   --set image.registry=docker.io --set image.repository=bitnamilegacy/minio \
-  --set global.storageClass=edge-lvm \
   --set auth.rootUser=minioadmin \
   --set auth.rootPassword=<your-password> \
   --set defaultBuckets=zcid-logs
@@ -455,6 +457,55 @@ BITNAMI_REPO=bitnami bash deploy/install.sh
 ```
 
 > ⚠️ `bitnamilegacy` 镜像不再接收安全更新。生产环境建议购买 Bitnami 订阅或迁移到其他维护中的 Helm chart（如 CloudNativePG、Dragonfly 等）。
+
+### Q: 中间件 Pod 一直 Pending，提示 "unbound immediate PersistentVolumeClaims"？
+
+集群中没有可用的 StorageClass 动态供给器（如 `local-path-provisioner`、`nfs-provisioner`、`ceph-csi` 等），PVC 无法自动绑定 PV。
+
+**方案 1**（推荐，测试环境）：禁用持久化存储，使用 emptyDir：
+```bash
+PERSISTENCE=false bash deploy/install.sh
+```
+> ⚠️ Pod 重启后数据会丢失，仅适合测试/演示。
+
+**方案 2**：安装存储供给器（如 Rancher Local Path Provisioner）：
+```bash
+kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml
+# 设置为默认 StorageClass（如果还没有默认的）
+kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+# 然后重新部署
+STORAGE_CLASS=local-path bash deploy/install.sh
+```
+
+**方案 3**：指定集群中已有的 StorageClass：
+```bash
+# 查看可用的 StorageClass
+kubectl get storageclass
+# 指定其中一个
+STORAGE_CLASS=<your-storageclass> bash deploy/install.sh
+```
+
+**方案 4**：手动创建 hostPath PV（适合单节点测试集群）：
+```bash
+for name in data-postgresql-0 data-redis-master-0 data-minio-0; do
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${name}
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes: [ReadWriteOnce]
+  hostPath:
+    path: /data/k8s-pv/${name}
+  claimRef:
+    namespace: zcid
+    name: ${name}
+EOF
+sudo mkdir -p /data/k8s-pv/${name}
+done
+```
 
 ### Q: 如何连接外部数据库？
 

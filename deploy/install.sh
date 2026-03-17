@@ -9,39 +9,69 @@ PROXY=${USE_PROXY:+docker.gh-proxy.com/}
 # 如需使用付费 Bitnami Secure Images，将此值改为 bitnami
 BITNAMI_REPO=${BITNAMI_REPO:-bitnamilegacy}
 
-# StorageClass 设置（默认 edge-lvm，按实际集群调整）
-STORAGE_CLASS=${STORAGE_CLASS:-edge-lvm}
+# StorageClass 设置
+#   留空 = 使用集群默认 StorageClass
+#   设为具体值 = 使用指定 StorageClass（如 edge-lvm, local-path, standard 等）
+STORAGE_CLASS=${STORAGE_CLASS:-}
+
+# 持久化存储设置
+#   PERSISTENCE=true  (默认) 使用 PVC 持久化数据
+#   PERSISTENCE=false 使用 emptyDir，无需 StorageClass/PV（适合测试环境）
+PERSISTENCE=${PERSISTENCE:-true}
 
 echo "===== Step 1: Namespace ====="
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 
 echo "===== Step 2: Middleware (PostgreSQL + Redis + MinIO) ====="
-echo "  (镜像仓库: docker.io/${BITNAMI_REPO}, StorageClass: ${STORAGE_CLASS})"
+echo "  (镜像仓库: docker.io/${BITNAMI_REPO})"
+
+# 构建 StorageClass 参数
+STORAGE_ARGS=""
+if [ -n "$STORAGE_CLASS" ]; then
+  STORAGE_ARGS="--set global.storageClass=${STORAGE_CLASS}"
+  echo "  StorageClass: ${STORAGE_CLASS}"
+else
+  echo "  StorageClass: (集群默认)"
+fi
+
+# 构建持久化参数
+if [ "$PERSISTENCE" = "false" ]; then
+  echo "  持久化: 已禁用 (emptyDir)"
+  PG_PERSIST_ARGS="--set primary.persistence.enabled=false"
+  REDIS_PERSIST_ARGS="--set master.persistence.enabled=false"
+  MINIO_PERSIST_ARGS="--set persistence.enabled=false"
+else
+  echo "  持久化: 已启用 (PVC)"
+  PG_PERSIST_ARGS="--set primary.persistence.size=10Gi"
+  REDIS_PERSIST_ARGS="--set master.persistence.size=1Gi"
+  MINIO_PERSIST_ARGS="--set persistence.size=10Gi"
+fi
+
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 
 helm upgrade --install postgresql bitnami/postgresql -n $NAMESPACE \
   --set global.imageRegistry=docker.io \
   --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/postgresql \
-  --set global.storageClass=${STORAGE_CLASS} \
+  $STORAGE_ARGS \
   --set auth.database=zcicd --set auth.username=postgres \
   --set auth.postgresPassword=zcicd123 \
-  --set primary.persistence.size=10Gi --wait --timeout=300s
+  $PG_PERSIST_ARGS --wait --timeout=300s
 
 helm upgrade --install redis bitnami/redis -n $NAMESPACE \
   --set global.imageRegistry=docker.io \
   --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/redis \
-  --set global.storageClass=${STORAGE_CLASS} \
+  $STORAGE_ARGS \
   --set architecture=standalone --set auth.enabled=false \
-  --set master.persistence.size=1Gi --wait --timeout=300s
+  $REDIS_PERSIST_ARGS --wait --timeout=300s
 
 helm upgrade --install minio bitnami/minio -n $NAMESPACE \
   --set global.imageRegistry=docker.io \
   --set image.registry=docker.io --set image.repository=${BITNAMI_REPO}/minio \
-  --set global.storageClass=${STORAGE_CLASS} \
+  $STORAGE_ARGS \
   --set auth.rootUser=minioadmin --set auth.rootPassword=zcicd123 \
-  --set defaultBuckets=zcid-logs --set persistence.size=10Gi --wait --timeout=300s
+  --set defaultBuckets=zcid-logs $MINIO_PERSIST_ARGS --wait --timeout=300s
 
 echo "===== Step 3: Tekton ====="
 if [ -n "$USE_PROXY" ]; then
