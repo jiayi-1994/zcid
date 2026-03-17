@@ -52,6 +52,19 @@ func (h *WebhookHandler) RegisterRoutes(router gin.IRoutes) {
 	router.POST("/github", h.HandleGitHub)
 }
 
+// HandleGitLab godoc
+// @Summary Handle GitLab webhook
+// @Description Receive and process GitLab webhook events to trigger pipelines
+// @Tags webhooks
+// @Accept json
+// @Produce json
+// @Param X-Gitlab-Token header string true "GitLab webhook secret token"
+// @Param X-Gitlab-Event header string true "GitLab event type"
+// @Param X-Gitlab-Event-UUID header string false "GitLab event UUID for idempotency"
+// @Success 200 {object} response.Response{data=object{status=string,event=string,repo=string,branch=string,commit=string}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/webhooks/gitlab [post]
 func (h *WebhookHandler) HandleGitLab(c *gin.Context) {
 	deliveryID := c.GetHeader("X-Gitlab-Event-UUID")
 	body, err := io.ReadAll(c.Request.Body)
@@ -78,6 +91,19 @@ func (h *WebhookHandler) HandleGitLab(c *gin.Context) {
 	h.processWebhookEvent(c, event, deliveryID)
 }
 
+// HandleGitHub godoc
+// @Summary Handle GitHub webhook
+// @Description Receive and process GitHub webhook events to trigger pipelines
+// @Tags webhooks
+// @Accept json
+// @Produce json
+// @Param X-Hub-Signature-256 header string true "GitHub webhook signature"
+// @Param X-GitHub-Event header string true "GitHub event type"
+// @Param X-GitHub-Delivery header string false "GitHub delivery ID for idempotency"
+// @Success 200 {object} response.Response{data=object{status=string,event=string,repo=string,branch=string,commit=string}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/webhooks/github [post]
 func (h *WebhookHandler) HandleGitHub(c *gin.Context) {
 	deliveryID := c.GetHeader("X-GitHub-Delivery")
 	body, err := io.ReadAll(c.Request.Body)
@@ -154,11 +180,11 @@ func (h *WebhookHandler) processWebhookEvent(c *gin.Context, event *gitprovider.
 	}
 
 	response.Success(c, gin.H{
-		"status":  "received",
-		"event":   event.EventType,
-		"repo":    event.RepoName,
-		"branch":  event.Branch,
-		"commit":  event.CommitSHA,
+		"status": "received",
+		"event":  event.EventType,
+		"repo":   event.RepoName,
+		"branch": event.Branch,
+		"commit": event.CommitSHA,
 	})
 }
 

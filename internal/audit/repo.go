@@ -15,14 +15,14 @@ type Repository interface {
 }
 
 type ListOpts struct {
-	UserID     *string
-	Action     *string
+	UserID       *string
+	Action       *string
 	ResourceType *string
 	ResourceID   *string
-	StartTime  *time.Time
-	EndTime    *time.Time
-	Page       int
-	PageSize   int
+	StartTime    *time.Time
+	EndTime      *time.Time
+	Page         int
+	PageSize     int
 }
 
 type Repo struct {

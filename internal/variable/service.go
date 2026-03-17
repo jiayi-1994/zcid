@@ -1,6 +1,7 @@
 package variable
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 
@@ -9,16 +10,15 @@ import (
 	"github.com/xjy/zcid/pkg/response"
 )
 
-
 type Repository interface {
-	Create(v *Variable) error
-	GetByID(id string) (*Variable, error)
-	ListByProject(projectID string) ([]Variable, int64, error)
-	ListGlobal() ([]Variable, int64, error)
-	ListByPipelineScope(projectID, pipelineID string) ([]Variable, error)
-	Update(id string, updates map[string]interface{}) error
-	SoftDelete(id string) error
-	ListGlobalAndProject(projectID string) ([]Variable, error)
+	Create(ctx context.Context, v *Variable) error
+	GetByID(ctx context.Context, id string) (*Variable, error)
+	ListByProject(ctx context.Context, projectID string) ([]Variable, int64, error)
+	ListGlobal(ctx context.Context) ([]Variable, int64, error)
+	ListByPipelineScope(ctx context.Context, projectID, pipelineID string) ([]Variable, error)
+	Update(ctx context.Context, id string, updates map[string]interface{}) error
+	SoftDelete(ctx context.Context, id string) error
+	ListGlobalAndProject(ctx context.Context, projectID string) ([]Variable, error)
 }
 
 type Service struct {
@@ -30,7 +30,7 @@ func NewService(repo Repository, aesCrypto *crypto.AESCrypto) *Service {
 	return &Service{repo: repo, crypto: aesCrypto}
 }
 
-func (s *Service) CreateVariable(scope VariableScope, projectID *string, pipelineID *string, req CreateVariableRequest, createdBy string) (*Variable, error) {
+func (s *Service) CreateVariable(ctx context.Context, scope VariableScope, projectID *string, pipelineID *string, req CreateVariableRequest, createdBy string) (*Variable, error) {
 	varType := TypePlain
 	if req.VarType == string(TypeSecret) {
 		varType = TypeSecret
@@ -61,7 +61,7 @@ func (s *Service) CreateVariable(scope VariableScope, projectID *string, pipelin
 		CreatedBy:   createdBy,
 	}
 
-	if err := s.repo.Create(v); err != nil {
+	if err := s.repo.Create(ctx, v); err != nil {
 		if errors.Is(err, ErrKeyDuplicate) {
 			return nil, response.NewBizError(response.CodeVarDuplicate, "变量名已存在", "")
 		}
@@ -71,8 +71,8 @@ func (s *Service) CreateVariable(scope VariableScope, projectID *string, pipelin
 	return v, nil
 }
 
-func (s *Service) GetVariable(id string) (*Variable, error) {
-	v, err := s.repo.GetByID(id)
+func (s *Service) GetVariable(ctx context.Context, id string) (*Variable, error) {
+	v, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, response.NewBizError(response.CodeNotFound, "变量不存在", "")
@@ -82,23 +82,23 @@ func (s *Service) GetVariable(id string) (*Variable, error) {
 	return v, nil
 }
 
-func (s *Service) ListProjectVariables(projectID string) ([]Variable, int64, error) {
-	return s.repo.ListByProject(projectID)
+func (s *Service) ListProjectVariables(ctx context.Context, projectID string) ([]Variable, int64, error) {
+	return s.repo.ListByProject(ctx, projectID)
 }
 
-func (s *Service) ListPipelineVariables(projectID, pipelineID string) ([]Variable, int64, error) {
-	vars, err := s.repo.ListByPipelineScope(projectID, pipelineID)
+func (s *Service) ListPipelineVariables(ctx context.Context, projectID, pipelineID string) ([]Variable, int64, error) {
+	vars, err := s.repo.ListByPipelineScope(ctx, projectID, pipelineID)
 	if err != nil {
 		return nil, 0, err
 	}
 	return vars, int64(len(vars)), nil
 }
 
-func (s *Service) ListGlobalVariables() ([]Variable, int64, error) {
-	return s.repo.ListGlobal()
+func (s *Service) ListGlobalVariables(ctx context.Context) ([]Variable, int64, error) {
+	return s.repo.ListGlobal(ctx)
 }
 
-func (s *Service) UpdateVariable(id string, req UpdateVariableRequest, isSecret bool) error {
+func (s *Service) UpdateVariable(ctx context.Context, id string, req UpdateVariableRequest, isSecret bool) error {
 	updates := make(map[string]interface{})
 	if req.Description != nil {
 		updates["description"] = *req.Description
@@ -122,7 +122,7 @@ func (s *Service) UpdateVariable(id string, req UpdateVariableRequest, isSecret 
 		return nil
 	}
 
-	if err := s.repo.Update(id, updates); err != nil {
+	if err := s.repo.Update(ctx, id, updates); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return response.NewBizError(response.CodeNotFound, "变量不存在", "")
 		}
@@ -134,8 +134,8 @@ func (s *Service) UpdateVariable(id string, req UpdateVariableRequest, isSecret 
 	return nil
 }
 
-func (s *Service) DeleteVariable(id string) error {
-	if err := s.repo.SoftDelete(id); err != nil {
+func (s *Service) DeleteVariable(ctx context.Context, id string) error {
+	if err := s.repo.SoftDelete(ctx, id); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return response.NewBizError(response.CodeNotFound, "变量不存在", "")
 		}
@@ -144,8 +144,8 @@ func (s *Service) DeleteVariable(id string) error {
 	return nil
 }
 
-func (s *Service) GetMergedVariables(projectID string) ([]Variable, error) {
-	vars, err := s.repo.ListGlobalAndProject(projectID)
+func (s *Service) GetMergedVariables(ctx context.Context, projectID string) ([]Variable, error) {
+	vars, err := s.repo.ListGlobalAndProject(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -165,8 +165,8 @@ func (s *Service) GetMergedVariables(projectID string) ([]Variable, error) {
 }
 
 // GetMergedVariablesWithPipeline returns merged variables including pipeline scope (pipeline overrides project overrides global).
-func (s *Service) GetMergedVariablesWithPipeline(projectID, pipelineID string) ([]Variable, error) {
-	base, err := s.repo.ListGlobalAndProject(projectID)
+func (s *Service) GetMergedVariablesWithPipeline(ctx context.Context, projectID, pipelineID string) ([]Variable, error) {
+	base, err := s.repo.ListGlobalAndProject(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (s *Service) GetMergedVariablesWithPipeline(projectID, pipelineID string) (
 		merged[v.Key] = v
 	}
 	if pipelineID != "" {
-		pipeVars, err := s.repo.ListByPipelineScope(projectID, pipelineID)
+		pipeVars, err := s.repo.ListByPipelineScope(ctx, projectID, pipelineID)
 		if err == nil {
 			for _, v := range pipeVars {
 				merged[v.Key] = v
@@ -191,12 +191,12 @@ func (s *Service) GetMergedVariablesWithPipeline(projectID, pipelineID string) (
 
 // ResolveVariables returns merged variables with secrets decrypted (for internal use only).
 // If pipelineID is non-empty, pipeline-scope variables override project/global.
-func (s *Service) ResolveVariables(projectID string, pipelineID ...string) ([]Variable, error) {
+func (s *Service) ResolveVariables(ctx context.Context, projectID string, pipelineID ...string) ([]Variable, error) {
 	pid := ""
 	if len(pipelineID) > 0 {
 		pid = pipelineID[0]
 	}
-	merged, err := s.GetMergedVariablesWithPipeline(projectID, pid)
+	merged, err := s.GetMergedVariablesWithPipeline(ctx, projectID, pid)
 	if err != nil {
 		return nil, err
 	}

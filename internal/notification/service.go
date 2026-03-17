@@ -19,7 +19,7 @@ type IdempotencyChecker interface {
 }
 
 type Service struct {
-	repo    Repository
+	repo      Repository
 	idemCache IdempotencyChecker
 }
 

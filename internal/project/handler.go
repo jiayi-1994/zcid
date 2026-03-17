@@ -47,6 +47,17 @@ func isAdminOrProjectAdmin(c *gin.Context) bool {
 	return false
 }
 
+// CreateProject godoc
+// @Summary Create a new project
+// @Description Create a new project (admin only)
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Param request body CreateProjectRequest true "Project creation payload"
+// @Success 200 {object} response.Response{data=ProjectResponse}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects [post]
 func (h *Handler) CreateProject(c *gin.Context) {
 	userRole, _ := c.Get(middleware.ContextKeyRole)
 	if role, ok := userRole.(string); !ok || role != "admin" {
@@ -72,6 +83,16 @@ func (h *Handler) CreateProject(c *gin.Context) {
 	response.Success(c, ToProjectResponse(p))
 }
 
+// GetProject godoc
+// @Summary Get a project
+// @Description Retrieve a project by its ID
+// @Tags projects
+// @Produce json
+// @Param id path string true "Project ID"
+// @Success 200 {object} response.Response{data=ProjectResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id} [get]
 func (h *Handler) GetProject(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
@@ -88,6 +109,16 @@ func (h *Handler) GetProject(c *gin.Context) {
 	response.Success(c, ToProjectResponse(p))
 }
 
+// ListProjects godoc
+// @Summary List projects
+// @Description Retrieve a paginated list of projects the current user has access to
+// @Tags projects
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=ProjectListResponse}
+// @Failure 500 {object} response.Response
+// @Router /api/v1/projects [get]
 func (h *Handler) ListProjects(c *gin.Context) {
 	userID, _ := c.Get(middleware.ContextKeyUserID)
 	userRole, _ := c.Get(middleware.ContextKeyRole)
@@ -117,6 +148,18 @@ func (h *Handler) ListProjects(c *gin.Context) {
 	})
 }
 
+// UpdateProject godoc
+// @Summary Update a project
+// @Description Update an existing project's name or description
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body UpdateProjectRequest true "Project update payload"
+// @Success 200 {object} response.Response{data=ProjectResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id} [put]
 func (h *Handler) UpdateProject(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
@@ -139,6 +182,16 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 	response.Success(c, ToProjectResponse(p))
 }
 
+// DeleteProject godoc
+// @Summary Delete a project
+// @Description Delete a project by its ID (admin only)
+// @Tags projects
+// @Produce json
+// @Param id path string true "Project ID"
+// @Success 200 {object} response.Response{data=object{deleted=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id} [delete]
 func (h *Handler) DeleteProject(c *gin.Context) {
 	userRole, _ := c.Get(middleware.ContextKeyRole)
 	if role, ok := userRole.(string); !ok || role != "admin" {
@@ -160,6 +213,15 @@ func (h *Handler) DeleteProject(c *gin.Context) {
 	response.Success(c, gin.H{"deleted": true})
 }
 
+// ListMembers godoc
+// @Summary List project members
+// @Description Retrieve all members of a project
+// @Tags members
+// @Produce json
+// @Param id path string true "Project ID"
+// @Success 200 {object} response.Response{data=MemberListResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/members [get]
 func (h *Handler) ListMembers(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	if projectID == "" {
@@ -189,6 +251,18 @@ func (h *Handler) ListMembers(c *gin.Context) {
 	})
 }
 
+// AddMember godoc
+// @Summary Add a member to a project
+// @Description Add a user as a member of a project (admin or project admin only)
+// @Tags members
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body AddMemberRequest true "Member addition payload"
+// @Success 200 {object} response.Response{data=object{added=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/members [post]
 func (h *Handler) AddMember(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	if projectID == "" {
@@ -215,6 +289,19 @@ func (h *Handler) AddMember(c *gin.Context) {
 	response.Success(c, gin.H{"added": true})
 }
 
+// UpdateMemberRole godoc
+// @Summary Update a member's role
+// @Description Update the role of a project member (admin or project admin only)
+// @Tags members
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param uid path string true "User ID"
+// @Param request body UpdateMemberRoleRequest true "Role update payload"
+// @Success 200 {object} response.Response{data=object{updated=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/members/{uid} [put]
 func (h *Handler) UpdateMemberRole(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	userID := strings.TrimSpace(c.Param("uid"))
@@ -242,6 +329,17 @@ func (h *Handler) UpdateMemberRole(c *gin.Context) {
 	response.Success(c, gin.H{"updated": true})
 }
 
+// RemoveMember godoc
+// @Summary Remove a member from a project
+// @Description Remove a user from a project's membership (admin or project admin only)
+// @Tags members
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param uid path string true "User ID"
+// @Success 200 {object} response.Response{data=object{removed=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/members/{uid} [delete]
 func (h *Handler) RemoveMember(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	userID := strings.TrimSpace(c.Param("uid"))

@@ -2,7 +2,8 @@ import { Button, Table, Badge, Tag, Space, Message, Popconfirm } from '@arco-des
 import { IconPlus } from '@arco-design/web-react/icon';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { useState, useEffect } from 'react';
-import { http } from '../../services/http';
+import axios from 'axios';
+import { http, extractErrorMessage } from '../../services/http';
 import { UserFormModal } from './UserFormModal';
 
 interface User {
@@ -24,13 +25,13 @@ export function AdminUsersPage() {
     try {
       const res = await http.get('/admin/users');
       setUsers(res.data.data || []);
-    } catch (error: any) {
-      if (error.response?.status === 403) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
         Message.error('权限不足，无法访问用户列表');
-      } else if (error.response?.status === 401) {
+      } else if (axios.isAxiosError(error) && error.response?.status === 401) {
         Message.error('登录已过期，请重新登录');
       } else {
-        Message.error(error.response?.data?.message || '加载用户列表失败');
+        Message.error(extractErrorMessage(error, '加载用户列表失败'));
       }
     } finally {
       setLoading(false);
@@ -57,8 +58,8 @@ export function AdminUsersPage() {
       await http.put(`/admin/users/${user.id}`, { status: newStatus });
       Message.success('操作成功');
       fetchUsers();
-    } catch (error: any) {
-      Message.error(error.response?.data?.message || '操作失败');
+    } catch (error: unknown) {
+      Message.error(extractErrorMessage(error, '操作失败'));
     }
   };
 
@@ -93,7 +94,7 @@ export function AdminUsersPage() {
     {
       title: '操作',
       width: 160,
-      render: (_: any, record: User) => (
+      render: (_: unknown, record: User) => (
         <Space size="mini">
           <Button type="text" size="small" onClick={() => handleEdit(record)}
             style={{ color: 'var(--zcid-primary)' }}

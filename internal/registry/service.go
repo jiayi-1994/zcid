@@ -42,7 +42,7 @@ func (s *Service) Create(req CreateRegistryRequest, createdBy string) (*Registry
 		Type:              regType,
 		URL:               req.URL,
 		Username:          req.Username,
-		PasswordEncrypted:  passwordEnc,
+		PasswordEncrypted: passwordEnc,
 		IsDefault:         req.IsDefault,
 		Status:            StatusActive,
 		CreatedBy:         createdBy,

@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS services (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX uk_services_project_name ON services(project_id, name) WHERE status != 'deleted';
-CREATE INDEX idx_services_project_id ON services(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_services_project_name ON services(project_id, name) WHERE status != 'deleted';
+CREATE INDEX IF NOT EXISTS idx_services_project_id ON services(project_id);

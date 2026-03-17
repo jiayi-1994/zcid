@@ -6,28 +6,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 const (
-	pingInterval     = 30 * time.Second
-	pongWait         = 60 * time.Second
-	writeWait        = 10 * time.Second
-	maxMessageSize   = 512 * 1024
-	maxConnsPerUser  = 10
+	pingInterval    = 30 * time.Second
+	pongWait        = 60 * time.Second
+	writeWait       = 10 * time.Second
+	maxMessageSize  = 512 * 1024
+	maxConnsPerUser = 10
 )
 
 type Client struct {
-	ID      string
-	UserID  string
-	RunID   string   // for log subscription; empty for status subscription
+	ID        string
+	UserID    string
+	RunID     string // for log subscription; empty for status subscription
 	ProjectID string // for status subscription; empty for log subscription
-	Conn    *websocket.Conn
-	Send    chan []byte
-	LastSeq int64
-	hub     *Hub
-	mu      sync.Mutex
+	Conn      *websocket.Conn
+	Send      chan []byte
+	LastSeq   int64
+	hub       *Hub
+	mu        sync.Mutex
 }
 
 type Hub struct {

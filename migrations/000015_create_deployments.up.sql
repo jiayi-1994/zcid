@@ -1,4 +1,4 @@
-CREATE TABLE deployments (
+CREATE TABLE IF NOT EXISTS deployments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id VARCHAR(255) NOT NULL REFERENCES projects(id),
     environment_id VARCHAR(255) NOT NULL REFERENCES environments(id),
@@ -15,6 +15,6 @@ CREATE TABLE deployments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_deployments_project ON deployments(project_id);
-CREATE INDEX idx_deployments_env ON deployments(environment_id);
-CREATE INDEX idx_deployments_status ON deployments(status);
+CREATE INDEX IF NOT EXISTS idx_deployments_project ON deployments(project_id);
+CREATE INDEX IF NOT EXISTS idx_deployments_env ON deployments(environment_id);
+CREATE INDEX IF NOT EXISTS idx_deployments_status ON deployments(status);

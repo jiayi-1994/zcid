@@ -56,6 +56,19 @@ func getUserRole(c *gin.Context) string {
 	return pr
 }
 
+// TriggerDeploy godoc
+// @Summary Trigger a deployment
+// @Description Trigger a new deployment to an environment within a project
+// @Tags deployments
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body TriggerDeployRequest true "Deployment trigger payload"
+// @Success 200 {object} response.Response{data=DeploymentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/deployments [post]
 func (h *Handler) TriggerDeploy(c *gin.Context) {
 	projectID := getProjectID(c)
 	if projectID == "" {
@@ -92,6 +105,17 @@ func (h *Handler) TriggerDeploy(c *gin.Context) {
 	response.Success(c, ToDeploymentResponse(d))
 }
 
+// List godoc
+// @Summary List deployments
+// @Description Retrieve a paginated list of deployments in a project
+// @Tags deployments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=DeploymentListResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/deployments [get]
 func (h *Handler) List(c *gin.Context) {
 	projectID := getProjectID(c)
 	if projectID == "" {
@@ -117,6 +141,17 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
+// Get godoc
+// @Summary Get a deployment
+// @Description Retrieve details of a specific deployment
+// @Tags deployments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param deployId path string true "Deployment ID"
+// @Success 200 {object} response.Response{data=DeploymentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/deployments/{deployId} [get]
 func (h *Handler) Get(c *gin.Context) {
 	projectID := getProjectID(c)
 	deployID := strings.TrimSpace(c.Param("deployId"))
@@ -132,6 +167,17 @@ func (h *Handler) Get(c *gin.Context) {
 	response.Success(c, ToDeploymentResponse(d))
 }
 
+// GetStatus godoc
+// @Summary Get deployment status
+// @Description Refresh and retrieve the current status of a deployment
+// @Tags deployments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param deployId path string true "Deployment ID"
+// @Success 200 {object} response.Response{data=DeploymentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/deployments/{deployId}/status [get]
 func (h *Handler) GetStatus(c *gin.Context) {
 	projectID := getProjectID(c)
 	deployID := strings.TrimSpace(c.Param("deployId"))
@@ -147,6 +193,18 @@ func (h *Handler) GetStatus(c *gin.Context) {
 	response.Success(c, ToDeploymentResponse(d))
 }
 
+// Resync godoc
+// @Summary Resync a deployment
+// @Description Trigger a resync of a deployment with ArgoCD
+// @Tags deployments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param deployId path string true "Deployment ID"
+// @Success 200 {object} response.Response{data=DeploymentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/deployments/{deployId}/resync [post]
 func (h *Handler) Resync(c *gin.Context) {
 	projectID := getProjectID(c)
 	deployID := strings.TrimSpace(c.Param("deployId"))
@@ -179,6 +237,18 @@ func (h *Handler) Resync(c *gin.Context) {
 	response.Success(c, ToDeploymentResponse(d))
 }
 
+// Rollback godoc
+// @Summary Rollback a deployment
+// @Description Rollback a deployment to its previous version
+// @Tags deployments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param deployId path string true "Deployment ID"
+// @Success 200 {object} response.Response{data=DeploymentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/deployments/{deployId}/rollback [post]
 func (h *Handler) Rollback(c *gin.Context) {
 	projectID := getProjectID(c)
 	deployID := strings.TrimSpace(c.Param("deployId"))
@@ -216,6 +286,18 @@ func (h *Handler) Rollback(c *gin.Context) {
 	response.Success(c, ToDeploymentResponse(d))
 }
 
+// GetDeployHistory godoc
+// @Summary Get deployment history for an environment
+// @Description Retrieve paginated deployment history for a specific environment
+// @Tags deployments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param envId path string true "Environment ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=DeploymentListResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/deployments/environments/{envId}/deploy-history [get]
 func (h *Handler) GetDeployHistory(c *gin.Context) {
 	projectID := getProjectID(c)
 	envID := strings.TrimSpace(c.Param("envId"))

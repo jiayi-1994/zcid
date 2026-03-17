@@ -21,8 +21,8 @@ type Config struct {
 }
 
 type K8sConfig struct {
-	Enabled    bool   `yaml:"-"`
-	Namespace  string `yaml:"-"`
+	Enabled   bool   `yaml:"-"`
+	Namespace string `yaml:"-"`
 }
 
 type ArgoCDConfig struct {

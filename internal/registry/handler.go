@@ -26,7 +26,14 @@ func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 	router.DELETE("/:id", h.Delete)
 }
 
-// List returns all registries
+// List godoc
+// @Summary List registries
+// @Description Retrieve all configured container registries
+// @Tags registries
+// @Produce json
+// @Success 200 {object} response.Response{data=RegistryListResponse}
+// @Failure 500 {object} response.Response
+// @Router /api/v1/admin/integrations/registries [get]
 func (h *Handler) List(c *gin.Context) {
 	regs, total, err := h.service.List()
 	if err != nil {
@@ -41,7 +48,17 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, RegistryListResponse{Items: items, Total: total})
 }
 
-// Create creates a new registry
+// Create godoc
+// @Summary Create a registry
+// @Description Create a new container registry configuration
+// @Tags registries
+// @Accept json
+// @Produce json
+// @Param request body CreateRegistryRequest true "Registry creation payload"
+// @Success 200 {object} response.Response{data=RegistryResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/admin/integrations/registries [post]
 func (h *Handler) Create(c *gin.Context) {
 	var req CreateRegistryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -68,7 +85,15 @@ func (h *Handler) Create(c *gin.Context) {
 	response.Success(c, ToRegistryResponse(reg))
 }
 
-// Get returns a registry by ID
+// Get godoc
+// @Summary Get a registry
+// @Description Retrieve a container registry by its ID
+// @Tags registries
+// @Produce json
+// @Param id path string true "Registry ID"
+// @Success 200 {object} response.Response{data=RegistryResponse}
+// @Failure 404 {object} response.Response
+// @Router /api/v1/admin/integrations/registries/{id} [get]
 func (h *Handler) Get(c *gin.Context) {
 	id := c.Param("id")
 	reg, err := h.service.Get(id)
@@ -80,7 +105,18 @@ func (h *Handler) Get(c *gin.Context) {
 	response.Success(c, ToRegistryResponse(reg))
 }
 
-// Update updates a registry
+// Update godoc
+// @Summary Update a registry
+// @Description Update an existing container registry configuration
+// @Tags registries
+// @Accept json
+// @Produce json
+// @Param id path string true "Registry ID"
+// @Param request body UpdateRegistryRequest true "Registry update payload"
+// @Success 200 {object} response.Response{data=RegistryResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/admin/integrations/registries/{id} [put]
 func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 	var req UpdateRegistryRequest
@@ -98,7 +134,15 @@ func (h *Handler) Update(c *gin.Context) {
 	response.Success(c, ToRegistryResponse(reg))
 }
 
-// Delete deletes a registry
+// Delete godoc
+// @Summary Delete a registry
+// @Description Delete a container registry configuration
+// @Tags registries
+// @Produce json
+// @Param id path string true "Registry ID"
+// @Success 200 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/admin/integrations/registries/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.service.Delete(id); err != nil {
@@ -109,7 +153,17 @@ func (h *Handler) Delete(c *gin.Context) {
 	response.Success(c, nil)
 }
 
-// TestConnection tests connectivity to a registry
+// TestConnection godoc
+// @Summary Test registry connection
+// @Description Test connectivity to a container registry
+// @Tags registries
+// @Accept json
+// @Produce json
+// @Param request body TestConnectionRequest true "Connection test payload"
+// @Success 200 {object} response.Response{data=TestConnectionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/admin/integrations/registries/test-connection [post]
 func (h *Handler) TestConnection(c *gin.Context) {
 	var req TestConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -1,6 +1,7 @@
 package variable
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -17,7 +18,7 @@ func newMockRepo() *mockRepo {
 	return &mockRepo{vars: make(map[string]*Variable)}
 }
 
-func (m *mockRepo) Create(v *Variable) error {
+func (m *mockRepo) Create(_ context.Context, v *Variable) error {
 	if m.nextErr != nil {
 		err := m.nextErr
 		m.nextErr = nil
@@ -44,14 +45,14 @@ func (m *mockRepo) Create(v *Variable) error {
 	return nil
 }
 
-func (m *mockRepo) GetByID(id string) (*Variable, error) {
+func (m *mockRepo) GetByID(_ context.Context, id string) (*Variable, error) {
 	if v, ok := m.vars[id]; ok && v.Status != StatusDeleted {
 		return v, nil
 	}
 	return nil, ErrNotFound
 }
 
-func (m *mockRepo) ListByProject(projectID string) ([]Variable, int64, error) {
+func (m *mockRepo) ListByProject(_ context.Context, projectID string) ([]Variable, int64, error) {
 	var result []Variable
 	for _, v := range m.vars {
 		if v.ProjectID != nil && *v.ProjectID == projectID && v.Scope == ScopeProject && v.Status != StatusDeleted {
@@ -61,7 +62,7 @@ func (m *mockRepo) ListByProject(projectID string) ([]Variable, int64, error) {
 	return result, int64(len(result)), nil
 }
 
-func (m *mockRepo) ListGlobal() ([]Variable, int64, error) {
+func (m *mockRepo) ListGlobal(_ context.Context) ([]Variable, int64, error) {
 	var result []Variable
 	for _, v := range m.vars {
 		if v.Scope == ScopeGlobal && v.Status != StatusDeleted {
@@ -71,7 +72,7 @@ func (m *mockRepo) ListGlobal() ([]Variable, int64, error) {
 	return result, int64(len(result)), nil
 }
 
-func (m *mockRepo) Update(id string, updates map[string]interface{}) error {
+func (m *mockRepo) Update(_ context.Context, id string, updates map[string]interface{}) error {
 	v, ok := m.vars[id]
 	if !ok || v.Status == StatusDeleted {
 		return ErrNotFound
@@ -85,7 +86,7 @@ func (m *mockRepo) Update(id string, updates map[string]interface{}) error {
 	return nil
 }
 
-func (m *mockRepo) SoftDelete(id string) error {
+func (m *mockRepo) SoftDelete(_ context.Context, id string) error {
 	v, ok := m.vars[id]
 	if !ok || v.Status == StatusDeleted {
 		return ErrNotFound
@@ -94,7 +95,7 @@ func (m *mockRepo) SoftDelete(id string) error {
 	return nil
 }
 
-func (m *mockRepo) ListGlobalAndProject(projectID string) ([]Variable, error) {
+func (m *mockRepo) ListGlobalAndProject(_ context.Context, projectID string) ([]Variable, error) {
 	var result []Variable
 	for _, v := range m.vars {
 		if v.Status == StatusDeleted {
@@ -107,7 +108,7 @@ func (m *mockRepo) ListGlobalAndProject(projectID string) ([]Variable, error) {
 	return result, nil
 }
 
-func (m *mockRepo) ListByPipelineScope(projectID, pipelineID string) ([]Variable, error) {
+func (m *mockRepo) ListByPipelineScope(_ context.Context, projectID, pipelineID string) ([]Variable, error) {
 	var result []Variable
 	for _, v := range m.vars {
 		if v.Status == StatusDeleted || v.Scope != ScopePipeline {
@@ -129,7 +130,8 @@ func TestCreateVariable_Plain(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
 
-	v, err := svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	ctx := context.Background()
+	v, err := svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "DB_HOST", Value: "localhost",
 	}, "user1")
 	if err != nil {
@@ -146,8 +148,9 @@ func TestCreateVariable_Plain(t *testing.T) {
 func TestCreateVariable_Secret(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
+	ctx := context.Background()
 
-	v, err := svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	v, err := svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "DB_PASSWORD", Value: "secret123", VarType: "secret",
 	}, "user1")
 	if err != nil {
@@ -164,12 +167,13 @@ func TestCreateVariable_Secret(t *testing.T) {
 func TestCreateVariable_Duplicate(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
+	ctx := context.Background()
 
-	_, _ = svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	_, _ = svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "KEY1", Value: "val1",
 	}, "user1")
 
-	_, err := svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	_, err := svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "KEY1", Value: "val2",
 	}, "user1")
 	if err == nil {
@@ -184,8 +188,9 @@ func TestCreateVariable_Duplicate(t *testing.T) {
 func TestCreateVariable_Secret_NoCrypto(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, nil)
+	ctx := context.Background()
 
-	_, err := svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	_, err := svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "SECRET", Value: "val", VarType: "secret",
 	}, "user1")
 	if err == nil {
@@ -196,12 +201,13 @@ func TestCreateVariable_Secret_NoCrypto(t *testing.T) {
 func TestGetVariable(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
+	ctx := context.Background()
 
-	created, _ := svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	created, _ := svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "K1", Value: "V1",
 	}, "user1")
 
-	v, err := svc.GetVariable(created.ID)
+	v, err := svc.GetVariable(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -214,7 +220,7 @@ func TestGetVariable_NotFound(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
 
-	_, err := svc.GetVariable("nonexistent")
+	_, err := svc.GetVariable(context.Background(), "nonexistent")
 	if err == nil {
 		t.Fatal("expected not found error")
 	}
@@ -223,16 +229,17 @@ func TestGetVariable_NotFound(t *testing.T) {
 func TestDeleteVariable(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
+	ctx := context.Background()
 
-	created, _ := svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	created, _ := svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "K1", Value: "V1",
 	}, "user1")
 
-	if err := svc.DeleteVariable(created.ID); err != nil {
+	if err := svc.DeleteVariable(ctx, created.ID); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, err := svc.GetVariable(created.ID)
+	_, err := svc.GetVariable(ctx, created.ID)
 	if err == nil {
 		t.Fatal("expected not found after delete")
 	}
@@ -241,18 +248,19 @@ func TestDeleteVariable(t *testing.T) {
 func TestUpdateVariable(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
+	ctx := context.Background()
 
-	created, _ := svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	created, _ := svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "K1", Value: "V1",
 	}, "user1")
 
 	newVal := "V2"
-	err := svc.UpdateVariable(created.ID, UpdateVariableRequest{Value: &newVal}, false)
+	err := svc.UpdateVariable(ctx, created.ID, UpdateVariableRequest{Value: &newVal}, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	v, _ := svc.GetVariable(created.ID)
+	v, _ := svc.GetVariable(ctx, created.ID)
 	if v.Value != "V2" {
 		t.Fatalf("expected V2, got %s", v.Value)
 	}
@@ -261,19 +269,20 @@ func TestUpdateVariable(t *testing.T) {
 func TestGetMergedVariables(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
+	ctx := context.Background()
 
 	pid := "proj1"
-	_, _ = svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	_, _ = svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "DB_HOST", Value: "global-db",
 	}, "user1")
-	_, _ = svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	_, _ = svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "REDIS_HOST", Value: "global-redis",
 	}, "user1")
-	_, _ = svc.CreateVariable(ScopeProject, &pid, nil, CreateVariableRequest{
+	_, _ = svc.CreateVariable(ctx, ScopeProject, &pid, nil, CreateVariableRequest{
 		Key: "DB_HOST", Value: "project-db",
 	}, "user1")
 
-	merged, err := svc.GetMergedVariables(pid)
+	merged, err := svc.GetMergedVariables(ctx, pid)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -296,11 +305,12 @@ func TestResolveVariables_DecryptsSecrets(t *testing.T) {
 	c := testCrypto()
 	svc := NewService(repo, c)
 
-	_, _ = svc.CreateVariable(ScopeGlobal, nil, nil, CreateVariableRequest{
+	ctx := context.Background()
+	_, _ = svc.CreateVariable(ctx, ScopeGlobal, nil, nil, CreateVariableRequest{
 		Key: "API_KEY", Value: "my-secret-key", VarType: "secret",
 	}, "user1")
 
-	resolved, err := svc.ResolveVariables("")
+	resolved, err := svc.ResolveVariables(ctx, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

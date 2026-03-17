@@ -10,10 +10,10 @@ import (
 type PipelineStatus string
 
 const (
-	StatusDraft   PipelineStatus = "draft"
-	StatusActive  PipelineStatus = "active"
+	StatusDraft    PipelineStatus = "draft"
+	StatusActive   PipelineStatus = "active"
 	StatusDisabled PipelineStatus = "disabled"
-	StatusDeleted PipelineStatus = "deleted"
+	StatusDeleted  PipelineStatus = "deleted"
 )
 
 type TriggerType string

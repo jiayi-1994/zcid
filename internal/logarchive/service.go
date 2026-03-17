@@ -72,7 +72,6 @@ func (s *Service) ArchiveRunLogs(ctx context.Context, runID string, logs []ws.Lo
 	return nil
 }
 
-
 // GetArchivedLogs returns a paginated slice of log entries and total count.
 func (s *Service) GetArchivedLogs(ctx context.Context, runID string, page, pageSize int) ([]LogEntry, int, error) {
 	if page < 1 {

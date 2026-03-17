@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/auth';
 import { fetchEnvironments, createEnvironment, deleteEnvironment, type EnvironmentItem } from '../../../services/project';
+import { extractErrorMessage } from '../../../services/http';
 
 const FormItem = Form.Item;
 
@@ -25,8 +26,8 @@ export function EnvironmentListPage() {
       const data = await fetchEnvironments(projectId, p, 20);
       setEnvs(data.items ?? []);
       setTotal(data.total);
-    } catch (err: any) {
-      Message.error(err.response?.data?.message || '加载环境列表失败');
+    } catch (err: unknown) {
+      Message.error(extractErrorMessage(err, '加载环境列表失败'));
     } finally {
       setLoading(false);
     }
@@ -43,8 +44,9 @@ export function EnvironmentListPage() {
       form.resetFields();
       setModalVisible(false);
       loadData(page);
-    } catch (err: any) {
-      if (err.response?.data?.message) Message.error(err.response.data.message);
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err, '');
+      if (msg) Message.error(msg);
     } finally {
       setSubmitLoading(false);
     }
@@ -55,8 +57,8 @@ export function EnvironmentListPage() {
       await deleteEnvironment(projectId!, envId);
       Message.success('环境已删除');
       loadData(page);
-    } catch (err: any) {
-      Message.error(err.response?.data?.message || '删除失败');
+    } catch (err: unknown) {
+      Message.error(extractErrorMessage(err, '删除失败'));
     }
   };
 
@@ -67,7 +69,7 @@ export function EnvironmentListPage() {
     { title: '创建时间', dataIndex: 'createdAt' },
     {
       title: '操作',
-      render: (_: any, record: EnvironmentItem) => isAdmin ? (
+      render: (_: unknown, record: EnvironmentItem) => isAdmin ? (
         <Popconfirm title="确定删除？" onOk={() => handleDelete(record.id)}>
           <Button type="text" size="small" status="danger">删除</Button>
         </Popconfirm>

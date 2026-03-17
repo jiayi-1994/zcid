@@ -1,4 +1,4 @@
-CREATE TABLE registries (
+CREATE TABLE IF NOT EXISTS registries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(200) NOT NULL,
     type VARCHAR(20) NOT NULL DEFAULT 'harbor',
@@ -12,4 +12,4 @@ CREATE TABLE registries (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX uk_registries_name ON registries(name) WHERE status != 'deleted';
+CREATE UNIQUE INDEX IF NOT EXISTS uk_registries_name ON registries(name) WHERE status != 'deleted';

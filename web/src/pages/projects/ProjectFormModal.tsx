@@ -1,6 +1,7 @@
 import { Modal, Form, Input, Message } from '@arco-design/web-react';
 import { useState } from 'react';
 import { createProject } from '../../services/project';
+import { extractErrorMessage } from '../../services/http';
 
 const FormItem = Form.Item;
 
@@ -22,10 +23,9 @@ export function ProjectFormModal({ visible, onClose, onSuccess }: Props) {
       Message.success('项目创建成功');
       form.resetFields();
       onSuccess();
-    } catch (err: any) {
-      if (err.response?.data?.message) {
-        Message.error(err.response.data.message);
-      }
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err, '');
+      if (msg) Message.error(msg);
     } finally {
       setLoading(false);
     }

@@ -13,15 +13,15 @@ import (
 )
 
 type mockRepo struct {
-	create            func(ctx context.Context, r *PipelineRun) error
-	getByID           func(ctx context.Context, id, projectID string) (*PipelineRun, error)
-	getNextRunNumber  func(ctx context.Context, pipelineID string) (int, error)
-	listByPipeline    func(ctx context.Context, pipelineID, projectID string, page, pageSize int) ([]*PipelineRun, int64, error)
-	listRunning       func(ctx context.Context, pipelineID string) ([]*PipelineRun, error)
-	update            func(ctx context.Context, id, projectID string, updates map[string]interface{}) error
-	updateStatus      func(ctx context.Context, id, projectID string, status RunStatus, errorMsg *string) error
-	countRunning      func(ctx context.Context, pipelineID string) (int64, error)
-	updateArtifacts   func(ctx context.Context, id, projectID string, artifacts ArtifactSlice) error
+	create           func(ctx context.Context, r *PipelineRun) error
+	getByID          func(ctx context.Context, id, projectID string) (*PipelineRun, error)
+	getNextRunNumber func(ctx context.Context, pipelineID string) (int, error)
+	listByPipeline   func(ctx context.Context, pipelineID, projectID string, page, pageSize int) ([]*PipelineRun, int64, error)
+	listRunning      func(ctx context.Context, pipelineID string) ([]*PipelineRun, error)
+	update           func(ctx context.Context, id, projectID string, updates map[string]interface{}) error
+	updateStatus     func(ctx context.Context, id, projectID string, status RunStatus, errorMsg *string) error
+	countRunning     func(ctx context.Context, pipelineID string) (int64, error)
+	updateArtifacts  func(ctx context.Context, id, projectID string, artifacts ArtifactSlice) error
 }
 
 func (m *mockRepo) Create(ctx context.Context, r *PipelineRun) error {
@@ -131,7 +131,7 @@ func TestTriggerRun_Success(t *testing.T) {
 	var createdRun *PipelineRun
 	repo := &mockRepo{
 		getNextRunNumber: func(_ context.Context, _ string) (int, error) { return 1, nil },
-		countRunning:    func(_ context.Context, _ string) (int64, error) { return 0, nil },
+		countRunning:     func(_ context.Context, _ string) (int64, error) { return 0, nil },
 		create: func(_ context.Context, r *PipelineRun) error {
 			createdRun = r
 			r.ID = "run-123"
@@ -195,7 +195,7 @@ func TestTriggerRun_ConcurrencyCancelOld(t *testing.T) {
 
 	repo := &mockRepo{
 		getNextRunNumber: func(_ context.Context, _ string) (int, error) { return 2, nil },
-		countRunning:    func(_ context.Context, _ string) (int64, error) { return 1, nil },
+		countRunning:     func(_ context.Context, _ string) (int64, error) { return 1, nil },
 		create: func(_ context.Context, r *PipelineRun) error {
 			r.ID = "run-456"
 			return nil

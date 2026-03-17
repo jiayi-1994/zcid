@@ -122,7 +122,7 @@ func TestGetDeployStatus_NotFound(t *testing.T) {
 func TestListDeployments(t *testing.T) {
 	repo := &mockRepo{
 		listByProject: []*Deployment{{ID: "d1", ProjectID: "p1", Image: "nginx:1"}},
-		listTotal:    1,
+		listTotal:     1,
 	}
 	svc := NewService(repo, &mockEnvGetter{}, &argocd.MockArgoClient{})
 	list, total, err := svc.ListDeployments(context.Background(), "p1", 1, 20)

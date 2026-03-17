@@ -17,6 +17,8 @@ import { VariableListPage } from './pages/projects/variables/VariableListPage';
 import { AdminVariablePage } from './pages/admin/variables/AdminVariablePage';
 import { IntegrationsPage } from './pages/admin/integrations/IntegrationsPage';
 import { lazy, Suspense } from 'react';
+import { NotFoundPage } from './pages/notfound/NotFoundPage';
+import { PageSkeleton } from './components/common/PageSkeleton';
 
 const PipelineListPage = lazy(() => import('./pages/projects/pipelines/PipelineListPage'));
 const PipelineEditorPage = lazy(() => import('./pages/projects/pipelines/PipelineEditorPage'));
@@ -74,18 +76,18 @@ function App() {
             <Route path="services" element={<ServiceListPage />} />
             <Route path="members" element={<MemberListPage />} />
             <Route path="variables" element={<VariableListPage />} />
-            <Route path="pipelines" element={<Suspense fallback={<div />}><PipelineListPage /></Suspense>} />
-            <Route path="pipelines/new" element={<Suspense fallback={<div />}><TemplateSelectPage /></Suspense>} />
-            <Route path="pipelines/:pipelineId/runs" element={<Suspense fallback={<div />}><PipelineRunListPage /></Suspense>} />
-            <Route path="pipelines/:pipelineId/runs/:runId" element={<Suspense fallback={<div />}><PipelineRunDetailPage /></Suspense>} />
-            <Route path="notifications" element={<Suspense fallback={<div />}><NotificationRulesPage /></Suspense>} />
+            <Route path="pipelines" element={<Suspense fallback={<PageSkeleton />}><PipelineListPage /></Suspense>} />
+            <Route path="pipelines/new" element={<Suspense fallback={<PageSkeleton />}><TemplateSelectPage /></Suspense>} />
+            <Route path="pipelines/:pipelineId/runs" element={<Suspense fallback={<PageSkeleton />}><PipelineRunListPage /></Suspense>} />
+            <Route path="pipelines/:pipelineId/runs/:runId" element={<Suspense fallback={<PageSkeleton />}><PipelineRunDetailPage /></Suspense>} />
+            <Route path="notifications" element={<Suspense fallback={<PageSkeleton />}><NotificationRulesPage /></Suspense>} />
           </Route>
           {/* Fullscreen pipeline editor — outside ProjectLayout for maximum canvas space */}
           <Route
             path="/projects/:id/pipelines/blank"
             element={
               <RequireAuth>
-                <Suspense fallback={<div />}><PipelineEditorPage /></Suspense>
+                <Suspense fallback={<PageSkeleton />}><PipelineEditorPage /></Suspense>
               </RequireAuth>
             }
           />
@@ -93,7 +95,7 @@ function App() {
             path="/projects/:id/pipelines/:pipelineId"
             element={
               <RequireAuth>
-                <Suspense fallback={<div />}><PipelineEditorPage /></Suspense>
+                <Suspense fallback={<PageSkeleton />}><PipelineEditorPage /></Suspense>
               </RequireAuth>
             }
           />
@@ -122,7 +124,7 @@ function App() {
             element={
               <RequireAuth>
                 <RequirePermission permission="route:admin-audit:view">
-                  <Suspense fallback={<div />}><AuditLogPage /></Suspense>
+                  <Suspense fallback={<PageSkeleton />}><AuditLogPage /></Suspense>
                 </RequirePermission>
               </RequireAuth>
             }
@@ -132,7 +134,7 @@ function App() {
             element={
               <RequireAuth>
                 <RequirePermission permission="route:admin-settings:view">
-                  <Suspense fallback={<div />}><SystemSettingsPage /></Suspense>
+                  <Suspense fallback={<PageSkeleton />}><SystemSettingsPage /></Suspense>
                 </RequirePermission>
               </RequireAuth>
             }
@@ -146,7 +148,7 @@ function App() {
             }
           />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<RequireAuth><NotFoundPage /></RequireAuth>} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

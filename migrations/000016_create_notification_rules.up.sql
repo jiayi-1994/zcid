@@ -1,4 +1,4 @@
-CREATE TABLE notification_rules (
+CREATE TABLE IF NOT EXISTS notification_rules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id VARCHAR(255) NOT NULL REFERENCES projects(id),
     name VARCHAR(200) NOT NULL,
@@ -9,5 +9,5 @@ CREATE TABLE notification_rules (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_notif_rules_project ON notification_rules(project_id);
-CREATE INDEX idx_notif_rules_event ON notification_rules(event_type);
+CREATE INDEX IF NOT EXISTS idx_notif_rules_project ON notification_rules(project_id);
+CREATE INDEX IF NOT EXISTS idx_notif_rules_event ON notification_rules(event_type);

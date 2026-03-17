@@ -2,14 +2,14 @@ package git
 
 import (
 	"errors"
-	"strings"
 	"time"
 
+	"github.com/xjy/zcid/pkg/database"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrNotFound     = errors.New("git connection not found")
+	ErrNotFound      = errors.New("git connection not found")
 	ErrNameDuplicate = errors.New("git connection name already exists")
 )
 
@@ -33,7 +33,7 @@ func NewRepo(db *gorm.DB) *Repo {
 
 func (r *Repo) Create(conn *GitConnection) error {
 	if err := r.db.Create(conn).Error; err != nil {
-		if isUniqueConstraintError(err) {
+		if database.IsUniqueConstraintError(err) {
 			return ErrNameDuplicate
 		}
 		return err
@@ -93,7 +93,7 @@ func (r *Repo) Update(id string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now()
 	result := r.db.Model(&GitConnection{}).Where("id = ? AND status != ?", id, StatusDeleted).Updates(updates)
 	if result.Error != nil {
-		if isUniqueConstraintError(result.Error) {
+		if database.IsUniqueConstraintError(result.Error) {
 			return ErrNameDuplicate
 		}
 		return result.Error
@@ -117,9 +117,4 @@ func (r *Repo) SoftDelete(id string) error {
 		return ErrNotFound
 	}
 	return nil
-}
-
-func isUniqueConstraintError(err error) bool {
-	return strings.Contains(err.Error(), "duplicate key") ||
-		strings.Contains(err.Error(), "UNIQUE constraint")
 }

@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,34 +17,35 @@ import (
 	"github.com/xjy/zcid/config"
 	"github.com/xjy/zcid/internal/admin"
 	"github.com/xjy/zcid/internal/audit"
-	"github.com/xjy/zcid/internal/crdclean"
 	"github.com/xjy/zcid/internal/auth"
+	"github.com/xjy/zcid/internal/crdclean"
 	"github.com/xjy/zcid/internal/deployment"
 	"github.com/xjy/zcid/internal/environment"
 	gitmod "github.com/xjy/zcid/internal/git"
-	"github.com/xjy/zcid/internal/registry"
+	"github.com/xjy/zcid/internal/logarchive"
+	"github.com/xjy/zcid/internal/notification"
 	"github.com/xjy/zcid/internal/pipeline"
 	"github.com/xjy/zcid/internal/pipelinerun"
 	"github.com/xjy/zcid/internal/project"
 	"github.com/xjy/zcid/internal/rbac"
+	"github.com/xjy/zcid/internal/registry"
 	"github.com/xjy/zcid/internal/svcdef"
-	"github.com/xjy/zcid/internal/logarchive"
-	"github.com/xjy/zcid/internal/notification"
 	"github.com/xjy/zcid/internal/variable"
 	"github.com/xjy/zcid/internal/ws"
-	"github.com/xjy/zcid/pkg/cache"
 	"github.com/xjy/zcid/pkg/argocd"
+	"github.com/xjy/zcid/pkg/cache"
 	"github.com/xjy/zcid/pkg/crypto"
-	k8sclient "github.com/xjy/zcid/pkg/k8s"
-	"github.com/xjy/zcid/pkg/tekton"
 	"github.com/xjy/zcid/pkg/database"
+	k8sclient "github.com/xjy/zcid/pkg/k8s"
 	"github.com/xjy/zcid/pkg/logging"
 	"github.com/xjy/zcid/pkg/middleware"
 	"github.com/xjy/zcid/pkg/response"
 	"github.com/xjy/zcid/pkg/storage"
+	"github.com/xjy/zcid/pkg/tekton"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gorm.io/gorm"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"gorm.io/gorm"
 )
 
 func main() {
@@ -116,7 +119,10 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.RequestID())
 	r.Use(middleware.ErrorRecovery())
+	r.Use(middleware.PrometheusMetrics())
 	r.Use(middleware.AccessLogger())
+
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	var aesCrypto *crypto.AESCrypto
 	if cfg.Encryption.Key != "" {
@@ -146,11 +152,31 @@ func main() {
 	_ = minioClient // used during init; retained for future use
 
 	addr := ":" + cfg.Server.Port
-	slog.Info("server starting", slog.String("addr", addr), slog.String("level", logging.CurrentLevel()))
-	if err := r.Run(addr); err != nil {
-		slog.Error("failed to start server", slog.Any("error", err))
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: r,
+	}
+
+	go func() {
+		slog.Info("server starting", slog.String("addr", addr), slog.String("level", logging.CurrentLevel()))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("failed to start server", slog.Any("error", err))
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	slog.Info("shutdown signal received", slog.String("signal", sig.String()))
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server forced shutdown", slog.Any("error", err))
 		os.Exit(1)
 	}
+	slog.Info("server exited gracefully")
 }
 
 func registerWebSocketRoutes(r *gin.Engine, jwtSecret string, k8sEnabled bool, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
@@ -198,8 +224,11 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret
 	service := auth.NewService(repo, jwtSecret)
 	handler := auth.NewHandler(service)
 
+	authLimiter := middleware.NewRateLimiter(rdb, 20, time.Minute)
+
 	v1 := r.Group("/api/v1")
 	authGroup := v1.Group("/auth")
+	authGroup.Use(middleware.RateLimit(authLimiter))
 	handler.RegisterRoutes(authGroup)
 }
 
@@ -409,8 +438,10 @@ func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jw
 		runSecretInjector = &pipelinerun.MockSecretInjector{}
 	}
 	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector)
+	webhookLimiter := middleware.NewRateLimiter(rdb, 60, time.Minute)
 	webhookHandler := gitmod.NewWebhookHandler(gitService, idempotentCache, matcher, runService)
 	webhooks := v1.Group("/webhooks")
+	webhooks.Use(middleware.RateLimit(webhookLimiter))
 	webhookHandler.RegisterRoutes(webhooks)
 }
 

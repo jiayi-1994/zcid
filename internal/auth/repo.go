@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/xjy/zcid/pkg/database"
 	"gorm.io/gorm"
 )
 
@@ -76,7 +77,7 @@ func (r *Repo) CreateUser(ctx context.Context, user *User) error {
 	}
 
 	err := r.db.WithContext(ctx).Create(user).Error
-	if isUniqueConstraintError(err) {
+	if database.IsUniqueConstraintError(err) {
 		return ErrUsernameTaken
 	}
 	if err != nil {
@@ -95,7 +96,7 @@ func (r *Repo) UpdateUser(ctx context.Context, userID string, updates map[string
 	}
 
 	res := r.db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Updates(updates)
-	if isUniqueConstraintError(res.Error) {
+	if database.IsUniqueConstraintError(res.Error) {
 		return ErrUsernameTaken
 	}
 	if res.Error != nil {
@@ -179,15 +180,6 @@ func (r *Repo) PublishPolicyUpdate(ctx context.Context) error {
 
 func refreshSessionKey(userID string) string {
 	return "auth:refresh:" + userID
-}
-
-func isUniqueConstraintError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint")
 }
 
 func (r *Repo) ListUsers(ctx context.Context) ([]*User, error) {

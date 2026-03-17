@@ -44,6 +44,19 @@ func getUserID(c *gin.Context) string {
 	return uid
 }
 
+// TriggerRun godoc
+// @Summary Trigger a pipeline run
+// @Description Trigger a new run for a pipeline within a project
+// @Tags pipeline-runs
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param pipelineId path string true "Pipeline ID"
+// @Param request body TriggerRunRequest false "Run trigger parameters"
+// @Success 200 {object} response.Response{data=PipelineRunResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/runs [post]
 func (h *Handler) TriggerRun(c *gin.Context) {
 	projectID := getProjectID(c)
 	pipelineID := getPipelineID(c)
@@ -72,6 +85,18 @@ func (h *Handler) TriggerRun(c *gin.Context) {
 	response.Success(c, run)
 }
 
+// ListRuns godoc
+// @Summary List pipeline runs
+// @Description Retrieve a paginated list of runs for a pipeline
+// @Tags pipeline-runs
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param pipelineId path string true "Pipeline ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=PipelineRunListResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/runs [get]
 func (h *Handler) ListRuns(c *gin.Context) {
 	projectID := getProjectID(c)
 	pipelineID := getPipelineID(c)
@@ -92,6 +117,17 @@ func (h *Handler) ListRuns(c *gin.Context) {
 	response.Success(c, result)
 }
 
+// GetRun godoc
+// @Summary Get a pipeline run
+// @Description Retrieve details of a specific pipeline run
+// @Tags pipeline-runs
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param runId path string true "Run ID"
+// @Success 200 {object} response.Response{data=PipelineRunResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/runs/{runId} [get]
 func (h *Handler) GetRun(c *gin.Context) {
 	projectID := getProjectID(c)
 	runID := getRunID(c)
@@ -109,6 +145,17 @@ func (h *Handler) GetRun(c *gin.Context) {
 	response.Success(c, run)
 }
 
+// CancelRun godoc
+// @Summary Cancel a pipeline run
+// @Description Cancel a running pipeline execution
+// @Tags pipeline-runs
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param runId path string true "Run ID"
+// @Success 200 {object} response.Response{data=object{cancelled=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/runs/{runId}/cancel [post]
 func (h *Handler) CancelRun(c *gin.Context) {
 	projectID := getProjectID(c)
 	runID := getRunID(c)
@@ -125,6 +172,17 @@ func (h *Handler) CancelRun(c *gin.Context) {
 	response.Success(c, gin.H{"cancelled": true})
 }
 
+// GetArtifacts godoc
+// @Summary Get run artifacts
+// @Description Retrieve artifacts produced by a pipeline run
+// @Tags pipeline-runs
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param runId path string true "Run ID"
+// @Success 200 {object} response.Response{data=object{artifacts=[]Artifact}}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/runs/{runId}/artifacts [get]
 func (h *Handler) GetArtifacts(c *gin.Context) {
 	projectID := getProjectID(c)
 	runID := getRunID(c)
@@ -142,6 +200,19 @@ func (h *Handler) GetArtifacts(c *gin.Context) {
 	response.Success(c, gin.H{"artifacts": artifacts})
 }
 
+// UpdateArtifacts godoc
+// @Summary Update run artifacts
+// @Description Update or replace artifacts for a pipeline run
+// @Tags pipeline-runs
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param runId path string true "Run ID"
+// @Param request body object{artifacts=[]Artifact} true "Artifacts payload"
+// @Success 200 {object} response.Response{data=object{updated=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/runs/{runId}/artifacts [put]
 func (h *Handler) UpdateArtifacts(c *gin.Context) {
 	projectID := getProjectID(c)
 	runID := getRunID(c)

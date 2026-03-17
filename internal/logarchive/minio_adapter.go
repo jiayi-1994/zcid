@@ -1,8 +1,8 @@
 package logarchive
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/minio/minio-go/v7"

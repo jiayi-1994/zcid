@@ -9,6 +9,7 @@ import {
   type DeploymentList,
 } from '../../../services/deployment';
 import { fetchEnvironments, type EnvironmentItem } from '../../../services/project';
+import { extractErrorMessage } from '../../../services/http';
 
 const FormItem = Form.Item;
 
@@ -90,8 +91,9 @@ export function DeploymentListPage() {
       form.resetFields();
       setModalVisible(false);
       loadData(page);
-    } catch (err: any) {
-      if (err.response?.data?.message) Message.error(err.response.data.message);
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err, '');
+      if (msg) Message.error(msg);
     } finally {
       setSubmitLoading(false);
     }

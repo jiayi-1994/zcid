@@ -20,6 +20,22 @@ func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 	router.GET("", h.List)
 }
 
+// List godoc
+// @Summary List audit logs
+// @Description Retrieve a paginated list of audit log entries with optional filters
+// @Tags audit-logs
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size (max 100)" default(20)
+// @Param userId query string false "Filter by user ID"
+// @Param action query string false "Filter by action"
+// @Param resourceType query string false "Filter by resource type"
+// @Param resourceId query string false "Filter by resource ID"
+// @Param startTime query string false "Filter by start time (RFC3339)"
+// @Param endTime query string false "Filter by end time (RFC3339)"
+// @Success 200 {object} response.Response{data=object{items=[]object,total=int,page=int,pageSize=int}}
+// @Failure 500 {object} response.Response
+// @Router /api/v1/admin/audit-logs [get]
 func (h *Handler) List(c *gin.Context) {
 	opts := ListOpts{
 		Page:     1,

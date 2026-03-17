@@ -43,7 +43,6 @@ func performJSONRequest(r *gin.Engine, method string, path string, body any, adm
 	return w
 }
 
-
 func decodeBody(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 	var body map[string]any

@@ -18,16 +18,16 @@ type ObjectMeta struct {
 
 // PipelineRun is the Tekton PipelineRun CRD
 type PipelineRun struct {
-	TypeMeta   TypeMeta   `json:",inline"`
-	ObjectMeta ObjectMeta `json:"metadata"`
+	TypeMeta   TypeMeta        `json:",inline"`
+	ObjectMeta ObjectMeta      `json:"metadata"`
 	Spec       PipelineRunSpec `json:"spec"`
 }
 
 // PipelineRunSpec defines the PipelineRun specification
 type PipelineRunSpec struct {
-	PipelineSpec PipelineSpec  `json:"pipelineSpec"`
-	Params       []Param       `json:"params,omitempty"`
-	Workspaces   []Workspace   `json:"workspaces,omitempty"`
+	PipelineSpec PipelineSpec `json:"pipelineSpec"`
+	Params       []Param      `json:"params,omitempty"`
+	Workspaces   []Workspace  `json:"workspaces,omitempty"`
 }
 
 // PipelineSpec defines the embedded pipeline
@@ -58,8 +58,8 @@ type Step struct {
 
 // Param represents a pipeline parameter
 type Param struct {
-	Name  string      `json:"name"`
-	Value ParamValue  `json:"value"`
+	Name  string     `json:"name"`
+	Value ParamValue `json:"value"`
 }
 
 // ParamValue holds the parameter value (string or array)
@@ -76,7 +76,7 @@ type Workspace struct {
 
 // WorkspaceBinding binds a workspace to a volume
 type WorkspaceBinding struct {
-	Name                  string `json:"name"`
+	Name                  string    `json:"name"`
 	EmptyDir              *struct{} `json:"emptyDir,omitempty"`
 	PersistentVolumeClaim *struct {
 		ClaimName string `json:"claimName"`
@@ -85,8 +85,8 @@ type WorkspaceBinding struct {
 
 // EnvVar represents an environment variable
 type EnvVar struct {
-	Name      string       `json:"name"`
-	Value     string       `json:"value,omitempty"`
+	Name      string        `json:"name"`
+	Value     string        `json:"value,omitempty"`
 	ValueFrom *EnvVarSource `json:"valueFrom,omitempty"`
 }
 

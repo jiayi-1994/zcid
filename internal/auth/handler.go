@@ -28,6 +28,17 @@ func (h *Handler) RegisterAdminUserRoutes(router gin.IRoutes) {
 	router.PUT("/users/:uid/role", h.AssignSystemRole)
 }
 
+// Login godoc
+// @Summary User login
+// @Description Authenticate a user with username and password, returns access and refresh tokens
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login credentials"
+// @Success 200 {object} response.Response{data=TokenPair}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -44,6 +55,17 @@ func (h *Handler) Login(c *gin.Context) {
 	response.Success(c, pair)
 }
 
+// Refresh godoc
+// @Summary Refresh access token
+// @Description Exchange a valid refresh token for a new access token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body RefreshRequest true "Refresh token"
+// @Success 200 {object} response.Response{data=object{accessToken=string}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/auth/refresh [post]
 func (h *Handler) Refresh(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,6 +82,16 @@ func (h *Handler) Refresh(c *gin.Context) {
 	response.Success(c, gin.H{"accessToken": accessToken})
 }
 
+// Logout godoc
+// @Summary User logout
+// @Description Invalidate the given refresh token to log out the user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body LogoutRequest true "Refresh token to invalidate"
+// @Success 200 {object} response.Response{data=object{loggedOut=bool}}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/auth/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
 	var req LogoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -75,6 +107,17 @@ func (h *Handler) Logout(c *gin.Context) {
 	response.Success(c, gin.H{"loggedOut": true})
 }
 
+// CreateUser godoc
+// @Summary Create a new user
+// @Description Create a new user account (admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param request body CreateUserRequest true "User creation payload"
+// @Success 200 {object} response.Response{data=UserResponse}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/admin/users [post]
 func (h *Handler) CreateUser(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -91,6 +134,18 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	response.Success(c, UserResponse{ID: user.ID, Username: user.Username, Status: string(user.Status), Role: string(user.Role)})
 }
 
+// UpdateUser godoc
+// @Summary Update a user
+// @Description Update an existing user's information (admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param uid path string true "User ID"
+// @Param request body UpdateUserRequest true "User update payload"
+// @Success 200 {object} response.Response{data=UserResponse}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/admin/users/{uid} [put]
 func (h *Handler) UpdateUser(c *gin.Context) {
 	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -113,6 +168,18 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	response.Success(c, UserResponse{ID: user.ID, Username: user.Username, Status: string(user.Status), Role: string(user.Role)})
 }
 
+// AssignSystemRole godoc
+// @Summary Assign system role to a user
+// @Description Assign a system-level role to a user (admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param uid path string true "User ID"
+// @Param request body AssignRoleRequest true "Role assignment payload"
+// @Success 200 {object} response.Response{data=UserResponse}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/admin/users/{uid}/role [put]
 func (h *Handler) AssignSystemRole(c *gin.Context) {
 	var req AssignRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -135,6 +202,14 @@ func (h *Handler) AssignSystemRole(c *gin.Context) {
 	response.Success(c, UserResponse{ID: user.ID, Username: user.Username, Status: string(user.Status), Role: string(user.Role)})
 }
 
+// ListUsers godoc
+// @Summary List all users
+// @Description Retrieve a list of all users (admin only)
+// @Tags users
+// @Produce json
+// @Success 200 {object} response.Response{data=[]UserResponse}
+// @Failure 403 {object} response.Response
+// @Router /api/v1/admin/users [get]
 func (h *Handler) ListUsers(c *gin.Context) {
 	users, err := h.service.ListUsers(c.Request.Context())
 	if err != nil {

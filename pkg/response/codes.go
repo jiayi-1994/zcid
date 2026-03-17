@@ -17,10 +17,10 @@ const (
 
 	// PipelineRun 4031x codes (Epic 7)
 	CodeRunNotFound     = 40310
-	CodeRunAlreadyDone   = 40311
-	CodeRunConcurrency   = 40312
-	CodeRunSubmitFailed  = 40313
-	CodeRunCancelFailed  = 40314
+	CodeRunAlreadyDone  = 40311
+	CodeRunConcurrency  = 40312
+	CodeRunSubmitFailed = 40313
+	CodeRunCancelFailed = 40314
 
 	// Not found 404xx codes
 	CodeNotFound = 40401
@@ -44,9 +44,9 @@ const (
 	CodePipelineConcurrency = 40204
 
 	// Variable 405xx codes
-	CodeVarDuplicate   = 40501
-	CodeDecryptFailed  = 40502
-	CodeEncryptFailed  = 40503
+	CodeVarDuplicate  = 40501
+	CodeDecryptFailed = 40502
+	CodeEncryptFailed = 40503
 
 	// Registry 406xx codes (Epic 7)
 	CodeRegistryNotFound   = 40601
@@ -76,48 +76,48 @@ const (
 )
 
 var codeHTTPStatusMap = map[int]int{
-	CodeBadRequest:          http.StatusBadRequest,
-	CodeValidation:          http.StatusBadRequest,
-	CodeUnauthorized:        http.StatusUnauthorized,
-	CodeTokenExpired:        http.StatusUnauthorized,
-	CodeAccountDisabled:     http.StatusUnauthorized,
-	CodeForbidden:           http.StatusForbidden,
-	CodeNotFound:            http.StatusNotFound,
-	CodeConflict:            http.StatusConflict,
-	CodeGitTokenInvalid:       http.StatusUnauthorized,
-	CodeGitWebhookSigInvalid: http.StatusUnauthorized,
-	CodeGitConnectionNotFound: http.StatusNotFound,
-	CodeGitConnectionDown:    http.StatusBadRequest,
+	CodeBadRequest:             http.StatusBadRequest,
+	CodeValidation:             http.StatusBadRequest,
+	CodeUnauthorized:           http.StatusUnauthorized,
+	CodeTokenExpired:           http.StatusUnauthorized,
+	CodeAccountDisabled:        http.StatusUnauthorized,
+	CodeForbidden:              http.StatusForbidden,
+	CodeNotFound:               http.StatusNotFound,
+	CodeConflict:               http.StatusConflict,
+	CodeGitTokenInvalid:        http.StatusUnauthorized,
+	CodeGitWebhookSigInvalid:   http.StatusUnauthorized,
+	CodeGitConnectionNotFound:  http.StatusNotFound,
+	CodeGitConnectionDown:      http.StatusBadRequest,
 	CodeGitProviderUnsupported: http.StatusBadRequest,
-	CodeGitAPIFailed:         http.StatusBadGateway,
-	CodeGitNameDuplicate:     http.StatusConflict,
-	CodePipelineNotFound:    http.StatusNotFound,
-	CodePipelineNameDup:     http.StatusConflict,
-	CodePipelineCRDFailed:   http.StatusInternalServerError,
-	CodePipelineConcurrency: http.StatusConflict,
-	CodeRunNotFound:         http.StatusNotFound,
-	CodeRunAlreadyDone:      http.StatusBadRequest,
-	CodeRunConcurrency:      http.StatusConflict,
-	CodeRunSubmitFailed:     http.StatusInternalServerError,
-	CodeRunCancelFailed:     http.StatusInternalServerError,
-	CodeVarDuplicate:        http.StatusConflict,
-	CodeDecryptFailed:       http.StatusInternalServerError,
-	CodeEncryptFailed:       http.StatusInternalServerError,
-	CodeRegistryNotFound:    http.StatusNotFound,
-	CodeRegistryNameDup:     http.StatusConflict,
-	CodeRegistryConnFailed:  http.StatusBadGateway,
-	CodeWSConnectionLimit:   http.StatusTooManyRequests,
-	CodeWSAuthFailed:        http.StatusUnauthorized,
-	CodeWSInvalidMessage:    http.StatusBadRequest,
-	CodeDeployNotFound:      http.StatusNotFound,
-	CodeDeployFailed:        http.StatusInternalServerError,
-	CodeDeploySyncFailed:    http.StatusBadGateway,
-	CodeDeployRollbackErr:   http.StatusBadRequest,
-	CodeNotifRuleNotFound:   http.StatusNotFound,
-	CodeNotifSendFailed:     http.StatusBadGateway,
-	CodeAuditQueryFailed:    http.StatusInternalServerError,
-	CodeInternalServerError: http.StatusInternalServerError,
-	CodeDependencyUnhealthy: http.StatusServiceUnavailable,
+	CodeGitAPIFailed:           http.StatusBadGateway,
+	CodeGitNameDuplicate:       http.StatusConflict,
+	CodePipelineNotFound:       http.StatusNotFound,
+	CodePipelineNameDup:        http.StatusConflict,
+	CodePipelineCRDFailed:      http.StatusInternalServerError,
+	CodePipelineConcurrency:    http.StatusConflict,
+	CodeRunNotFound:            http.StatusNotFound,
+	CodeRunAlreadyDone:         http.StatusBadRequest,
+	CodeRunConcurrency:         http.StatusConflict,
+	CodeRunSubmitFailed:        http.StatusInternalServerError,
+	CodeRunCancelFailed:        http.StatusInternalServerError,
+	CodeVarDuplicate:           http.StatusConflict,
+	CodeDecryptFailed:          http.StatusInternalServerError,
+	CodeEncryptFailed:          http.StatusInternalServerError,
+	CodeRegistryNotFound:       http.StatusNotFound,
+	CodeRegistryNameDup:        http.StatusConflict,
+	CodeRegistryConnFailed:     http.StatusBadGateway,
+	CodeWSConnectionLimit:      http.StatusTooManyRequests,
+	CodeWSAuthFailed:           http.StatusUnauthorized,
+	CodeWSInvalidMessage:       http.StatusBadRequest,
+	CodeDeployNotFound:         http.StatusNotFound,
+	CodeDeployFailed:           http.StatusInternalServerError,
+	CodeDeploySyncFailed:       http.StatusBadGateway,
+	CodeDeployRollbackErr:      http.StatusBadRequest,
+	CodeNotifRuleNotFound:      http.StatusNotFound,
+	CodeNotifSendFailed:        http.StatusBadGateway,
+	CodeAuditQueryFailed:       http.StatusInternalServerError,
+	CodeInternalServerError:    http.StatusInternalServerError,
+	CodeDependencyUnhealthy:    http.StatusServiceUnavailable,
 }
 
 func HTTPStatusFromCode(code int) int {

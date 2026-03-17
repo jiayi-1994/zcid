@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/xjy/zcid/pkg/database"
 	"gorm.io/gorm"
 )
 
@@ -31,7 +32,7 @@ func (r *Repo) Create(ctx context.Context, p *Project) error {
 	}
 
 	err := r.db.WithContext(ctx).Create(p).Error
-	if isUniqueConstraintError(err) {
+	if database.IsUniqueConstraintError(err) {
 		return ErrProjectNameTaken
 	}
 	if err != nil {
@@ -104,7 +105,7 @@ func (r *Repo) Update(ctx context.Context, id string, updates map[string]any) er
 	res := r.db.WithContext(ctx).Model(&Project{}).
 		Where("id = ? AND status != ?", id, ProjectStatusDeleted).
 		Updates(updates)
-	if isUniqueConstraintError(res.Error) {
+	if database.IsUniqueConstraintError(res.Error) {
 		return ErrProjectNameTaken
 	}
 	if res.Error != nil {
@@ -137,7 +138,7 @@ func (r *Repo) AddMember(ctx context.Context, member *ProjectMember) error {
 	}
 
 	err := r.db.WithContext(ctx).Create(member).Error
-	if isUniqueConstraintError(err) {
+	if database.IsUniqueConstraintError(err) {
 		return ErrMemberExists
 	}
 	if err != nil {
@@ -236,6 +237,41 @@ func (r *Repo) UpdateMemberRole(ctx context.Context, projectID, userID string, r
 	return nil
 }
 
+func (r *Repo) DeleteProjectCascade(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&Project{}).
+			Where("id = ? AND status != ?", id, ProjectStatusDeleted).
+			Update("status", ProjectStatusDeleted)
+		if res.Error != nil {
+			return fmt.Errorf("soft delete project: %w", res.Error)
+		}
+		if res.RowsAffected == 0 {
+			return ErrProjectNotFound
+		}
+
+		if err := tx.Table("environments").
+			Where("project_id = ? AND status != ?", id, "deleted").
+			Update("status", "deleted").Error; err != nil {
+			return fmt.Errorf("soft delete environments: %w", err)
+		}
+		if err := tx.Table("services").
+			Where("project_id = ? AND status != ?", id, "deleted").
+			Update("status", "deleted").Error; err != nil {
+			return fmt.Errorf("soft delete services: %w", err)
+		}
+		if err := tx.Table("variables").
+			Where("project_id = ? AND status != ?", id, "deleted").
+			Update("status", "deleted").Error; err != nil {
+			return fmt.Errorf("soft delete variables: %w", err)
+		}
+		if err := tx.Where("project_id = ?", id).
+			Delete(&ProjectMember{}).Error; err != nil {
+			return fmt.Errorf("remove project members: %w", err)
+		}
+		return nil
+	})
+}
+
 func (r *Repo) SoftDeleteEnvironmentsByProject(ctx context.Context, projectID string) error {
 	return r.db.WithContext(ctx).
 		Table("environments").
@@ -255,12 +291,4 @@ func (r *Repo) SoftDeleteVariablesByProject(ctx context.Context, projectID strin
 		Table("variables").
 		Where("project_id = ? AND status != ?", projectID, "deleted").
 		Update("status", "deleted").Error
-}
-
-func isUniqueConstraintError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint")
 }

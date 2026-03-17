@@ -14,7 +14,7 @@ type mockNotificationRepo struct {
 	create             func(ctx context.Context, r *NotificationRule) error
 	findByID           func(ctx context.Context, id, projectID string) (*NotificationRule, error)
 	listByProject      func(ctx context.Context, projectID string, page, pageSize int) ([]*NotificationRule, int64, error)
-	listByProjectEvent  func(ctx context.Context, projectID string, event EventType) ([]*NotificationRule, error)
+	listByProjectEvent func(ctx context.Context, projectID string, event EventType) ([]*NotificationRule, error)
 	update             func(ctx context.Context, id, projectID string, updates map[string]any) error
 	delete             func(ctx context.Context, id, projectID string) error
 }

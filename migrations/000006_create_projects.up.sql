@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX uk_projects_name ON projects(name) WHERE status != 'deleted';
-CREATE INDEX idx_projects_owner_id ON projects(owner_id);
-CREATE INDEX idx_projects_status ON projects(status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_projects_name ON projects(name) WHERE status != 'deleted';
+CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 
 -- Story 3.1: project_members table for tracking project membership
 CREATE TABLE IF NOT EXISTS project_members (
@@ -22,6 +22,6 @@ CREATE TABLE IF NOT EXISTS project_members (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX uk_project_members_project_user ON project_members(project_id, user_id);
-CREATE INDEX idx_project_members_user_id ON project_members(user_id);
-CREATE INDEX idx_project_members_project_id ON project_members(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_project_members_project_user ON project_members(project_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);

@@ -10,6 +10,6 @@ CREATE TABLE IF NOT EXISTS environments (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX uk_environments_namespace ON environments(namespace) WHERE status != 'deleted';
-CREATE UNIQUE INDEX uk_environments_project_name ON environments(project_id, name) WHERE status != 'deleted';
-CREATE INDEX idx_environments_project_id ON environments(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_environments_namespace ON environments(namespace) WHERE status != 'deleted';
+CREATE UNIQUE INDEX IF NOT EXISTS uk_environments_project_name ON environments(project_id, name) WHERE status != 'deleted';
+CREATE INDEX IF NOT EXISTS idx_environments_project_id ON environments(project_id);
