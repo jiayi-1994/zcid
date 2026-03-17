@@ -1,5 +1,7 @@
-import { Form, Input, Modal, Select, Message } from '@arco-design/web-react';
+import { Form, Input, Modal, Select, Message, Typography, Link } from '@arco-design/web-react';
 import { useState } from 'react';
+
+const { Text } = Typography;
 
 interface ConnectionFormModalProps {
   visible: boolean;
@@ -62,8 +64,13 @@ export function ConnectionFormModal({
                 <Select.Option value="github">GitHub</Select.Option>
               </Select>
             </Form.Item>
-            <Form.Item label="Server URL" field="serverUrl" rules={[{ required: true, message: '请输入 Server URL' }]}>
-              <Input placeholder="例如: https://gitlab.example.com" />
+            <Form.Item
+              label="Server URL"
+              field="serverUrl"
+              rules={[{ required: true, message: '请输入 Server URL' }]}
+              extra={<span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>支持内网地址，如 http://192.168.1.100:8080 或 https://git.internal.company.com</span>}
+            >
+              <Input placeholder="例如: https://gitlab.example.com 或 http://内网IP:端口" />
             </Form.Item>
           </>
         )}
@@ -71,6 +78,14 @@ export function ConnectionFormModal({
           label="Access Token (PAT)"
           field="accessToken"
           rules={editMode ? [] : [{ required: true, message: '请输入 Access Token' }]}
+          extra={!editMode && (
+            <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 4, lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 500, marginBottom: 2 }}>如何获取 PAT：</div>
+              <div>• <strong>GitHub</strong>：Settings → Developer settings → Personal access tokens → Generate new token，勾选 <code>repo</code> 权限</div>
+              <div>• <strong>GitLab</strong>：Settings → Access Tokens → 勾选 <code>api</code> + <code>read_repository</code> 权限</div>
+              <div>• 内网 GitLab 同样支持，只需填写内网 Server URL 即可（如 <code>http://192.168.1.100:8080</code>）</div>
+            </div>
+          )}
         >
           <Input.Password placeholder={editMode ? '留空则不更新' : '请输入 Personal Access Token'} />
         </Form.Item>

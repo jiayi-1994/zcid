@@ -41,27 +41,53 @@ export function AuditLogPage() {
   };
 
   const columns = [
-    { title: '时间', dataIndex: 'createdAt', width: 180 },
-    { title: '用户 ID', dataIndex: 'userId', width: 120, ellipsis: true },
+    {
+      title: '时间',
+      dataIndex: 'createdAt',
+      width: 170,
+      render: (v: string) => <span style={{ fontSize: 12, color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>{new Date(v).toLocaleString()}</span>,
+    },
+    {
+      title: '用户',
+      dataIndex: 'userId',
+      width: 130,
+      ellipsis: true,
+      render: (v: string) => <span style={{ fontSize: 13 }}>{v?.replace('admin-bootstrap-', 'admin#') || '-'}</span>,
+    },
     {
       title: '操作',
       dataIndex: 'action',
       width: 80,
-      render: (val: string) => <Tag>{val}</Tag>,
+      render: (val: string) => <Tag size="small" style={{ borderRadius: 999 }}>{val}</Tag>,
     },
-    { title: '资源类型', dataIndex: 'resourceType', width: 120 },
-    { title: '资源 ID', dataIndex: 'resourceId', width: 120, ellipsis: true },
+    {
+      title: '资源类型',
+      dataIndex: 'resourceType',
+      width: 140,
+      render: (v: string) => <span style={{ fontSize: 13 }}>{v || '-'}</span>,
+    },
+    {
+      title: '资源 ID',
+      dataIndex: 'resourceId',
+      width: 180,
+      ellipsis: true,
+      render: (v: string) => <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--muted-foreground)' }}>{v ? v.substring(0, 16) + '...' : '-'}</span>,
+    },
     {
       title: '结果',
       dataIndex: 'result',
-      width: 80,
+      width: 70,
       render: (val: string) => {
         const cfg = RESULT_CONFIG[val] || { color: 'gray', text: val };
-        return <Tag color={cfg.color}>{cfg.text}</Tag>;
+        return <Tag size="small" color={cfg.color} style={{ borderRadius: 999 }}>{cfg.text}</Tag>;
       },
     },
-    { title: 'IP', dataIndex: 'ip', width: 130 },
-    { title: '详情', dataIndex: 'detail', ellipsis: true },
+    {
+      title: 'IP',
+      dataIndex: 'ip',
+      width: 110,
+      render: (v: string) => <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{v || '-'}</span>,
+    },
   ];
 
   return (
@@ -108,6 +134,9 @@ export function AuditLogPage() {
           data={logs}
           rowKey="id"
           loading={loading}
+          border={false}
+          stripe
+          scroll={{ x: 900 }}
           pagination={{
             total,
             current: filters.page,

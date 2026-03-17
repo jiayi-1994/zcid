@@ -209,27 +209,28 @@ export default function TemplateSelectPage() {
       <Row gutter={[16, 16]}>
         {/* Blank pipeline card */}
         <Col span={8}>
-          <Card
-            hoverable
-            style={{
-              cursor: 'pointer', borderRadius: 12, height: '100%',
-              border: '2px dashed var(--color-border-2)',
-              transition: 'all 0.2s',
-            }}
-            bodyStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', height: '100%' }}
+          <div
             onClick={() => { if (projectId) navigate(`/projects/${projectId}/pipelines/blank`); }}
+            style={{
+              cursor: 'pointer', borderRadius: 10, height: 140,
+              border: '2px dashed var(--border)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              transition: 'border-color 0.2s', background: 'var(--card)',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#A1A1AA'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
           >
             <div style={{
-              width: 56, height: 56, borderRadius: 14,
-              background: '#F2F3F5', border: '2px dashed #C9CDD4',
+              width: 40, height: 40, borderRadius: 10,
+              background: 'var(--muted)', border: '1.5px dashed #A1A1AA',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28, marginBottom: 12,
+              fontSize: 20, marginBottom: 8, color: '#71717A',
             }}>
-              ➕
+              ＋
             </div>
-            <Title heading={6} style={{ marginBottom: 2 }}>空白流水线</Title>
-            <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>从零开始手动配置</Text>
-          </Card>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>空白流水线</div>
+            <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 2 }}>从零开始手动配置</div>
+          </div>
         </Col>
 
         {/* Template cards */}
@@ -237,42 +238,46 @@ export default function TemplateSelectPage() {
           const catCfg = categoryConfig[template.category] || categoryConfig.general;
           return (
             <Col span={8} key={template.id}>
-              <Card
-                hoverable
-                style={{
-                  cursor: 'pointer', borderRadius: 12, height: '100%',
-                  transition: 'all 0.2s',
-                }}
-                bodyStyle={{ padding: '20px 16px', height: '100%' }}
+              <div
                 onClick={() => handleSelectTemplate(template)}
+                style={{
+                  cursor: 'pointer', borderRadius: 10, height: 140,
+                  border: '1px solid var(--border)', padding: '16px',
+                  display: 'flex', gap: 12, transition: 'border-color 0.2s',
+                  background: 'var(--card)',
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#A1A1AA'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+                  background: catCfg.bg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 20,
+                }}>
+                  {catCfg.icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>{template.name}</div>
                   <div style={{
-                    width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                    background: catCfg.bg,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 22, boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    fontSize: 12, color: 'var(--muted-foreground)', lineHeight: 1.5,
+                    flex: 1, overflow: 'hidden',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
                   }}>
-                    {catCfg.icon}
+                    {template.description}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <Title heading={6} style={{ marginBottom: 2, fontSize: 14 }}>{template.name}</Title>
-                    <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8, lineHeight: 1.4 }}>
-                      {template.description}
-                    </Paragraph>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Tag size="small" color={catCfg.color} style={{ borderRadius: 10 }}>
-                        {categoryLabels[template.category] || template.category}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <Tag size="small" style={{ borderRadius: 999, fontSize: 11 }}>
+                      {categoryLabels[template.category] || template.category}
+                    </Tag>
+                    {template.params.length > 0 && (
+                      <Tag size="small" color="gray" style={{ borderRadius: 999, fontSize: 11 }}>
+                        {template.params.length} 个参数
                       </Tag>
-                      {template.params.length > 0 && (
-                        <Tag size="small" color="gray" style={{ borderRadius: 10 }}>
-                          {template.params.length} 个参数
-                        </Tag>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
-              </Card>
+              </div>
             </Col>
           );
         })}
