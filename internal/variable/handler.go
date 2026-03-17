@@ -50,7 +50,7 @@ func (h *Handler) CreateProjectVariable(c *gin.Context) {
 	}
 
 	userID, _ := c.Get(middleware.ContextKeyUserID)
-	v, err := h.service.CreateVariable(ScopeProject, &projectID, nil, req, userID.(string))
+	v, err := h.service.CreateVariable(c.Request.Context(), ScopeProject, &projectID, nil, req, userID.(string))
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -72,7 +72,7 @@ func (h *Handler) CreateGlobalVariable(c *gin.Context) {
 	}
 
 	userID, _ := c.Get(middleware.ContextKeyUserID)
-	v, err := h.service.CreateVariable(ScopeGlobal, nil, nil, req, userID.(string))
+	v, err := h.service.CreateVariable(c.Request.Context(), ScopeGlobal, nil, nil, req, userID.(string))
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -83,7 +83,7 @@ func (h *Handler) CreateGlobalVariable(c *gin.Context) {
 
 func (h *Handler) ListProjectVariables(c *gin.Context) {
 	projectID := c.Param("id")
-	vars, _, err := h.service.ListProjectVariables(projectID)
+	vars, _, err := h.service.ListProjectVariables(c.Request.Context(), projectID)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -100,7 +100,7 @@ func (h *Handler) ListProjectVariables(c *gin.Context) {
 }
 
 func (h *Handler) ListGlobalVariables(c *gin.Context) {
-	vars, total, err := h.service.ListGlobalVariables()
+	vars, total, err := h.service.ListGlobalVariables(c.Request.Context())
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -115,7 +115,7 @@ func (h *Handler) ListGlobalVariables(c *gin.Context) {
 
 func (h *Handler) ListMergedVariables(c *gin.Context) {
 	projectID := c.Param("id")
-	vars, err := h.service.GetMergedVariables(projectID)
+	vars, err := h.service.GetMergedVariables(c.Request.Context(), projectID)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -139,7 +139,7 @@ func (h *Handler) UpdateVariable(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.service.GetVariable(vid)
+	existing, err := h.service.GetVariable(c.Request.Context(), vid)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -157,7 +157,7 @@ func (h *Handler) UpdateVariable(c *gin.Context) {
 		}
 	}
 
-	if err := h.service.UpdateVariable(vid, req, existing.VarType == TypeSecret); err != nil {
+	if err := h.service.UpdateVariable(c.Request.Context(), vid, req, existing.VarType == TypeSecret); err != nil {
 		response.HandleError(c, err)
 		return
 	}
@@ -172,7 +172,7 @@ func (h *Handler) ListPipelineVariables(c *gin.Context) {
 		response.HandleError(c, response.NewBizError(response.CodeBadRequest, "请求参数错误", "project id and pipeline id are required"))
 		return
 	}
-	vars, total, err := h.service.ListPipelineVariables(projectID, pipelineID)
+	vars, total, err := h.service.ListPipelineVariables(c.Request.Context(), projectID, pipelineID)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -203,7 +203,7 @@ func (h *Handler) CreatePipelineVariable(c *gin.Context) {
 		return
 	}
 	userID, _ := c.Get(middleware.ContextKeyUserID)
-	v, err := h.service.CreateVariable(ScopePipeline, &projectID, &pipelineID, req, userID.(string))
+	v, err := h.service.CreateVariable(c.Request.Context(), ScopePipeline, &projectID, &pipelineID, req, userID.(string))
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -218,7 +218,7 @@ func (h *Handler) DeleteVariable(c *gin.Context) {
 	}
 
 	vid := c.Param("vid")
-	if err := h.service.DeleteVariable(vid); err != nil {
+	if err := h.service.DeleteVariable(c.Request.Context(), vid); err != nil {
 		response.HandleError(c, err)
 		return
 	}

@@ -82,7 +82,7 @@ func (s *Service) TriggerRun(ctx context.Context, projectID, pipelineID, userID 
 	plainParams := make(map[string]string)
 	secretParams := make(map[string]string)
 	if s.variableService != nil {
-		resolved, err := s.variableService.ResolveVariables(projectID, pipelineID)
+		resolved, err := s.variableService.ResolveVariables(ctx, projectID, pipelineID)
 		if err == nil {
 			for _, v := range resolved {
 				if v.VarType == variable.TypeSecret {
