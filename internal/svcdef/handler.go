@@ -37,6 +37,18 @@ func isAdminOrProjectAdmin(c *gin.Context) bool {
 	return false
 }
 
+// Create godoc
+// @Summary Create a service definition
+// @Description Create a new service definition within a project (admin or project admin only)
+// @Tags services
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body CreateServiceRequest true "Service creation payload"
+// @Success 200 {object} response.Response{data=ServiceResponse}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/services [post]
 func (h *Handler) Create(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	if projectID == "" {
@@ -64,6 +76,17 @@ func (h *Handler) Create(c *gin.Context) {
 	response.Success(c, ToServiceResponse(svc))
 }
 
+// Get godoc
+// @Summary Get a service definition
+// @Description Retrieve a service definition by its ID within a project
+// @Tags services
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param sid path string true "Service ID"
+// @Success 200 {object} response.Response{data=ServiceResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/services/{sid} [get]
 func (h *Handler) Get(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	svcID := strings.TrimSpace(c.Param("sid"))
@@ -81,6 +104,17 @@ func (h *Handler) Get(c *gin.Context) {
 	response.Success(c, ToServiceResponse(svc))
 }
 
+// List godoc
+// @Summary List service definitions
+// @Description Retrieve a paginated list of service definitions in a project
+// @Tags services
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=ServiceListResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/services [get]
 func (h *Handler) List(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	if projectID == "" {
@@ -110,6 +144,19 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
+// Update godoc
+// @Summary Update a service definition
+// @Description Update an existing service definition's configuration
+// @Tags services
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param sid path string true "Service ID"
+// @Param request body UpdateServiceRequest true "Service update payload"
+// @Success 200 {object} response.Response{data=ServiceResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/services/{sid} [put]
 func (h *Handler) Update(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	svcID := strings.TrimSpace(c.Param("sid"))
@@ -133,6 +180,17 @@ func (h *Handler) Update(c *gin.Context) {
 	response.Success(c, ToServiceResponse(svc))
 }
 
+// Delete godoc
+// @Summary Delete a service definition
+// @Description Delete a service definition from a project (admin or project admin only)
+// @Tags services
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param sid path string true "Service ID"
+// @Success 200 {object} response.Response{data=object{deleted=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/services/{sid} [delete]
 func (h *Handler) Delete(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	svcID := strings.TrimSpace(c.Param("sid"))

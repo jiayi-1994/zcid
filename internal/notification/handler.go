@@ -35,6 +35,18 @@ func getUserID(c *gin.Context) string {
 	return uid
 }
 
+// Create godoc
+// @Summary Create a notification rule
+// @Description Create a new notification rule for a project
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body CreateRuleRequest true "Notification rule creation payload"
+// @Success 200 {object} response.Response{data=RuleResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/projects/{id}/notification-rules [post]
 func (h *Handler) Create(c *gin.Context) {
 	projectID := getProjectID(c)
 	if projectID == "" {
@@ -59,6 +71,17 @@ func (h *Handler) Create(c *gin.Context) {
 	response.Success(c, ToRuleResponse(rule))
 }
 
+// Get godoc
+// @Summary Get a notification rule
+// @Description Retrieve a notification rule by its ID
+// @Tags notifications
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param ruleId path string true "Rule ID"
+// @Success 200 {object} response.Response{data=RuleResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/notification-rules/{ruleId} [get]
 func (h *Handler) Get(c *gin.Context) {
 	projectID := getProjectID(c)
 	ruleID := strings.TrimSpace(c.Param("ruleId"))
@@ -74,6 +97,17 @@ func (h *Handler) Get(c *gin.Context) {
 	response.Success(c, ToRuleResponse(rule))
 }
 
+// List godoc
+// @Summary List notification rules
+// @Description Retrieve a paginated list of notification rules for a project
+// @Tags notifications
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=object{items=[]RuleResponse,total=int,page=int,pageSize=int}}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/notification-rules [get]
 func (h *Handler) List(c *gin.Context) {
 	projectID := getProjectID(c)
 	if projectID == "" {
@@ -99,6 +133,19 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
+// Update godoc
+// @Summary Update a notification rule
+// @Description Update an existing notification rule
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param ruleId path string true "Rule ID"
+// @Param request body UpdateRuleRequest true "Notification rule update payload"
+// @Success 200 {object} response.Response{data=RuleResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/notification-rules/{ruleId} [put]
 func (h *Handler) Update(c *gin.Context) {
 	projectID := getProjectID(c)
 	ruleID := strings.TrimSpace(c.Param("ruleId"))
@@ -119,6 +166,17 @@ func (h *Handler) Update(c *gin.Context) {
 	response.Success(c, ToRuleResponse(rule))
 }
 
+// Delete godoc
+// @Summary Delete a notification rule
+// @Description Delete a notification rule from a project
+// @Tags notifications
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param ruleId path string true "Rule ID"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/notification-rules/{ruleId} [delete]
 func (h *Handler) Delete(c *gin.Context) {
 	projectID := getProjectID(c)
 	ruleID := strings.TrimSpace(c.Param("ruleId"))

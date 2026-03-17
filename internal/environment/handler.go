@@ -37,6 +37,18 @@ func isAdminOrProjectAdmin(c *gin.Context) bool {
 	return false
 }
 
+// Create godoc
+// @Summary Create an environment
+// @Description Create a new environment within a project (admin or project admin only)
+// @Tags environments
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body CreateEnvironmentRequest true "Environment creation payload"
+// @Success 200 {object} response.Response{data=EnvironmentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/environments [post]
 func (h *Handler) Create(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	if projectID == "" {
@@ -64,6 +76,17 @@ func (h *Handler) Create(c *gin.Context) {
 	response.Success(c, ToEnvironmentResponse(env))
 }
 
+// Get godoc
+// @Summary Get an environment
+// @Description Retrieve an environment by its ID within a project
+// @Tags environments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param eid path string true "Environment ID"
+// @Success 200 {object} response.Response{data=EnvironmentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/environments/{eid} [get]
 func (h *Handler) Get(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	envID := strings.TrimSpace(c.Param("eid"))
@@ -81,6 +104,17 @@ func (h *Handler) Get(c *gin.Context) {
 	response.Success(c, ToEnvironmentResponse(env))
 }
 
+// List godoc
+// @Summary List environments
+// @Description Retrieve a paginated list of environments in a project
+// @Tags environments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=EnvironmentListResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/environments [get]
 func (h *Handler) List(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	if projectID == "" {
@@ -110,6 +144,19 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
+// Update godoc
+// @Summary Update an environment
+// @Description Update an existing environment's configuration
+// @Tags environments
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param eid path string true "Environment ID"
+// @Param request body UpdateEnvironmentRequest true "Environment update payload"
+// @Success 200 {object} response.Response{data=EnvironmentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/environments/{eid} [put]
 func (h *Handler) Update(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	envID := strings.TrimSpace(c.Param("eid"))
@@ -133,6 +180,17 @@ func (h *Handler) Update(c *gin.Context) {
 	response.Success(c, ToEnvironmentResponse(env))
 }
 
+// Delete godoc
+// @Summary Delete an environment
+// @Description Delete an environment from a project (admin or project admin only)
+// @Tags environments
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param eid path string true "Environment ID"
+// @Success 200 {object} response.Response{data=object{deleted=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /api/v1/projects/{id}/environments/{eid} [delete]
 func (h *Handler) Delete(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	envID := strings.TrimSpace(c.Param("eid"))

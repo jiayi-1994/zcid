@@ -31,8 +31,20 @@ func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 	router.GET("/logs", h.GetArchivedLogs)
 }
 
-// GetArchivedLogs returns paginated archived logs for a run.
-// GET /api/v1/projects/:id/pipeline-runs/:runId/logs?page=1&pageSize=50
+// GetArchivedLogs godoc
+// @Summary Get archived logs
+// @Description Retrieve paginated archived logs for a pipeline run
+// @Tags log-archives
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param runId path string true "Run ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(50)
+// @Success 200 {object} response.Response{data=object{items=[]object,total=int,page=int,pageSize=int}}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/projects/{id}/pipeline-runs/{runId}/logs [get]
 func (h *Handler) GetArchivedLogs(c *gin.Context) {
 	projectID := strings.TrimSpace(c.Param("id"))
 	runID := strings.TrimSpace(c.Param("runId"))

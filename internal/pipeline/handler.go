@@ -31,6 +31,13 @@ func (h *Handler) RegisterTemplateRoutes(router gin.IRoutes) {
 	router.GET("/:templateId", h.GetTemplate)
 }
 
+// ListTemplates godoc
+// @Summary List pipeline templates
+// @Description Retrieve all available pipeline templates
+// @Tags pipeline-templates
+// @Produce json
+// @Success 200 {object} response.Response{data=object{items=[]TemplateSummary,total=int}}
+// @Router /api/v1/pipeline-templates [get]
 func (h *Handler) ListTemplates(c *gin.Context) {
 	templates := h.service.ListTemplates()
 	items := make([]TemplateSummary, len(templates))
@@ -40,6 +47,16 @@ func (h *Handler) ListTemplates(c *gin.Context) {
 	response.Success(c, gin.H{"items": items, "total": len(items)})
 }
 
+// GetTemplate godoc
+// @Summary Get a pipeline template
+// @Description Retrieve a pipeline template by its ID
+// @Tags pipeline-templates
+// @Produce json
+// @Param templateId path string true "Template ID"
+// @Success 200 {object} response.Response{data=PipelineTemplate}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/pipeline-templates/{templateId} [get]
 func (h *Handler) GetTemplate(c *gin.Context) {
 	templateID := strings.TrimSpace(c.Param("templateId"))
 	if templateID == "" {
@@ -70,6 +87,18 @@ func getUserID(c *gin.Context) string {
 	return uid
 }
 
+// CreatePipeline godoc
+// @Summary Create a pipeline
+// @Description Create a new pipeline within a project
+// @Tags pipelines
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body CreatePipelineRequest true "Pipeline creation payload"
+// @Success 200 {object} response.Response{data=PipelineResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines [post]
 func (h *Handler) CreatePipeline(c *gin.Context) {
 	projectID := getProjectID(c)
 	if projectID == "" {
@@ -98,6 +127,17 @@ func (h *Handler) CreatePipeline(c *gin.Context) {
 	response.Success(c, ToPipelineResponse(p))
 }
 
+// GetPipeline godoc
+// @Summary Get a pipeline
+// @Description Retrieve a pipeline by its ID within a project
+// @Tags pipelines
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param pipelineId path string true "Pipeline ID"
+// @Success 200 {object} response.Response{data=PipelineResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId} [get]
 func (h *Handler) GetPipeline(c *gin.Context) {
 	projectID := getProjectID(c)
 	pipelineID := getPipelineID(c)
@@ -115,6 +155,17 @@ func (h *Handler) GetPipeline(c *gin.Context) {
 	response.Success(c, ToPipelineResponse(p))
 }
 
+// ListPipelines godoc
+// @Summary List pipelines
+// @Description Retrieve a paginated list of pipelines in a project
+// @Tags pipelines
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Page size" default(20)
+// @Success 200 {object} response.Response{data=PipelineListResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines [get]
 func (h *Handler) ListPipelines(c *gin.Context) {
 	projectID := getProjectID(c)
 	if projectID == "" {
@@ -144,6 +195,19 @@ func (h *Handler) ListPipelines(c *gin.Context) {
 	})
 }
 
+// UpdatePipeline godoc
+// @Summary Update a pipeline
+// @Description Update an existing pipeline's configuration
+// @Tags pipelines
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param pipelineId path string true "Pipeline ID"
+// @Param request body UpdatePipelineRequest true "Pipeline update payload"
+// @Success 200 {object} response.Response{data=PipelineResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId} [put]
 func (h *Handler) UpdatePipeline(c *gin.Context) {
 	projectID := getProjectID(c)
 	pipelineID := getPipelineID(c)
@@ -167,6 +231,17 @@ func (h *Handler) UpdatePipeline(c *gin.Context) {
 	response.Success(c, ToPipelineResponse(p))
 }
 
+// DeletePipeline godoc
+// @Summary Delete a pipeline
+// @Description Delete a pipeline from a project
+// @Tags pipelines
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param pipelineId path string true "Pipeline ID"
+// @Success 200 {object} response.Response{data=object{deleted=bool}}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId} [delete]
 func (h *Handler) DeletePipeline(c *gin.Context) {
 	projectID := getProjectID(c)
 	pipelineID := getPipelineID(c)
@@ -183,6 +258,17 @@ func (h *Handler) DeletePipeline(c *gin.Context) {
 	response.Success(c, gin.H{"deleted": true})
 }
 
+// CopyPipeline godoc
+// @Summary Copy a pipeline
+// @Description Create a copy of an existing pipeline within the same project
+// @Tags pipelines
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param pipelineId path string true "Pipeline ID to copy"
+// @Success 200 {object} response.Response{data=PipelineResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/copy [post]
 func (h *Handler) CopyPipeline(c *gin.Context) {
 	projectID := getProjectID(c)
 	pipelineID := getPipelineID(c)
