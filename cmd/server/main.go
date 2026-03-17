@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -146,11 +148,31 @@ func main() {
 	_ = minioClient // used during init; retained for future use
 
 	addr := ":" + cfg.Server.Port
-	slog.Info("server starting", slog.String("addr", addr), slog.String("level", logging.CurrentLevel()))
-	if err := r.Run(addr); err != nil {
-		slog.Error("failed to start server", slog.Any("error", err))
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: r,
+	}
+
+	go func() {
+		slog.Info("server starting", slog.String("addr", addr), slog.String("level", logging.CurrentLevel()))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("failed to start server", slog.Any("error", err))
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	slog.Info("shutdown signal received", slog.String("signal", sig.String()))
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server forced shutdown", slog.Any("error", err))
 		os.Exit(1)
 	}
+	slog.Info("server exited gracefully")
 }
 
 func registerWebSocketRoutes(r *gin.Engine, jwtSecret string, k8sEnabled bool, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
@@ -198,8 +220,11 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret
 	service := auth.NewService(repo, jwtSecret)
 	handler := auth.NewHandler(service)
 
+	authLimiter := middleware.NewRateLimiter(rdb, 20, time.Minute)
+
 	v1 := r.Group("/api/v1")
 	authGroup := v1.Group("/auth")
+	authGroup.Use(middleware.RateLimit(authLimiter))
 	handler.RegisterRoutes(authGroup)
 }
 
@@ -409,8 +434,10 @@ func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jw
 		runSecretInjector = &pipelinerun.MockSecretInjector{}
 	}
 	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector)
+	webhookLimiter := middleware.NewRateLimiter(rdb, 60, time.Minute)
 	webhookHandler := gitmod.NewWebhookHandler(gitService, idempotentCache, matcher, runService)
 	webhooks := v1.Group("/webhooks")
+	webhooks.Use(middleware.RateLimit(webhookLimiter))
 	webhookHandler.RegisterRoutes(webhooks)
 }
 

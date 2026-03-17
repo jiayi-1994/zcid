@@ -236,6 +236,41 @@ func (r *Repo) UpdateMemberRole(ctx context.Context, projectID, userID string, r
 	return nil
 }
 
+func (r *Repo) DeleteProjectCascade(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&Project{}).
+			Where("id = ? AND status != ?", id, ProjectStatusDeleted).
+			Update("status", ProjectStatusDeleted)
+		if res.Error != nil {
+			return fmt.Errorf("soft delete project: %w", res.Error)
+		}
+		if res.RowsAffected == 0 {
+			return ErrProjectNotFound
+		}
+
+		if err := tx.Table("environments").
+			Where("project_id = ? AND status != ?", id, "deleted").
+			Update("status", "deleted").Error; err != nil {
+			return fmt.Errorf("soft delete environments: %w", err)
+		}
+		if err := tx.Table("services").
+			Where("project_id = ? AND status != ?", id, "deleted").
+			Update("status", "deleted").Error; err != nil {
+			return fmt.Errorf("soft delete services: %w", err)
+		}
+		if err := tx.Table("variables").
+			Where("project_id = ? AND status != ?", id, "deleted").
+			Update("status", "deleted").Error; err != nil {
+			return fmt.Errorf("soft delete variables: %w", err)
+		}
+		if err := tx.Where("project_id = ?", id).
+			Delete(&ProjectMember{}).Error; err != nil {
+			return fmt.Errorf("remove project members: %w", err)
+		}
+		return nil
+	})
+}
+
 func (r *Repo) SoftDeleteEnvironmentsByProject(ctx context.Context, projectID string) error {
 	return r.db.WithContext(ctx).
 		Table("environments").

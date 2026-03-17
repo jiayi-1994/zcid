@@ -1,0 +1,17 @@
+.git
+.github
+.vscode
+.cursor
+node_modules
+web/node_modules
+web/dist
+bin/
+*.md
+!README.md
+_bmad/
+files/
+deploy/
+docs/
+.dockerignore
+.gitignore
+.pre-commit-config.yaml

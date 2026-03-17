@@ -47,6 +47,11 @@ func (m *mockRepo) SoftDelete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+func (m *mockRepo) DeleteProjectCascade(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 func (m *mockRepo) AddMember(ctx context.Context, member *ProjectMember) error {
 	args := m.Called(ctx, member)
 	return args.Error(0)
@@ -202,11 +207,7 @@ func TestDeleteProject_Success(t *testing.T) {
 	svc := NewService(repo)
 	ctx := context.Background()
 
-	repo.On("SoftDelete", ctx, "p1").Return(nil)
-	repo.On("SoftDeleteEnvironmentsByProject", ctx, "p1").Return(nil)
-	repo.On("SoftDeleteServicesByProject", ctx, "p1").Return(nil)
-	repo.On("SoftDeleteVariablesByProject", ctx, "p1").Return(nil)
-	repo.On("RemoveMembersByProject", ctx, "p1").Return(nil)
+	repo.On("DeleteProjectCascade", ctx, "p1").Return(nil)
 
 	err := svc.DeleteProject(ctx, "p1")
 
@@ -219,7 +220,7 @@ func TestDeleteProject_NotFound(t *testing.T) {
 	svc := NewService(repo)
 	ctx := context.Background()
 
-	repo.On("SoftDelete", ctx, "nonexistent").Return(ErrProjectNotFound)
+	repo.On("DeleteProjectCascade", ctx, "nonexistent").Return(ErrProjectNotFound)
 
 	err := svc.DeleteProject(ctx, "nonexistent")
 

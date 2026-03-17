@@ -15,6 +15,7 @@ type Repository interface {
 	ListByIDs(ctx context.Context, ids []string, page, pageSize int) ([]*Project, int64, error)
 	Update(ctx context.Context, id string, updates map[string]any) error
 	SoftDelete(ctx context.Context, id string) error
+	DeleteProjectCascade(ctx context.Context, id string) error
 	AddMember(ctx context.Context, member *ProjectMember) error
 	RemoveMembersByProject(ctx context.Context, projectID string) error
 	GetUserProjectIDs(ctx context.Context, userID string) ([]string, error)
@@ -201,17 +202,11 @@ func (s *Service) ListMembers(ctx context.Context, projectID string) ([]MemberWi
 }
 
 func (s *Service) DeleteProject(ctx context.Context, id string) error {
-	if err := s.repo.SoftDelete(ctx, id); err != nil {
+	if err := s.repo.DeleteProjectCascade(ctx, id); err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return response.NewBizError(response.CodeNotFound, "项目不存在", "")
 		}
 		return response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
-
-	_ = s.repo.SoftDeleteEnvironmentsByProject(ctx, id)
-	_ = s.repo.SoftDeleteServicesByProject(ctx, id)
-	_ = s.repo.SoftDeleteVariablesByProject(ctx, id)
-	_ = s.repo.RemoveMembersByProject(ctx, id)
-
 	return nil
 }
