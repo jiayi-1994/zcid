@@ -1,7 +1,7 @@
-import { memo } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Button, Typography, Tooltip } from '@arco-design/web-react';
-import { IconPlus, IconDelete, IconUp, IconDown } from '@arco-design/web-react/icon';
+import { Button, Typography, Tooltip, Input } from '@arco-design/web-react';
+import { IconPlus, IconDelete, IconUp, IconDown, IconEdit } from '@arco-design/web-react/icon';
 
 const { Text } = Typography;
 
@@ -13,12 +13,33 @@ export interface StageNodeData {
   onAddStep?: (stageId: string) => void;
   onDelete?: (stageId: string) => void;
   onMove?: (stageId: string, direction: 'up' | 'down') => void;
+  onRename?: (stageId: string, newName: string) => void;
 }
 
 function StageNodeComponent({ data }: NodeProps) {
-  const { label, stageId, stageIndex, totalStages, onAddStep, onDelete, onMove } = data as unknown as StageNodeData;
+  const { label, stageId, stageIndex, totalStages, onAddStep, onDelete, onMove, onRename } = data as unknown as StageNodeData;
   const canMoveUp = stageIndex > 0;
   const canMoveDown = stageIndex < totalStages - 1;
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(label);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const handleSaveName = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== label) {
+      onRename?.(stageId, trimmed);
+    } else {
+      setEditName(label);
+    }
+    setEditing(false);
+  };
 
   return (
     <div
@@ -27,7 +48,7 @@ function StageNodeComponent({ data }: NodeProps) {
         border: '2px solid #BEDAFF',
         borderRadius: 12,
         padding: '10px 14px',
-        minWidth: 200,
+        minWidth: 220,
         boxShadow: '0 2px 8px rgba(22, 93, 255, 0.08)',
         transition: 'box-shadow 0.2s, border-color 0.2s',
       }}
@@ -43,20 +64,36 @@ function StageNodeComponent({ data }: NodeProps) {
     >
       <Handle type="target" position={Position.Left} style={{ background: '#165DFF', width: 8, height: 8 }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
           <div style={{
             width: 24, height: 24, borderRadius: 6,
             background: '#165DFF', color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 700,
+            fontSize: 11, fontWeight: 700, flexShrink: 0,
           }}>
             {stageIndex + 1}
           </div>
-          <Text bold style={{ fontSize: 14, color: '#1D2129' }}>{label}</Text>
+          {editing ? (
+            <Input
+              ref={inputRef as any}
+              size="mini"
+              value={editName}
+              onChange={setEditName}
+              onBlur={handleSaveName}
+              onPressEnter={handleSaveName}
+              style={{ flex: 1, fontSize: 13, fontWeight: 600, borderRadius: 4 }}
+            />
+          ) : (
+            <Text bold style={{ fontSize: 14, color: '#1D2129', cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            >
+              {label}
+            </Text>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: 1 }}>
+        <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
           {canMoveUp && (
-            <Tooltip content="上移" mini>
+            <Tooltip content="左移" mini>
               <Button size="mini" type="text" icon={<IconUp />}
                 onClick={(e) => { e.stopPropagation(); onMove?.(stageId, 'up'); }}
                 style={{ color: '#86909C' }}
@@ -64,7 +101,7 @@ function StageNodeComponent({ data }: NodeProps) {
             </Tooltip>
           )}
           {canMoveDown && (
-            <Tooltip content="下移" mini>
+            <Tooltip content="右移" mini>
               <Button size="mini" type="text" icon={<IconDown />}
                 onClick={(e) => { e.stopPropagation(); onMove?.(stageId, 'down'); }}
                 style={{ color: '#86909C' }}

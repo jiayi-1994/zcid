@@ -49,6 +49,7 @@ function layoutNodes(stages: StageConfig[], callbacks: {
   onDeleteStep: (stageId: string, stepId: string) => void;
   onMoveStage: (stageId: string, direction: 'up' | 'down') => void;
   onMoveStep: (stageId: string, stepId: string, direction: 'up' | 'down') => void;
+  onRenameStage: (stageId: string, newName: string) => void;
 }): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -70,6 +71,7 @@ function layoutNodes(stages: StageConfig[], callbacks: {
         onAddStep: callbacks.onAddStep,
         onDelete: callbacks.onDeleteStage,
         onMove: callbacks.onMoveStage,
+        onRename: callbacks.onRenameStage,
       },
     });
 
@@ -254,6 +256,14 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
     });
   }, [pushHistory]);
 
+  const handleRenameStage = useCallback((stageId: string, newName: string) => {
+    setStages((prev) => {
+      const ns = prev.map((s) => s.id === stageId ? { ...s, name: newName } : s);
+      pushHistory(ns);
+      return ns;
+    });
+  }, [pushHistory]);
+
   const handleSelectStep = useCallback((stageId: string, stepId: string) => {
     setSelectedStep({ stageId, stepId });
     setPanelVisible(true);
@@ -289,8 +299,9 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
       onDeleteStep: handleDeleteStep,
       onMoveStage: handleMoveStage,
       onMoveStep: handleMoveStep,
+      onRenameStage: handleRenameStage,
     }),
-    [stages, handleAddStep, handleDeleteStage, handleSelectStep, handleDeleteStep, handleMoveStage, handleMoveStep]
+    [stages, handleAddStep, handleDeleteStage, handleSelectStep, handleDeleteStep, handleMoveStage, handleMoveStep, handleRenameStage]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);

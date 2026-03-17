@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Drawer, Form, Input, Select, Button, Space, Typography, Divider, Tag } from '@arco-design/web-react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { Drawer, Form, Input, Select, Button, Space, Typography, Divider, Tag, Message } from '@arco-design/web-react';
 import type { StepConfig } from '../../services/pipeline';
+import { fetchConnections, type GitConnection } from '../../services/integration';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -92,6 +93,23 @@ function SectionHeader({ title, icon }: { title: string; icon?: string }) {
 export function StepConfigPanel({ visible, step, onClose, onSave }: StepConfigPanelProps) {
   const [form] = Form.useForm();
   const [currentType, setCurrentType] = useState<string>(step?.type ?? 'shell');
+  const [gitConnections, setGitConnections] = useState<GitConnection[]>([]);
+  const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+
+  const loadConnections = useCallback(async () => {
+    if (connectionsLoaded) return;
+    try {
+      const data = await fetchConnections();
+      setGitConnections(data.items ?? []);
+      setConnectionsLoaded(true);
+    } catch { /* ignore - admin-only API may fail for non-admins */ }
+  }, [connectionsLoaded]);
+
+  useEffect(() => {
+    if (visible && currentType === 'git-clone' && !connectionsLoaded) {
+      loadConnections();
+    }
+  }, [visible, currentType, connectionsLoaded, loadConnections]);
 
   const configFields = useMemo(
     () => CONFIG_FIELDS_BY_TYPE[currentType] ?? [],
@@ -239,6 +257,31 @@ export function StepConfigPanel({ visible, step, onClose, onSave }: StepConfigPa
               title={isDockerType ? '容器构建配置' : isGitClone ? 'Git 仓库配置' : '专用配置'}
               icon={isDockerType ? '🐳' : isGitClone ? '📥' : '⚙️'}
             />
+            {isGitClone && gitConnections.length > 0 && (
+              <Form.Item label="代码源（可选 - 从已配置的集成中选择）">
+                <Select
+                  placeholder="选择已有的代码仓库连接"
+                  allowClear
+                  onChange={(connId) => {
+                    const conn = gitConnections.find(c => c.id === connId);
+                    if (conn) {
+                      const prefix = conn.serverUrl.replace(/\/+$/, '');
+                      form.setFieldValue('config_repoUrl', prefix + '/');
+                    }
+                  }}
+                  options={gitConnections.map(c => ({
+                    label: (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span>{c.providerType === 'github' ? '🐙' : '🦊'}</span>
+                        <span>{c.name}</span>
+                        <span style={{ fontSize: 11, color: '#86909C' }}>{c.serverUrl}</span>
+                      </span>
+                    ),
+                    value: c.id,
+                  }))}
+                />
+              </Form.Item>
+            )}
             {configFields.map((f) => (
               <Form.Item key={f.key} label={f.label} field={`config_${f.key}`}>
                 {renderConfigField(f)}
