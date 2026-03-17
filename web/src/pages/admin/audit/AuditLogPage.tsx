@@ -15,11 +15,13 @@ const ACTION_OPTIONS = [
   { label: 'DELETE', value: 'DELETE' },
 ];
 
-function extractResourceLabel(path: string): string {
-  if (!path) return '-';
-  const parts = path.replace(/^(GET|POST|PUT|DELETE|PATCH)\s+/i, '').split('/').filter(Boolean);
-  const meaningful = parts.filter(p => !p.startsWith(':') && p !== 'api' && p !== 'v1' && !p.match(/^[0-9a-f-]{20,}$/));
-  return meaningful.slice(-2).join('/') || path;
+function extractMethod(action: string): string {
+  const m = action.match(/^(GET|POST|PUT|DELETE|PATCH)/);
+  return m ? m[1] : '-';
+}
+
+function extractPath(action: string): string {
+  return action.replace(/^(GET|POST|PUT|DELETE|PATCH)\s+/, '').replace(/\/api\/v1\//, '').replace(/:id/g, '*');
 }
 
 function shortenId(id: string): string {
@@ -57,7 +59,7 @@ export function AuditLogPage() {
     {
       title: '时间',
       dataIndex: 'createdAt',
-      width: 160,
+      width: 155,
       render: (v: string) => (
         <span style={{ fontSize: 12, color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>
           {new Date(v).toLocaleString()}
@@ -67,51 +69,56 @@ export function AuditLogPage() {
     {
       title: '用户',
       dataIndex: 'userId',
-      width: 100,
+      width: 90,
       render: (v: string) => (
-        <span style={{ fontSize: 13 }}>{v?.replace('admin-bootstrap-', 'admin#') || '-'}</span>
+        <span style={{ fontSize: 13 }}>{v?.replace('admin-bootstrap-', '#') || '-'}</span>
       ),
     },
     {
-      title: '操作',
+      title: '方法',
       dataIndex: 'action',
-      width: 70,
-      render: (val: string) => (
-        <Tag size="small" style={{ borderRadius: 999, fontSize: 11 }}>{val}</Tag>
-      ),
+      width: 65,
+      render: (val: string) => {
+        const method = extractMethod(val);
+        const colors: Record<string, string> = { POST: 'green', PUT: 'orangered', DELETE: 'red', GET: 'blue' };
+        return <Tag size="small" color={colors[method] || 'gray'} style={{ borderRadius: 4, fontSize: 11 }}>{method}</Tag>;
+      },
+    },
+    {
+      title: '接口路径',
+      dataIndex: 'action',
+      width: 200,
+      render: (val: string) => {
+        const path = extractPath(val);
+        return (
+          <Tooltip content={val} mini>
+            <code style={{ fontSize: 11, color: 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: 190 }}>
+              {path}
+            </code>
+          </Tooltip>
+        );
+      },
     },
     {
       title: '资源',
       dataIndex: 'resourceType',
-      width: 150,
-      render: (v: string) => (
-        <Tooltip content={v} position="top" mini>
-          <span style={{
-            fontSize: 12, fontFamily: 'var(--font-mono)',
-            display: 'inline-block', maxWidth: 140,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {extractResourceLabel(v)}
-          </span>
-        </Tooltip>
-      ),
+      width: 80,
+      render: (v: string) => <span style={{ fontSize: 12 }}>{v || '-'}</span>,
     },
     {
-      title: '资源 ID',
+      title: 'ID',
       dataIndex: 'resourceId',
-      width: 100,
+      width: 85,
       render: (v: string) => (
-        <Tooltip content={v} position="top" mini>
-          <code style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
-            {shortenId(v)}
-          </code>
+        <Tooltip content={v} mini>
+          <code style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{shortenId(v)}</code>
         </Tooltip>
       ),
     },
     {
       title: '结果',
       dataIndex: 'result',
-      width: 60,
+      width: 55,
       render: (val: string) => {
         const cfg = RESULT_CONFIG[val] || { color: 'gray', text: val };
         return <Tag size="small" color={cfg.color} style={{ borderRadius: 999, fontSize: 11 }}>{cfg.text}</Tag>;
@@ -120,10 +127,8 @@ export function AuditLogPage() {
     {
       title: 'IP',
       dataIndex: 'ip',
-      width: 80,
-      render: (v: string) => (
-        <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{v || '-'}</span>
-      ),
+      width: 70,
+      render: (v: string) => <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>{v || '-'}</span>,
     },
   ];
 
@@ -133,30 +138,10 @@ export function AuditLogPage() {
         <div className="page-header">
           <h3 className="page-title">审计日志</h3>
           <Space wrap size={8}>
-            <Select
-              placeholder="操作类型"
-              options={ACTION_OPTIONS}
-              style={{ width: 110 }}
-              allowClear
-              size="small"
-              onChange={(v) => updateFilter('action', v)}
-            />
-            <Input
-              placeholder="资源类型"
-              style={{ width: 120 }}
-              allowClear
-              size="small"
-              onChange={(v) => updateFilter('resourceType', v)}
-            />
-            <Input
-              placeholder="用户 ID"
-              style={{ width: 120 }}
-              allowClear
-              size="small"
-              onChange={(v) => updateFilter('userId', v)}
-            />
+            <Select placeholder="操作" options={ACTION_OPTIONS} style={{ width: 90 }} allowClear size="small" onChange={(v) => updateFilter('action', v)} />
+            <Input placeholder="用户" style={{ width: 100 }} allowClear size="small" onChange={(v) => updateFilter('userId', v)} />
             <DatePicker.RangePicker
-              style={{ width: 280 }}
+              style={{ width: 260 }}
               size="small"
               showTime
               onChange={(_v, dates) => {
@@ -177,8 +162,7 @@ export function AuditLogPage() {
           loading={loading}
           border={false}
           stripe
-          style={{ tableLayout: 'fixed' }}
-          scroll={{ x: 720 }}
+          scroll={{ x: 800 }}
           pagination={{
             total,
             current: filters.page,
