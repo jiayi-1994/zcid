@@ -22,13 +22,24 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: default
+      serviceAccountName: {{ include "zcid.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
       restartPolicy: Never
       containers:
         - name: migrate
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/app/zcid-migrate", "up"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: DB_HOST
               value: {{ .Values.config.dbHost | quote }}
@@ -41,7 +52,10 @@ spec:
             - name: DB_SSL_MODE
               value: {{ .Values.config.dbSSLMode | quote }}
             - name: DB_PASSWORD
-              value: {{ .Values.secrets.dbPassword | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zcid.fullname" . }}-secrets
+                  key: db-password
           resources:
             requests:
               cpu: 50m
