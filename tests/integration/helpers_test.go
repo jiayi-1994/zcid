@@ -4,15 +4,16 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var apiBaseURL string
@@ -174,31 +175,26 @@ func uniqueName(prefix string) string {
 
 func resetRateLimit(t *testing.T) {
 	t.Helper()
-	client := &http.Client{Timeout: 2 * time.Second}
 
 	redisAddr := os.Getenv("ZCID_REDIS_ADDR")
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
 	}
 
-	req, _ := http.NewRequest("POST", fmt.Sprintf("http://%s", redisAddr), nil)
-	_ = req
-	// Use a direct Redis FLUSHDB via exec to clear rate limit keys
-	cmd := exec.Command("redis-cli", "-h", "localhost", "-p", "6379", "KEYS", "ratelimit:*")
-	out, err := cmd.Output()
+	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
+	defer rdb.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	keys, err := rdb.Keys(ctx, "ratelimit:*").Result()
 	if err != nil {
 		t.Logf("could not list rate limit keys: %v", err)
 		return
 	}
-	keys := strings.TrimSpace(string(out))
-	if keys == "" {
-		return
-	}
-	for _, key := range strings.Split(keys, "\n") {
-		key = strings.TrimSpace(key)
-		if key != "" {
-			exec.Command("redis-cli", "-h", "localhost", "-p", "6379", "DEL", key).Run()
+	if len(keys) > 0 {
+		if err := rdb.Del(ctx, keys...).Err(); err != nil {
+			t.Logf("could not delete rate limit keys: %v", err)
 		}
 	}
-	_ = client
 }

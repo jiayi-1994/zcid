@@ -71,7 +71,7 @@ jobs:
 
       - name: Install Tekton Pipelines
         run: |
-          kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.62.0/release.yaml
+          kubectl apply -f deploy/tekton/tekton-v0.62.0-ghcr.yaml
           echo "Waiting for Tekton to be ready..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=tekton-pipelines \
             -n tekton-pipelines --timeout=300s
