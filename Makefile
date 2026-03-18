@@ -1,4 +1,4 @@
-.PHONY: dev build test swag lint clean migrate-up migrate-down migrate-new fmt vet frontend-install frontend-build frontend-test frontend-lint coverage docker-build all
+.PHONY: dev build test swag lint clean migrate-up migrate-down migrate-new fmt vet frontend-install frontend-build frontend-test frontend-lint coverage docker-build all integration-test e2e-test
 
 dev:
 	go run cmd/server/main.go
@@ -52,5 +52,11 @@ coverage:
 
 docker-build:
 	docker build -t zcid:latest .
+
+integration-test:
+	go test ./tests/integration/... -v -count=1 -tags=integration -timeout=300s
+
+e2e-test:
+	go test ./tests/e2e/... -v -count=1 -tags=e2e -timeout=600s
 
 all: build frontend-build

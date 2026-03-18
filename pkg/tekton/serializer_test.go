@@ -22,6 +22,6 @@ func TestSerializeToJSON(t *testing.T) {
 	data, err := SerializeToJSON(pr)
 	require.NoError(t, err)
 	require.NotEmpty(t, data)
-	assert.Contains(t, string(data), "tekton.dev/v1beta1")
+	assert.Contains(t, string(data), "tekton.dev/v1")
 	assert.Contains(t, string(data), "PipelineRun")
 }

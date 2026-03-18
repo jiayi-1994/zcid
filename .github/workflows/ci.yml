@@ -13,7 +13,7 @@ env:
 
 jobs:
   test:
-    name: Test
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +64,87 @@ jobs:
       - name: Frontend Test
         run: npx vitest run
         working-directory: web
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: zcid
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: zcid
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Install and start MinIO
+        run: |
+          wget -q https://dl.min.io/server/minio/release/linux-amd64/minio
+          chmod +x minio
+          MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin ./minio server /tmp/minio-data &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 1
+          done
+
+      - name: Run database migrations
+        env:
+          DB_URL: postgres://zcid:password@localhost:5432/zcid?sslmode=disable
+        run: go run cmd/migrate/main.go up
+
+      - name: Start backend server
+        env:
+          ZCID_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+        run: |
+          go run cmd/server/main.go &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/api/v1/auth/login \
+              -X POST -H "Content-Type: application/json" \
+              -d '{"username":"admin","password":"admin123"}' && break
+            sleep 2
+          done
+
+      - name: Run integration tests
+        env:
+          ZCID_API_URL: http://localhost:8080
+          ZCID_ADMIN_USERNAME: admin
+          ZCID_ADMIN_PASSWORD: admin123
+        run: go test ./tests/integration/... -v -count=1 -tags=integration -timeout=300s
+
+      - name: Run migration integration test
+        env:
+          MIGRATION_TEST_DB_URL: postgres://zcid:password@localhost:5432/zcid?sslmode=disable
+        run: go test ./pkg/database/... -v -count=1 -run Integration
 
   build-push:
     name: Build & Push Image

@@ -166,12 +166,12 @@ func (s *Service) TriggerRun(ctx context.Context, projectID, pipelineID, userID 
 		}
 		return s[:n]
 	}
-	pr.ObjectMeta.Name = fmt.Sprintf("run-%s-%d", safePrefix(pipelineID, 8), runNumber)
-	if len(pr.ObjectMeta.Name) > 63 {
-		pr.ObjectMeta.Name = pr.ObjectMeta.Name[:63]
+	pr.Metadata.Name = fmt.Sprintf("run-%s-%d", safePrefix(pipelineID, 8), runNumber)
+	if len(pr.Metadata.Name) > 63 {
+		pr.Metadata.Name = pr.Metadata.Name[:63]
 	}
 
-	tektonName := pr.ObjectMeta.Name
+	tektonName := pr.Metadata.Name
 	if err := s.repo.Update(ctx, run.ID, projectID, map[string]interface{}{"tekton_name": tektonName}); err != nil {
 		return nil, response.NewBizError(response.CodeInternalServerError, "更新运行记录失败", err.Error())
 	}

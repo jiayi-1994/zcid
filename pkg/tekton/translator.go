@@ -83,10 +83,10 @@ func (t *Translator) Translate(pipelineID, runID, projectID, namespace string, c
 
 	pr := &PipelineRun{
 		TypeMeta: TypeMeta{
-			APIVersion: "tekton.dev/v1beta1",
+			APIVersion: "tekton.dev/v1",
 			Kind:       "PipelineRun",
 		},
-		ObjectMeta: ObjectMeta{
+		Metadata: ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
@@ -105,24 +105,32 @@ func (t *Translator) Translate(pipelineID, runID, projectID, namespace string, c
 }
 
 func (t *Translator) buildParams(params map[string]string, gitInfo *GitInfo) []Param {
+	seen := make(map[string]bool)
 	result := make([]Param, 0)
 
 	if gitInfo != nil {
 		if gitInfo.CommitSHA != "" {
 			result = append(result, Param{Name: "GIT_COMMIT", Value: ParamValue{Type: "string", StringVal: gitInfo.CommitSHA}})
+			seen["GIT_COMMIT"] = true
 		}
 		if gitInfo.Branch != "" {
 			result = append(result, Param{Name: "GIT_BRANCH", Value: ParamValue{Type: "string", StringVal: gitInfo.Branch}})
+			seen["GIT_BRANCH"] = true
 		}
 		if gitInfo.Author != "" {
 			result = append(result, Param{Name: "GIT_AUTHOR", Value: ParamValue{Type: "string", StringVal: gitInfo.Author}})
+			seen["GIT_AUTHOR"] = true
 		}
 		if gitInfo.Message != "" {
 			result = append(result, Param{Name: "GIT_MESSAGE", Value: ParamValue{Type: "string", StringVal: gitInfo.Message}})
+			seen["GIT_MESSAGE"] = true
 		}
 	}
 
 	for k, v := range params {
+		if seen[k] {
+			continue
+		}
 		result = append(result, Param{Name: k, Value: ParamValue{Type: "string", StringVal: v}})
 	}
 	return result

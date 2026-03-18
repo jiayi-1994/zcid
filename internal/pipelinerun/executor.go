@@ -46,7 +46,7 @@ func (m *MockK8sClient) init() {
 func (m *MockK8sClient) SubmitPipelineRun(ctx context.Context, namespace string, pr *tekton.PipelineRun) error {
 	m.mu.Lock()
 	m.init()
-	name := pr.ObjectMeta.Name
+	name := pr.Metadata.Name
 	m.runs[name] = &mockRun{status: "Pending", startedAt: time.Now()}
 	m.mu.Unlock()
 
