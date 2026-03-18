@@ -42,11 +42,11 @@ func TestFullPipelineFlowWithTekton(t *testing.T) {
 			"stages": []map[string]interface{}{
 				{
 					"id":   "stage-build",
-					"name": "Build",
+					"name": "build",
 					"steps": []map[string]interface{}{
 						{
 							"id":      "step-echo",
-							"name":    "Echo Test",
+							"name":    "echo-test",
 							"type":    "shell",
 							"image":   "alpine:3.21",
 							"command": []string{"sh", "-c", "echo 'Hello from Tekton E2E test!' && date && sleep 2"},
