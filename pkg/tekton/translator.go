@@ -83,10 +83,10 @@ func (t *Translator) Translate(pipelineID, runID, projectID, namespace string, c
 
 	pr := &PipelineRun{
 		TypeMeta: TypeMeta{
-			APIVersion: "tekton.dev/v1beta1",
+			APIVersion: "tekton.dev/v1",
 			Kind:       "PipelineRun",
 		},
-		ObjectMeta: ObjectMeta{
+		Metadata: ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{

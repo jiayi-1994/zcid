@@ -27,11 +27,11 @@ func TestTranslateBasicPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, pr)
 
-	assert.Equal(t, "tekton.dev/v1beta1", pr.TypeMeta.APIVersion)
+	assert.Equal(t, "tekton.dev/v1", pr.TypeMeta.APIVersion)
 	assert.Equal(t, "PipelineRun", pr.TypeMeta.Kind)
-	assert.Equal(t, "pipeline-123", pr.ObjectMeta.Labels["zcid.io/pipeline-id"])
-	assert.Equal(t, "run-456", pr.ObjectMeta.Labels["zcid.io/run-id"])
-	assert.Equal(t, "proj-789", pr.ObjectMeta.Labels["zcid.io/project-id"])
+	assert.Equal(t, "pipeline-123", pr.Metadata.Labels["zcid.io/pipeline-id"])
+	assert.Equal(t, "run-456", pr.Metadata.Labels["zcid.io/run-id"])
+	assert.Equal(t, "proj-789", pr.Metadata.Labels["zcid.io/project-id"])
 
 	require.Len(t, pr.Spec.PipelineSpec.Tasks, 1)
 	task := pr.Spec.PipelineSpec.Tasks[0]

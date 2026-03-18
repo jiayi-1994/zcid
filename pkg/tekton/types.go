@@ -18,9 +18,9 @@ type ObjectMeta struct {
 
 // PipelineRun is the Tekton PipelineRun CRD
 type PipelineRun struct {
-	TypeMeta   TypeMeta        `json:",inline"`
-	ObjectMeta ObjectMeta      `json:"metadata"`
-	Spec       PipelineRunSpec `json:"spec"`
+	TypeMeta `json:",inline"`
+	Metadata ObjectMeta      `json:"metadata"`
+	Spec     PipelineRunSpec `json:"spec"`
 }
 
 // PipelineRunSpec defines the PipelineRun specification
