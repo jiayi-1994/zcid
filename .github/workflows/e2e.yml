@@ -1,0 +1,176 @@
+name: E2E Tests (Kind + Tekton)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'deploy/**'
+      - 'migrations/**'
+      - 'config/**'
+      - '.github/workflows/e2e.yml'
+      - 'tests/e2e/**'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E with Kind
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: zcid
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: zcid
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: zcid-e2e
+          wait: 120s
+
+      - name: Install Tekton Pipelines
+        run: |
+          kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.62.0/release.yaml
+          echo "Waiting for Tekton to be ready..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=tekton-pipelines \
+            -n tekton-pipelines --timeout=300s
+          echo "Tekton Pipelines installed successfully"
+
+      - name: Setup Tekton RBAC for zcid
+        run: |
+          # Create namespace and RBAC for the default namespace (used in e2e)
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: zcid-tekton-role
+          rules:
+            - apiGroups: ["tekton.dev"]
+              resources: ["pipelineruns", "taskruns"]
+              verbs: ["create", "get", "list", "watch", "delete", "update", "patch"]
+            - apiGroups: ["tekton.dev"]
+              resources: ["pipelines", "tasks"]
+              verbs: ["get", "list"]
+            - apiGroups: [""]
+              resources: ["pods", "pods/log"]
+              verbs: ["get", "list", "watch"]
+            - apiGroups: [""]
+              resources: ["secrets"]
+              verbs: ["create", "delete", "get"]
+            - apiGroups: [""]
+              resources: ["namespaces"]
+              verbs: ["get", "list"]
+          EOF
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: zcid-tekton-binding
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: zcid-tekton-role
+          subjects:
+            - kind: User
+              name: system:serviceaccount:default:default
+              apiGroup: rbac.authorization.k8s.io
+          EOF
+
+      - name: Install and start MinIO
+        run: |
+          wget -q https://dl.min.io/server/minio/release/linux-amd64/minio
+          chmod +x minio
+          MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin ./minio server /tmp/minio-data &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 1
+          done
+
+      - name: Run database migrations
+        env:
+          DB_URL: postgres://zcid:password@localhost:5432/zcid?sslmode=disable
+        run: go run cmd/migrate/main.go up
+
+      - name: Start backend with K8s enabled
+        env:
+          ZCID_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+          ZCID_K8S_ENABLED: "true"
+          ZCID_K8S_NAMESPACE: "default"
+        run: |
+          go run cmd/server/main.go &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/api/v1/auth/login \
+              -X POST -H "Content-Type: application/json" \
+              -d '{"username":"admin","password":"admin123"}' && break
+            sleep 2
+          done
+          echo "Backend server is ready"
+
+      - name: Verify cluster health
+        run: |
+          echo "=== Cluster nodes ==="
+          kubectl get nodes
+          echo "=== Tekton pods ==="
+          kubectl get pods -n tekton-pipelines
+          echo "=== Default namespace ==="
+          kubectl get pods -n default
+          echo "=== Tekton CRDs ==="
+          kubectl get crd | grep tekton || echo "No Tekton CRDs found"
+
+      - name: Run E2E tests
+        env:
+          ZCID_API_URL: http://localhost:8080
+        run: go test ./tests/e2e/... -v -count=1 -tags=e2e -timeout=600s
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== Backend logs (last 50 lines) ==="
+          tail -50 /tmp/backend.log 2>/dev/null || echo "No backend log found"
+          echo "=== Tekton PipelineRuns ==="
+          kubectl get pipelineruns -A -o wide 2>/dev/null || true
+          echo "=== Tekton TaskRuns ==="
+          kubectl get taskruns -A -o wide 2>/dev/null || true
+          echo "=== Recent events ==="
+          kubectl get events --sort-by=.lastTimestamp -A 2>/dev/null | tail -30 || true
