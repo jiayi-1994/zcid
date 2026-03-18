@@ -117,6 +117,11 @@ jobs:
               apiGroup: rbac.authorization.k8s.io
           EOF
 
+      - name: Create zcid namespaces
+        run: |
+          kubectl create namespace zcid-run
+          kubectl create namespace zcicd
+
       - name: Install and start MinIO
         run: |
           wget -q https://dl.min.io/server/minio/release/linux-amd64/minio
@@ -136,9 +141,9 @@ jobs:
         env:
           ZCID_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
           ZCID_K8S_ENABLED: "true"
-          ZCID_K8S_NAMESPACE: "default"
+          ZCID_K8S_NAMESPACE: "zcid-run"
         run: |
-          go run cmd/server/main.go &
+          go run cmd/server/main.go > /tmp/backend.log 2>&1 &
           for i in $(seq 1 60); do
             curl -sf http://localhost:8080/api/v1/auth/login \
               -X POST -H "Content-Type: application/json" \
