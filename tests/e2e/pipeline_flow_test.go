@@ -67,7 +67,7 @@ func TestFullPipelineFlowWithTekton(t *testing.T) {
 		"gitBranch": "main",
 	})
 	if resp.Code != 0 {
-		t.Fatalf("trigger run failed: code=%d message=%s data=%s", resp.Code, resp.Message, string(resp.Data))
+		t.Fatalf("trigger run failed: code=%d message=%s detail=%s", resp.Code, resp.Message, resp.Detail)
 	}
 
 	var run struct {

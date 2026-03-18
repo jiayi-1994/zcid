@@ -42,6 +42,7 @@ type APIResponse struct {
 	Code      int             `json:"code"`
 	Message   string          `json:"message"`
 	Data      json.RawMessage `json:"data"`
+	Detail    string          `json:"detail,omitempty"`
 	RequestID string          `json:"requestId"`
 }
 
