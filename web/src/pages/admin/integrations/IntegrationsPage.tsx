@@ -1,5 +1,5 @@
-import { Badge, Button, Message, Popconfirm, Space, Table, Tag, Tooltip } from '@arco-design/web-react';
-import { IconCopy, IconDelete, IconEdit, IconPlayArrow, IconPlus, IconRefresh } from '@arco-design/web-react/icon';
+import { Button, Message, Popconfirm, Space, Tooltip, Tag } from '@arco-design/web-react';
+import { IconDelete, IconEdit, IconPlayArrow, IconPlus, IconRefresh, IconCopy } from '@arco-design/web-react/icon';
 import { useCallback, useEffect, useState } from 'react';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import {
@@ -13,15 +13,15 @@ import {
 } from '../../../services/integration';
 import { ConnectionFormModal } from './ConnectionFormModal';
 
-const STATUS_CONFIG: Record<string, { color: string; text: string }> = {
-  connected: { color: 'green', text: '已连接' },
-  disconnected: { color: 'red', text: '已断开' },
-  token_expired: { color: 'orange', text: 'Token 过期' },
+const PROVIDER_CONFIG: Record<string, { icon: string; bg: string; label: string }> = {
+  github: { icon: '🐙', bg: '#F6F8FA', label: 'GitHub' },
+  gitlab: { icon: '🦊', bg: '#FFF4E6', label: 'GitLab' },
 };
 
-const PROVIDER_LABELS: Record<string, string> = {
-  gitlab: 'GitLab',
-  github: 'GitHub',
+const STATUS_CONFIG: Record<string, { label: string; cssClass: string }> = {
+  connected: { label: 'Connected', cssClass: 'env-health-status--healthy' },
+  disconnected: { label: 'Disconnected', cssClass: 'env-health-status--down' },
+  token_expired: { label: 'Token Expired', cssClass: 'env-health-status--degraded' },
 };
 
 export function IntegrationsPage() {
@@ -108,118 +108,170 @@ export function IntegrationsPage() {
     }
   };
 
-  const columns = [
-    {
-      title: '名称',
-      dataIndex: 'name',
-      width: 160,
-      render: (name: string) => <span style={{ fontWeight: 500 }}>{name}</span>,
-    },
-    {
-      title: 'Provider',
-      dataIndex: 'providerType',
-      width: 100,
-      render: (val: string) => (
-        <Tag size="small">{PROVIDER_LABELS[val] || val}</Tag>
-      ),
-    },
-    {
-      title: 'Server URL',
-      dataIndex: 'serverUrl',
-      ellipsis: true,
-      render: (url: string) => <span style={{ color: 'var(--zcid-text-3)', fontFamily: 'var(--zcid-font-mono)', fontSize: 13 }}>{url}</span>,
-    },
-    {
-      title: 'Token',
-      dataIndex: 'tokenMask',
-      width: 120,
-      render: (val: string) => (
-        <span style={{ fontFamily: 'var(--zcid-font-mono)', color: 'var(--zcid-text-4)', fontSize: 13 }}>{val}</span>
-      ),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 100,
-      render: (val: string) => {
-        const cfg = STATUS_CONFIG[val] || { color: 'gray', text: val };
-        return <Badge color={cfg.color} text={cfg.text} />;
-      },
-    },
-    {
-      title: '描述',
-      dataIndex: 'description',
-      ellipsis: true,
-      render: (v: string) => <span style={{ color: 'var(--zcid-text-3)' }}>{v || '-'}</span>,
-    },
-    { title: '创建时间', dataIndex: 'createdAt', width: 180 },
-    {
-      title: '操作',
-      width: 200,
-      render: (_: unknown, record: GitConnection) => (
-        <Space size="mini">
-          <Tooltip content="测试连接">
-            <Button
-              type="text"
-              size="small"
-              icon={<IconPlayArrow />}
-              loading={testingId === record.id}
-              onClick={() => handleTest(record.id)}
-              style={{ color: 'var(--zcid-success)' }}
-            />
-          </Tooltip>
-          <Tooltip content="复制 Webhook Secret">
-            <Button
-              type="text"
-              size="small"
-              icon={<IconCopy />}
-              onClick={() => handleCopyWebhookSecret(record.id)}
-            />
-          </Tooltip>
-          <Tooltip content="编辑">
-            <Button
-              type="text"
-              size="small"
-              icon={<IconEdit />}
-              onClick={() => setEditItem(record)}
-              style={{ color: 'var(--zcid-primary)' }}
-            />
-          </Tooltip>
-          <Popconfirm title="确认删除此连接？" onOk={() => handleDelete(record.id)}>
-            <Tooltip content="删除">
-              <Button type="text" size="small" status="danger" icon={<IconDelete />} />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
+  const connectedCount = connections.filter((c) => c.status === 'connected').length;
 
   return (
     <AppLayout>
       <div className="page-container">
-        <div className="page-header">
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            <h3 className="page-title">集成管理</h3>
-            <p className="page-subtitle">管理 Git 仓库连接和 Webhook 配置</p>
+            <h3 className="page-title" style={{ fontSize: 22, marginBottom: 4 }}>Integration Management</h3>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+              管理 Git 仓库连接、Registry 和 Webhook 配置
+            </p>
           </div>
-          <Space>
-            <Button icon={<IconRefresh />} onClick={loadData}>刷新</Button>
-            <Button type="primary" icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
-              添加连接
+          <Space size={8}>
+            <Button
+              icon={<IconRefresh />}
+              onClick={loadData}
+              style={{ borderRadius: 8, height: 40 }}
+            >
+              刷新
+            </Button>
+            <Button
+              type="primary"
+              icon={<IconPlus />}
+              onClick={() => setCreateVisible(true)}
+              style={{ borderRadius: 8, height: 40, fontWeight: 600 }}
+            >
+              + Add Connection
             </Button>
           </Space>
         </div>
-        <div className="table-card">
-          <Table
-            columns={columns}
-            data={connections}
-            rowKey="id"
-            loading={loading}
-            border={false}
-            pagination={{ pageSize: 20, showTotal: true, sizeCanChange: false, style: { padding: '12px 16px' } }}
-          />
+
+        {/* Metrics */}
+        <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
+          <div className="metric-card">
+            <span className="metric-card-label">TOTAL INTEGRATIONS</span>
+            <span className="metric-card-value">{connections.length}</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-card-label">CONNECTED</span>
+            <span className="metric-card-value" style={{ color: 'var(--success)' }}>{connectedCount}</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-card-label">NEEDS ATTENTION</span>
+            <span className="metric-card-value" style={{ color: connections.length - connectedCount > 0 ? 'var(--warning)' : 'var(--muted-foreground)' }}>
+              {connections.length - connectedCount}
+            </span>
+          </div>
         </div>
+
+        {/* Integration Cards */}
+        {loading ? (
+          <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted-foreground)' }}>
+            加载中...
+          </div>
+        ) : connections.length === 0 ? (
+          <div style={{
+            padding: '60px 0', textAlign: 'center',
+            background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)',
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔗</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>
+              暂无集成连接
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 16 }}>
+              添加 Git 仓库连接，开始管理源代码
+            </div>
+            <Button
+              type="primary"
+              icon={<IconPlus />}
+              onClick={() => setCreateVisible(true)}
+              style={{ borderRadius: 8 }}
+            >
+              添加连接
+            </Button>
+          </div>
+        ) : (
+          <div className="integration-grid">
+            {connections.map((conn) => {
+              const provider = PROVIDER_CONFIG[conn.providerType] || { icon: '🔌', bg: '#F3F4F6', label: conn.providerType };
+              const status = STATUS_CONFIG[conn.status] || { label: conn.status, cssClass: 'env-health-status--degraded' };
+              return (
+                <div key={conn.id} className="integration-card">
+                  <div className="integration-card-header">
+                    <div
+                      className="integration-card-icon"
+                      style={{ background: provider.bg, fontSize: 22 }}
+                    >
+                      {provider.icon}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="integration-card-name">{conn.name}</div>
+                      <div className="integration-card-desc">
+                        {provider.label} · {conn.serverUrl}
+                      </div>
+                    </div>
+                    <span className={`env-health-status ${status.cssClass}`}>
+                      {status.label}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'var(--muted-foreground)' }}>Token</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--zcid-text-4)', fontSize: 12 }}>
+                        {conn.tokenMask}
+                      </span>
+                    </div>
+                    {conn.description && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span style={{ color: 'var(--muted-foreground)' }}>Description</span>
+                        <span style={{ color: 'var(--foreground)' }}>{conn.description}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'var(--muted-foreground)' }}>Created</span>
+                      <span style={{ color: 'var(--foreground)', fontSize: 12 }}>{conn.createdAt}</span>
+                    </div>
+                  </div>
+
+                  <div className="integration-card-footer">
+                    <Tag size="small" style={{
+                      borderRadius: 20, background: provider.bg, border: 'none', fontWeight: 500,
+                    }}>
+                      {provider.label}
+                    </Tag>
+                    <Space size={4}>
+                      <Tooltip content="测试连接">
+                        <Button
+                          type="text" size="small"
+                          icon={<IconPlayArrow />}
+                          loading={testingId === conn.id}
+                          onClick={() => handleTest(conn.id)}
+                          style={{ color: 'var(--success)' }}
+                        />
+                      </Tooltip>
+                      <Tooltip content="复制 Webhook Secret">
+                        <Button
+                          type="text" size="small"
+                          icon={<IconCopy />}
+                          onClick={() => handleCopyWebhookSecret(conn.id)}
+                        />
+                      </Tooltip>
+                      <Tooltip content="编辑">
+                        <Button
+                          type="text" size="small"
+                          icon={<IconEdit />}
+                          onClick={() => setEditItem(conn)}
+                          style={{ color: 'var(--primary)' }}
+                        />
+                      </Tooltip>
+                      <Popconfirm title="确认删除此连接？" onOk={() => handleDelete(conn.id)}>
+                        <Tooltip content="删除">
+                          <Button type="text" size="small" status="danger" icon={<IconDelete />} />
+                        </Tooltip>
+                      </Popconfirm>
+                    </Space>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <ConnectionFormModal
           visible={createVisible}
           onClose={() => setCreateVisible(false)}

@@ -1,23 +1,24 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Button, Space, Typography, Spin, Message, Form, Input, Divider, Tag, Grid } from '@arco-design/web-react';
+import { Button, Space, Spin, Message, Form, Input, Grid } from '@arco-design/web-react';
 import { IconArrowLeft, IconCheck } from '@arco-design/web-react/icon';
 import { fetchTemplates, createPipeline, type PipelineTemplate } from '../../../services/pipeline';
 import { configToJson } from '../../../lib/pipeline/configJson';
 
-const { Title, Text, Paragraph } = Typography;
 const { Row, Col } = Grid;
 
 const categoryConfig: Record<string, { icon: string; color: string; bg: string }> = {
-  backend:  { icon: '⚙️', color: '#165DFF', bg: 'linear-gradient(135deg, #E8F3FF 0%, #D6E4FF 100%)' },
-  frontend: { icon: '📦', color: '#0FC6C2', bg: 'linear-gradient(135deg, #E8FFFB 0%, #B5F5EC 100%)' },
-  general:  { icon: '🐳', color: '#FF7D00', bg: 'linear-gradient(135deg, #FFF7E8 0%, #FFE4BA 100%)' },
+  backend:  { icon: '⚙️', color: '#0066FF', bg: '#E8F0FE' },
+  frontend: { icon: '📦', color: '#00C853', bg: '#E8F5E9' },
+  general:  { icon: '🐳', color: '#FF9500', bg: '#FFF8E1' },
 };
 
-const categoryLabels: Record<string, string> = {
-  backend: '后端',
-  frontend: '前端',
-  general: '通用',
+const langIcons: Record<string, string> = {
+  'Go': '🔵',
+  'Java Maven': '☕',
+  'Java JAR': '☕',
+  'Node.js': '🟢',
+  'Docker': '🐳',
 };
 
 export default function TemplateSelectPage() {
@@ -85,203 +86,235 @@ export default function TemplateSelectPage() {
     );
   }
 
-  if (selectedTemplate) {
-    const catCfg = categoryConfig[selectedTemplate.category] || categoryConfig.general;
-    return (
-      <div style={{ padding: 24, maxWidth: 720, margin: '0 auto' }}>
-        <Button type="text" icon={<IconArrowLeft />} onClick={() => setSelectedTemplate(null)} style={{ marginBottom: 16, borderRadius: 6 }}>
-          返回模板列表
-        </Button>
-
-        <Card style={{ borderRadius: 12, overflow: 'hidden' }} bodyStyle={{ padding: 0 }}>
-          {/* Header */}
-          <div style={{
-            background: catCfg.bg,
-            padding: '24px 28px', borderBottom: '1px solid var(--color-border)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 12,
-                background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
-              }}>
-                {catCfg.icon}
-              </div>
-              <div>
-                <Title heading={5} style={{ margin: 0 }}>{selectedTemplate.name}</Title>
-                <Text type="secondary" style={{ fontSize: 13 }}>{selectedTemplate.description}</Text>
-              </div>
-            </div>
-          </div>
-
-          {/* Form */}
-          <div style={{ padding: '24px 28px' }}>
-            <Form layout="vertical">
-              <Row gutter={16}>
-                <Col span={14}>
-                  <Form.Item label={<span style={{ fontWeight: 600 }}>流水线名称 <span style={{ color: '#F53F3F' }}>*</span></span>}>
-                    <Input
-                      value={pipelineName}
-                      onChange={setPipelineName}
-                      placeholder="例如: my-app-pipeline"
-                      style={{ borderRadius: 6 }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={10}>
-                  <Form.Item label="描述">
-                    <Input
-                      value={pipelineDesc}
-                      onChange={setPipelineDesc}
-                      placeholder="可选"
-                      style={{ borderRadius: 6 }}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {selectedTemplate.params.length > 0 && (
-                <>
-                  <Divider style={{ margin: '16px 0' }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>模板参数</Text>
-                  </Divider>
-                  <Row gutter={16}>
-                    {selectedTemplate.params.map((param) => (
-                      <Col span={param.name === 'repoUrl' ? 24 : 12} key={param.name}>
-                        <Form.Item
-                          label={
-                            <span style={{ fontWeight: 500 }}>
-                              {param.name}
-                              {param.required && <span style={{ color: '#F53F3F', marginLeft: 2 }}>*</span>}
-                            </span>
-                          }
-                          extra={<span style={{ fontSize: 12 }}>{param.description}</span>}
-                        >
-                          <Input
-                            value={templateParams[param.name] || ''}
-                            onChange={(v) => setTemplateParams((prev) => ({ ...prev, [param.name]: v }))}
-                            placeholder={param.defaultValue || `请输入 ${param.name}`}
-                            style={{ borderRadius: 6 }}
-                          />
-                        </Form.Item>
-                      </Col>
-                    ))}
-                  </Row>
-                </>
-              )}
-
-              {selectedTemplate.config && (
-                <>
-                  <Divider style={{ margin: '16px 0' }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>配置预览</Text>
-                  </Divider>
-                  <pre style={{
-                    background: '#1D2129', color: '#C9CDD4',
-                    padding: 16, borderRadius: 8,
-                    fontSize: 12, lineHeight: 1.6, maxHeight: 200, overflow: 'auto',
-                    fontFamily: '"Fira Code", "Consolas", monospace',
-                  }}>
-                    {configToJson(selectedTemplate.config)}
-                  </pre>
-                </>
-              )}
-
-              <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
-                <Button type="primary" icon={<IconCheck />} onClick={handleCreate} loading={creating} style={{ borderRadius: 6, height: 40, padding: '0 24px' }}>
-                  创建流水线
-                </Button>
-                <Button onClick={() => setSelectedTemplate(null)} style={{ borderRadius: 6, height: 40 }}>返回</Button>
-              </div>
-            </Form>
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const currentStep = selectedTemplate ? 2 : 1;
 
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
-      <div style={{ marginBottom: 28, textAlign: 'center' }}>
-        <Title heading={4} style={{ marginBottom: 4 }}>选择流水线模板</Title>
-        <Text type="secondary">从模板快速创建流水线，或从空白开始</Text>
+    <div className="page-container" style={{ maxWidth: 960, margin: '0 auto' }}>
+      {/* Back button */}
+      <Button
+        type="text"
+        icon={<IconArrowLeft />}
+        onClick={() => selectedTemplate ? setSelectedTemplate(null) : navigate(-1)}
+        style={{ marginBottom: 16, borderRadius: 6, color: 'var(--muted-foreground)' }}
+      >
+        {selectedTemplate ? '返回模板列表' : '返回'}
+      </Button>
+
+      {/* Page Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h3 className="page-title" style={{ fontSize: 22, marginBottom: 4 }}>Architect New Pipeline</h3>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+          从模板快速创建流水线，或从空白开始构建
+        </p>
       </div>
 
-      <Row gutter={[16, 16]}>
-        {/* Blank pipeline card */}
-        <Col span={8}>
-          <div
-            onClick={() => { if (projectId) navigate(`/projects/${projectId}/pipelines/blank`); }}
-            style={{
-              cursor: 'pointer', borderRadius: 10, height: 140,
-              border: '2px dashed var(--border)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              transition: 'border-color 0.2s', background: 'var(--card)',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#A1A1AA'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-          >
-            <div style={{
-              width: 40, height: 40, borderRadius: 10,
-              background: 'var(--muted)', border: '1.5px dashed #A1A1AA',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, marginBottom: 8, color: '#71717A',
-            }}>
-              ＋
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>空白流水线</div>
-            <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 2 }}>从零开始手动配置</div>
+      {/* Wizard Steps */}
+      <div className="wizard-steps">
+        <div className={`wizard-step ${currentStep >= 1 ? (currentStep > 1 ? 'wizard-step--completed' : 'wizard-step--active') : ''}`}>
+          <span className="wizard-step-number">{currentStep > 1 ? '✓' : '1'}</span>
+          <div>
+            <div className="wizard-step-label">Template Selection</div>
+            <div className="wizard-step-desc">选择语言和构建模板</div>
           </div>
-        </Col>
+        </div>
+        <div className={`wizard-step ${currentStep >= 2 ? 'wizard-step--active' : ''}`}>
+          <span className="wizard-step-number">2</span>
+          <div>
+            <div className="wizard-step-label">Configuration</div>
+            <div className="wizard-step-desc">配置参数和仓库信息</div>
+          </div>
+        </div>
+      </div>
 
-        {/* Template cards */}
-        {templates.map((template) => {
-          const catCfg = categoryConfig[template.category] || categoryConfig.general;
-          return (
-            <Col span={8} key={template.id}>
-              <div
-                onClick={() => handleSelectTemplate(template)}
-                style={{
-                  cursor: 'pointer', borderRadius: 10, height: 140,
-                  border: '1px solid var(--border)', padding: '16px',
-                  display: 'flex', gap: 12, transition: 'border-color 0.2s',
-                  background: 'var(--card)',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#A1A1AA'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-              >
-                <div style={{
-                  width: 40, height: 40, borderRadius: 8, flexShrink: 0,
-                  background: catCfg.bg,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 20,
-                }}>
-                  {catCfg.icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>{template.name}</div>
-                  <div style={{
-                    fontSize: 12, color: 'var(--muted-foreground)', lineHeight: 1.5,
-                    flex: 1, overflow: 'hidden',
-                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
-                  }}>
-                    {template.description}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                    <Tag size="small" style={{ borderRadius: 999, fontSize: 11 }}>
-                      {categoryLabels[template.category] || template.category}
-                    </Tag>
-                    {template.params.length > 0 && (
-                      <Tag size="small" color="gray" style={{ borderRadius: 999, fontSize: 11 }}>
-                        {template.params.length} 个参数
-                      </Tag>
-                    )}
-                  </div>
-                </div>
+      {/* Step 1: Template Selection */}
+      {!selectedTemplate && (
+        <Row gutter={[16, 16]}>
+          {/* Blank pipeline */}
+          <Col span={6}>
+            <div
+              className="template-card"
+              onClick={() => { if (projectId) navigate(`/projects/${projectId}/pipelines/blank`); }}
+              style={{ height: 180, borderStyle: 'dashed' }}
+            >
+              <div className="template-card-icon" style={{ background: 'var(--muted)', border: '2px dashed var(--border)' }}>
+                ＋
               </div>
-            </Col>
-          );
-        })}
-      </Row>
+              <div className="template-card-name">Custom</div>
+              <div className="template-card-desc">从零开始配置</div>
+            </div>
+          </Col>
+
+          {templates.map((template) => {
+            const icon = langIcons[template.name] || categoryConfig[template.category]?.icon || '📦';
+            const catCfg = categoryConfig[template.category] || categoryConfig.general;
+            return (
+              <Col span={6} key={template.id}>
+                <div
+                  className="template-card"
+                  onClick={() => handleSelectTemplate(template)}
+                  style={{ height: 180 }}
+                >
+                  <div className="template-card-icon" style={{ background: catCfg.bg }}>
+                    {icon}
+                  </div>
+                  <div className="template-card-name">{template.name}</div>
+                  <div className="template-card-desc">{template.description}</div>
+                </div>
+              </Col>
+            );
+          })}
+        </Row>
+      )}
+
+      {/* Step 2: Configuration */}
+      {selectedTemplate && (
+        <Row gutter={24}>
+          {/* Config Form */}
+          <Col span={14}>
+            <div className="config-panel">
+              <div className="config-panel-header">
+                Configuration Parameters
+              </div>
+              <div className="config-panel-body">
+                <Form layout="vertical">
+                  <Row gutter={16}>
+                    <Col span={24}>
+                      <Form.Item label={<span style={{ fontWeight: 600 }}>流水线名称 <span style={{ color: 'var(--destructive)' }}>*</span></span>}>
+                        <Input
+                          value={pipelineName}
+                          onChange={setPipelineName}
+                          placeholder="例如: my-app-pipeline"
+                          style={{ borderRadius: 8, height: 40 }}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={24}>
+                      <Form.Item label="描述">
+                        <Input
+                          value={pipelineDesc}
+                          onChange={setPipelineDesc}
+                          placeholder="可选描述"
+                          style={{ borderRadius: 8, height: 40 }}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+
+                  {selectedTemplate.params.length > 0 && (
+                    <>
+                      <div style={{
+                        fontSize: 13, fontWeight: 600, color: 'var(--muted-foreground)',
+                        textTransform: 'uppercase', letterSpacing: 0.5,
+                        margin: '16px 0 12px', paddingTop: 16,
+                        borderTop: '1px solid var(--border)',
+                      }}>
+                        Template Parameters
+                      </div>
+                      <Row gutter={16}>
+                        {selectedTemplate.params.map((param) => (
+                          <Col span={param.name === 'repoUrl' ? 24 : 12} key={param.name}>
+                            <Form.Item
+                              label={
+                                <span style={{ fontWeight: 500 }}>
+                                  {param.name}
+                                  {param.required && <span style={{ color: 'var(--destructive)', marginLeft: 2 }}>*</span>}
+                                </span>
+                              }
+                              extra={<span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{param.description}</span>}
+                            >
+                              <Input
+                                value={templateParams[param.name] || ''}
+                                onChange={(v) => setTemplateParams((prev) => ({ ...prev, [param.name]: v }))}
+                                placeholder={param.defaultValue || `请输入 ${param.name}`}
+                                style={{ borderRadius: 8, height: 40 }}
+                              />
+                            </Form.Item>
+                          </Col>
+                        ))}
+                      </Row>
+                    </>
+                  )}
+
+                  <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
+                    <Button
+                      type="primary"
+                      icon={<IconCheck />}
+                      onClick={handleCreate}
+                      loading={creating}
+                      style={{ borderRadius: 8, height: 42, padding: '0 28px', fontWeight: 600 }}
+                    >
+                      创建流水线
+                    </Button>
+                    <Button
+                      onClick={() => setSelectedTemplate(null)}
+                      style={{ borderRadius: 8, height: 42 }}
+                    >
+                      返回
+                    </Button>
+                  </div>
+                </Form>
+              </div>
+            </div>
+          </Col>
+
+          {/* Stage Preview */}
+          <Col span={10}>
+            <div className="config-panel">
+              <div className="config-panel-header">
+                Real-time Stage Preview
+              </div>
+              <div className="config-panel-body">
+                {selectedTemplate.config ? (
+                  <>
+                    <div className="stage-preview">
+                      {selectedTemplate.config.stages.map((stage, i) => (
+                        <Space key={stage.id} size={0}>
+                          {i > 0 && <div className="stage-preview-connector" />}
+                          <div className="stage-preview-node">
+                            <div style={{
+                              width: 32, height: 32, borderRadius: 8,
+                              background: 'var(--primary-light)', color: 'var(--primary)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 14, fontWeight: 700,
+                            }}>
+                              {i + 1}
+                            </div>
+                            <div className="stage-preview-name">{stage.name}</div>
+                            <div className="stage-preview-type">{stage.steps.length} step(s)</div>
+                          </div>
+                        </Space>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{
+                        fontSize: 12, fontWeight: 600, color: 'var(--muted-foreground)',
+                        textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
+                      }}>
+                        Config Preview
+                      </div>
+                      <pre style={{
+                        background: '#1A1F2E', color: '#CBD5E1',
+                        padding: 16, borderRadius: 8,
+                        fontSize: 11, lineHeight: 1.6, maxHeight: 200, overflow: 'auto',
+                        fontFamily: 'var(--font-mono)',
+                      }}>
+                        {configToJson(selectedTemplate.config)}
+                      </pre>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{
+                    padding: 40, textAlign: 'center', color: 'var(--muted-foreground)',
+                    background: 'var(--muted)', borderRadius: 8,
+                  }}>
+                    暂无配置预览
+                  </div>
+                )}
+              </div>
+            </div>
+          </Col>
+        </Row>
+      )}
     </div>
   );
 }

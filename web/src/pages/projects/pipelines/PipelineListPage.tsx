@@ -1,50 +1,32 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table, Button, Space, Tag, Popconfirm, Message, Dropdown, Menu, Tooltip } from '@arco-design/web-react';
-import { IconPlus, IconDelete, IconPlayArrow, IconMore, IconCopy, IconEdit, IconHistory } from '@arco-design/web-react/icon';
+import { Button, Space, Tag, Popconfirm, Message, Dropdown, Menu, Tooltip } from '@arco-design/web-react';
+import { IconPlus, IconDelete, IconPlayArrow, IconMore, IconCopy, IconEdit, IconHistory, IconSearch } from '@arco-design/web-react/icon';
 import { fetchPipelines, fetchPipeline, deletePipeline, copyPipeline, type PipelineSummary, type PipelineConfig } from '../../../services/pipeline';
 import { triggerPipelineRun } from '../../../services/pipelineRun';
 import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal';
-import { ListFilters } from '../../../components/common/ListFilters';
-import { useQueryFilters } from '../../../hooks/useQueryFilters';
 
-const PAGE_SIZE = 20;
 const LOAD_ALL_SIZE = 200;
 
-const statusColors: Record<string, string> = {
-  draft: 'gray',
-  active: 'green',
-  disabled: 'orangered',
-};
-
-const statusLabels: Record<string, string> = {
-  draft: '草稿',
-  active: '已启用',
-  disabled: '已停用',
+const statusConfig: Record<string, { color: string; bg: string; label: string; badgeClass: string }> = {
+  draft: { color: '#6B7280', bg: '#F3F4F6', label: '草稿', badgeClass: 'pipeline-status-badge--pending' },
+  active: { color: '#00C853', bg: '#E8F5E9', label: '已启用', badgeClass: 'pipeline-status-badge--success' },
+  disabled: { color: '#FF9500', bg: '#FFF8E1', label: '已停用', badgeClass: 'pipeline-status-badge--cancelled' },
 };
 
 const triggerLabels: Record<string, string> = {
-  manual: '手动',
+  manual: '手动触发',
   webhook: 'Webhook',
-  scheduled: '定时',
+  scheduled: '定时触发',
 };
-
-const statusFilterOptions = [
-  { label: '全部', value: '' },
-  { label: '草稿', value: 'draft' },
-  { label: '已启用', value: 'active' },
-  { label: '已停用', value: 'disabled' },
-];
-
-const PIPELINE_FILTER_DEFAULTS = { status: '', search: '' };
 
 export default function PipelineListPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [filters, setFilters] = useQueryFilters(PIPELINE_FILTER_DEFAULTS);
   const [allItems, setAllItems] = useState<PipelineSummary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [runModalPipeline, setRunModalPipeline] = useState<PipelineSummary | null>(null);
   const [runModalConfig, setRunModalConfig] = useState<PipelineConfig | null>(null);
 
@@ -65,21 +47,22 @@ export default function PipelineListPage() {
 
   const filteredItems = useMemo(() => {
     return allItems.filter((item) => {
-      if (filters.status && item.status !== filters.status) return false;
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
+      if (statusFilter && item.status !== statusFilter) return false;
+      if (search) {
+        const q = search.toLowerCase();
         if (!item.name.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [allItems, filters.status, filters.search]);
+  }, [allItems, statusFilter, search]);
 
-  useEffect(() => { setPage(1); }, [filters.status, filters.search]);
-
-  const paginatedItems = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredItems.slice(start, start + PAGE_SIZE);
-  }, [filteredItems, page]);
+  const metrics = useMemo(() => {
+    const total = allItems.length;
+    const active = allItems.filter((i) => i.status === 'active').length;
+    const draft = allItems.filter((i) => i.status === 'draft').length;
+    const disabled = allItems.filter((i) => i.status === 'disabled').length;
+    return { total, active, draft, disabled };
+  }, [allItems]);
 
   const handleDelete = useCallback(async (pipelineId: string) => {
     if (!projectId) return;
@@ -126,120 +109,191 @@ export default function PipelineListPage() {
     }
   }, [projectId, runModalPipeline]);
 
-  const columns = useMemo(() => [
-    {
-      title: '名称',
-      dataIndex: 'name',
-      render: (name: string, record: PipelineSummary) => (
-        <Button type="text" style={{ padding: 0, fontWeight: 500 }} onClick={() => navigate(`/projects/${projectId}/pipelines/${record.id}`)}>
-          {name}
-        </Button>
-      ),
-    },
-    { title: '描述', dataIndex: 'description', render: (v: string) => <span style={{ color: 'var(--color-text-3)' }}>{v || '-'}</span> },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 100,
-      render: (status: string) => <Tag color={statusColors[status] || 'default'} size="small">{statusLabels[status] || status}</Tag>,
-    },
-    {
-      title: '触发方式',
-      dataIndex: 'triggerType',
-      width: 100,
-      render: (type: string) => <span style={{ color: 'var(--color-text-2)' }}>{triggerLabels[type] || type}</span>,
-    },
-    {
-      title: '更新时间',
-      dataIndex: 'updatedAt',
-      width: 180,
-      render: (time: string) => <span style={{ color: 'var(--color-text-3)', fontSize: 13 }}>{new Date(time).toLocaleString()}</span>,
-    },
-    {
-      title: '操作',
-      width: 200,
-      render: (_: unknown, record: PipelineSummary) => (
-        <Space size={4}>
-          <Tooltip content="运行流水线">
-            <Button
-              size="small"
-              type="primary"
-              icon={<IconPlayArrow />}
-              onClick={() => handleOpenRunModal(record)}
-              style={{ borderRadius: 4 }}
-            >
-              运行
-            </Button>
-          </Tooltip>
-          <Tooltip content="运行历史">
-            <Button
-              size="small"
-              type="outline"
-              icon={<IconHistory />}
-              onClick={() => navigate(`/projects/${projectId}/pipelines/${record.id}/runs`)}
-              style={{ borderRadius: 4 }}
-            />
-          </Tooltip>
-          <Dropdown
-            droplist={
-              <Menu onClickMenuItem={(key) => {
-                if (key === 'edit') navigate(`/projects/${projectId}/pipelines/${record.id}`);
-                else if (key === 'copy') handleCopy(record.id);
-              }}>
-                <Menu.Item key="edit"><IconEdit style={{ marginRight: 8 }} />编辑</Menu.Item>
-                <Menu.Item key="copy"><IconCopy style={{ marginRight: 8 }} />复制</Menu.Item>
-              </Menu>
-            }
-            position="br"
-          >
-            <Button size="small" type="text" icon={<IconMore />} style={{ borderRadius: 4 }} />
-          </Dropdown>
-          <Popconfirm title="确定删除此流水线？" onOk={() => handleDelete(record.id)}>
-            <Tooltip content="删除">
-              <Button size="small" type="text" status="danger" icon={<IconDelete />} style={{ borderRadius: 4 }} />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ], [projectId, navigate, handleDelete, handleCopy, handleOpenRunModal]);
-
   return (
     <div className="page-container">
-      <div className="page-header">
-        <h3 className="page-title">流水线</h3>
-        <Space size={12}>
-          <ListFilters
-            filters={[
-              { key: 'search', type: 'search', placeholder: '按名称搜索' },
-              { key: 'status', type: 'select', placeholder: '按状态筛选', options: statusFilterOptions },
-            ]}
-            values={filters}
-            onChange={setFilters}
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h3 className="page-title" style={{ fontSize: 22, marginBottom: 4 }}>Automated Pipelines</h3>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+            管理和监控项目的 CI/CD 流水线
+          </p>
+        </div>
+        <Button
+          type="primary"
+          icon={<IconPlus />}
+          onClick={() => navigate(`/projects/${projectId}/pipelines/new`)}
+          style={{ borderRadius: 8, height: 40, padding: '0 20px', fontWeight: 600 }}
+        >
+          + Create Pipeline
+        </Button>
+      </div>
+
+      {/* Metrics */}
+      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="metric-card" onClick={() => setStatusFilter('')} style={{ cursor: 'pointer' }}>
+          <span className="metric-card-label">TOTAL PIPELINES</span>
+          <span className="metric-card-value">{metrics.total}</span>
+          <span className="metric-card-sub">所有流水线</span>
+        </div>
+        <div className="metric-card" onClick={() => setStatusFilter('active')} style={{ cursor: 'pointer' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', marginBottom: 4 }} />
+          <span className="metric-card-label">ACTIVE</span>
+          <span className="metric-card-value" style={{ color: 'var(--success)' }}>{metrics.active}</span>
+          <span className="metric-card-sub">已启用</span>
+        </div>
+        <div className="metric-card" onClick={() => setStatusFilter('draft')} style={{ cursor: 'pointer' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--muted-foreground)', marginBottom: 4 }} />
+          <span className="metric-card-label">DRAFT</span>
+          <span className="metric-card-value" style={{ color: 'var(--muted-foreground)' }}>{metrics.draft}</span>
+          <span className="metric-card-sub">草稿</span>
+        </div>
+        <div className="metric-card" onClick={() => setStatusFilter('disabled')} style={{ cursor: 'pointer' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warning)', marginBottom: 4 }} />
+          <span className="metric-card-label">DISABLED</span>
+          <span className="metric-card-value" style={{ color: 'var(--warning)' }}>{metrics.disabled}</span>
+          <span className="metric-card-sub">已停用</span>
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div style={{
+        display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center',
+        padding: '12px 16px', background: 'var(--card)', borderRadius: 10,
+        border: '1px solid var(--border)',
+      }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <IconSearch style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)', fontSize: 16 }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索流水线..."
+            style={{
+              width: '100%', height: 36, border: '1px solid var(--border)', borderRadius: 8,
+              paddingLeft: 36, paddingRight: 12, fontSize: 13, outline: 'none',
+              background: 'var(--muted)', color: 'var(--foreground)',
+              transition: 'border-color 200ms',
+            }}
+            onFocus={(e) => { e.target.style.borderColor = 'var(--primary)'; }}
+            onBlur={(e) => { e.target.style.borderColor = 'var(--border)'; }}
           />
-          <Button type="primary" icon={<IconPlus />} onClick={() => navigate(`/projects/${projectId}/pipelines/new`)} style={{ borderRadius: 6 }}>
-            创建流水线
-          </Button>
+        </div>
+        <Space size={8}>
+          {['', 'active', 'draft', 'disabled'].map((s) => (
+            <Tag
+              key={s}
+              style={{
+                cursor: 'pointer', borderRadius: 20, padding: '4px 14px',
+                background: statusFilter === s ? 'var(--primary)' : 'var(--muted)',
+                color: statusFilter === s ? 'white' : 'var(--foreground)',
+                border: 'none', fontWeight: 500, fontSize: 12,
+                transition: 'all 150ms',
+              }}
+              onClick={() => setStatusFilter(s)}
+            >
+              {s === '' ? '全部' : statusConfig[s]?.label || s}
+            </Tag>
+          ))}
         </Space>
       </div>
-      <Table
-        rowKey="id"
-        columns={columns}
-        data={paginatedItems}
-        loading={loading}
-        border={false}
-        stripe
-        hover
-        style={{ borderRadius: 8 }}
-        pagination={{
-          current: page,
-          pageSize: PAGE_SIZE,
-          total: filteredItems.length,
-          onChange: setPage,
-          showTotal: true,
-          style: { marginTop: 16 },
-        }}
-      />
+
+      {/* Pipeline List */}
+      {loading ? (
+        <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted-foreground)' }}>
+          加载中...
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div style={{
+          padding: '60px 0', textAlign: 'center',
+          background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)',
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🔧</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>
+            暂无流水线
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 16 }}>
+            创建你的第一条流水线，开始自动化构建
+          </div>
+          <Button
+            type="primary"
+            icon={<IconPlus />}
+            onClick={() => navigate(`/projects/${projectId}/pipelines/new`)}
+            style={{ borderRadius: 8 }}
+          >
+            创建流水线
+          </Button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filteredItems.map((item) => {
+            const cfg = statusConfig[item.status] || statusConfig.draft;
+            return (
+              <div
+                key={item.id}
+                className="pipeline-status-card"
+                onClick={() => navigate(`/projects/${projectId}/pipelines/${item.id}`)}
+              >
+                <div className={`pipeline-status-icon pipeline-status-icon--${item.status === 'active' ? 'success' : item.status === 'disabled' ? 'pending' : 'pending'}`}>
+                  {item.status === 'active' ? '✓' : item.status === 'disabled' ? '⏸' : '📝'}
+                </div>
+                <div className="pipeline-status-info">
+                  <div className="pipeline-status-name">{item.name}</div>
+                  <div className="pipeline-status-meta">
+                    {triggerLabels[item.triggerType] || item.triggerType}
+                    {' · '}
+                    {item.description || '无描述'}
+                    {' · '}
+                    {new Date(item.updatedAt).toLocaleString()}
+                  </div>
+                </div>
+                <span className={`pipeline-status-badge ${cfg.badgeClass}`}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color }} />
+                  {cfg.label}
+                </span>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                  <Tooltip content="运行流水线">
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<IconPlayArrow />}
+                      onClick={() => handleOpenRunModal(item)}
+                      style={{ borderRadius: 6 }}
+                    />
+                  </Tooltip>
+                  <Tooltip content="运行历史">
+                    <Button
+                      size="small"
+                      type="outline"
+                      icon={<IconHistory />}
+                      onClick={() => navigate(`/projects/${projectId}/pipelines/${item.id}/runs`)}
+                      style={{ borderRadius: 6 }}
+                    />
+                  </Tooltip>
+                  <Dropdown
+                    droplist={
+                      <Menu onClickMenuItem={(key) => {
+                        if (key === 'edit') navigate(`/projects/${projectId}/pipelines/${item.id}`);
+                        else if (key === 'copy') handleCopy(item.id);
+                      }}>
+                        <Menu.Item key="edit"><IconEdit style={{ marginRight: 8 }} />编辑</Menu.Item>
+                        <Menu.Item key="copy"><IconCopy style={{ marginRight: 8 }} />复制</Menu.Item>
+                      </Menu>
+                    }
+                    position="br"
+                  >
+                    <Button size="small" type="text" icon={<IconMore />} style={{ borderRadius: 6 }} />
+                  </Dropdown>
+                  <Popconfirm title="确定删除此流水线？" onOk={() => handleDelete(item.id)}>
+                    <Tooltip content="删除">
+                      <Button size="small" type="text" status="danger" icon={<IconDelete />} style={{ borderRadius: 6 }} />
+                    </Tooltip>
+                  </Popconfirm>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <RunPipelineModal
         visible={!!runModalPipeline}
         pipeline={runModalPipeline}
