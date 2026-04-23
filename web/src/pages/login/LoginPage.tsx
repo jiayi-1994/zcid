@@ -81,7 +81,7 @@ export function LoginPage() {
                 <Input.Password id="login-password" placeholder="请输入密码" value={password} onChange={setPassword} autoComplete="current-password" size="large" style={{ borderRadius: 8 }} />
               </div>
               <Button type="primary" htmlType="submit" long loading={loading} size="large"
-                style={{ marginTop: 4, height: 46, borderRadius: 10, fontWeight: 600, fontSize: 15, background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)', border: 'none' }}
+                style={{ marginTop: 4, height: 46, borderRadius: 8, fontWeight: 600, fontSize: 15, background: 'var(--primary-gradient)', border: 'none' }}
               >
                 登录
               </Button>

@@ -1,4 +1,4 @@
-import { Button, Table, Message, Modal, Form, Input, Tag, Select } from '@arco-design/web-react';
+import { Button, Table, Message, Modal, Form, Input, Select } from '@arco-design/web-react';
 import { IconPlus } from '@arco-design/web-react/icon';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -13,16 +13,16 @@ import { extractErrorMessage } from '../../../services/http';
 
 const FormItem = Form.Item;
 
-const statusColors: Record<string, string> = {
-  pending: 'gray',
-  syncing: 'arcoblue',
-  healthy: 'green',
-  degraded: 'orange',
-  failed: 'red',
-  rolled_back: 'gray',
+const STATUS_CLS: Record<string, string> = {
+  pending: 'pipeline-status-badge--pending',
+  syncing: 'pipeline-status-badge--running',
+  healthy: 'pipeline-status-badge--success',
+  degraded: 'pipeline-status-badge--cancelled',
+  failed: 'pipeline-status-badge--failed',
+  rolled_back: 'pipeline-status-badge--pending',
 };
 
-const statusLabels: Record<string, string> = {
+const STATUS_LABEL: Record<string, string> = {
   pending: '待部署',
   syncing: '同步中',
   healthy: '健康',
@@ -65,17 +65,10 @@ export function DeploymentListPage() {
     }
   }, [projectId]);
 
-  useEffect(() => {
-    loadData(page);
-  }, [page, loadData]);
-
+  useEffect(() => { loadData(page); }, [page, loadData]);
   useEffect(() => {
     if (modalVisible && projectId) loadEnvs();
   }, [modalVisible, projectId, loadEnvs]);
-
-  const handleTrigger = () => {
-    setModalVisible(true);
-  };
 
   const handleSubmit = async () => {
     try {
@@ -100,24 +93,38 @@ export function DeploymentListPage() {
   };
 
   const columns = [
-    { title: '镜像', dataIndex: 'image' },
+    {
+      title: '镜像',
+      dataIndex: 'image',
+      render: (v: string) => <code className="mono">{v}</code>,
+    },
     { title: '环境', dataIndex: 'environmentId', render: (id: string) => id || '-' },
     {
       title: '状态',
       dataIndex: 'status',
-      render: (s: string) => <Tag size="small" color={statusColors[s] || 'default'}>{statusLabels[s] || s}</Tag>,
+      width: 110,
+      render: (s: string) => (
+        <span className={`pipeline-status-badge ${STATUS_CLS[s] || 'pipeline-status-badge--pending'}`}>
+          {STATUS_LABEL[s] || s}
+        </span>
+      ),
     },
-    { title: '同步状态', dataIndex: 'syncStatus', render: (v: string) => v ?? '-' },
-    { title: '健康状态', dataIndex: 'healthStatus', render: (v: string) => v ?? '-' },
-    { title: '部署人', dataIndex: 'deployedBy' },
-    { title: '时间', dataIndex: 'createdAt', render: (t: string) => new Date(t).toLocaleString() },
+    { title: '同步', dataIndex: 'syncStatus', width: 100, render: (v: string) => v ?? '-' },
+    { title: '健康', dataIndex: 'healthStatus', width: 100, render: (v: string) => v ?? '-' },
+    { title: '部署人', dataIndex: 'deployedBy', width: 120 },
+    {
+      title: '时间',
+      dataIndex: 'createdAt',
+      width: 180,
+      render: (t: string) => new Date(t).toLocaleString(),
+    },
     {
       title: '操作',
+      width: 100,
       render: (_: unknown, record: DeploymentSummary) => (
         <Button
           type="text"
           size="small"
-          style={{ color: 'var(--zcid-primary)' }}
           onClick={() => navigate(`/projects/${projectId}/deployments/${record.id}`)}
         >
           详情
@@ -129,9 +136,13 @@ export function DeploymentListPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h3 className="page-title">部署管理</h3>
-        <Button type="primary" icon={<IconPlus />} size="small" onClick={handleTrigger}>
-          部署
+        <div>
+          <div className="breadcrumb">Project · Delivery</div>
+          <h1 className="page-title">部署管理</h1>
+          <p className="page-subtitle">触发与追踪 ArgoCD 部署同步状态。</p>
+        </div>
+        <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
+          触发部署
         </Button>
       </div>
       <div className="table-card">
@@ -141,7 +152,7 @@ export function DeploymentListPage() {
           loading={loading}
           rowKey="id"
           border={false}
-          pagination={{ current: page, total: data.total, pageSize: 20, onChange: setPage, style: { padding: '12px 16px' } }}
+          pagination={{ current: page, total: data.total, pageSize: 20, onChange: setPage }}
           noDataElement={
             <div className="empty-state">
               <div className="empty-state-title">暂无部署</div>
@@ -162,13 +173,21 @@ export function DeploymentListPage() {
         unmountOnExit
       >
         <Form form={form} layout="vertical">
-          <FormItem label="环境" field="environmentId" rules={[{ required: true, message: '请选择环境' }]}>
+          <FormItem
+            label="环境"
+            field="environmentId"
+            rules={[{ required: true, message: '请选择环境' }]}
+          >
             <Select
               placeholder="选择环境"
               options={envs.map((e) => ({ label: `${e.name} (${e.namespace})`, value: e.id }))}
             />
           </FormItem>
-          <FormItem label="镜像" field="image" rules={[{ required: true, message: '请输入镜像地址' }]}>
+          <FormItem
+            label="镜像"
+            field="image"
+            rules={[{ required: true, message: '请输入镜像地址' }]}
+          >
             <Input placeholder="如 nginx:latest 或 registry.io/app:v1" />
           </FormItem>
           <FormItem label="流水线运行 ID (可选)" field="pipelineRunId">

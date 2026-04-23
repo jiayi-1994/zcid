@@ -44,32 +44,32 @@ function StageNodeComponent({ data }: NodeProps) {
   return (
     <div
       style={{
-        background: 'linear-gradient(135deg, #E8F3FF 0%, #F2F3F5 100%)',
-        border: '2px solid #BEDAFF',
-        borderRadius: 12,
-        padding: '10px 14px',
+        background: 'linear-gradient(135deg, #d9e2ff 0%, #f8f9fb 100%)',
+        borderRadius: 24,
+        padding: '10px 18px',
         minWidth: 220,
-        boxShadow: '0 2px 8px rgba(22, 93, 255, 0.08)',
-        transition: 'box-shadow 0.2s, border-color 0.2s',
+        boxShadow: '0 2px 8px rgba(0, 87, 194, 0.1)',
+        transition: 'all 0.2s',
       }}
       tabIndex={0}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(22, 93, 255, 0.15)';
-        (e.currentTarget as HTMLElement).style.borderColor = '#165DFF';
+        (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 4px rgba(0, 87, 194, 0.2), 0 8px 24px rgba(0, 87, 194, 0.15)';
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(22, 93, 255, 0.08)';
-        (e.currentTarget as HTMLElement).style.borderColor = '#BEDAFF';
+        (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0, 87, 194, 0.1)';
       }}
     >
-      <Handle type="target" position={Position.Left} style={{ background: '#165DFF', width: 8, height: 8 }} />
+      <Handle type="target" position={Position.Left} style={{ background: '#0057c2', width: 8, height: 8 }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
           <div style={{
-            width: 24, height: 24, borderRadius: 6,
-            background: '#165DFF', color: '#fff',
+            width: 26, height: 26, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #0057c2 0%, #006ef2 100%)',
+            color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 700, flexShrink: 0,
+            fontFamily: "'Manrope', system-ui, sans-serif",
+            fontSize: 12, fontWeight: 700, flexShrink: 0,
+            boxShadow: '0 2px 6px rgba(0, 87, 194, 0.4)',
           }}>
             {stageIndex + 1}
           </div>
@@ -111,7 +111,7 @@ function StageNodeComponent({ data }: NodeProps) {
           <Tooltip content="添加 Step" mini>
             <Button size="mini" type="text" icon={<IconPlus />}
               onClick={(e) => { e.stopPropagation(); onAddStep?.(stageId); }}
-              style={{ color: '#165DFF' }}
+              style={{ color: '#0057c2' }}
             />
           </Tooltip>
           <Tooltip content="删除" mini>
@@ -121,7 +121,7 @@ function StageNodeComponent({ data }: NodeProps) {
           </Tooltip>
         </div>
       </div>
-      <Handle type="source" position={Position.Right} style={{ background: '#165DFF', width: 8, height: 8 }} />
+      <Handle type="source" position={Position.Right} style={{ background: '#0057c2', width: 8, height: 8 }} />
     </div>
   );
 }

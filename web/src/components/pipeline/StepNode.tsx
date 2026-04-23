@@ -6,10 +6,10 @@ import { IconDelete, IconUp, IconDown } from '@arco-design/web-react/icon';
 const { Text } = Typography;
 
 const stepTypeConfig: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-  'git-clone': { color: '#165DFF', bg: '#E8F3FF', icon: '📥', label: 'Git Clone' },
-  shell:       { color: '#00B42A', bg: '#E8FFEA', icon: '💻', label: 'Shell' },
-  kaniko:      { color: '#FF7D00', bg: '#FFF7E8', icon: '🐳', label: 'Kaniko' },
-  buildkit:    { color: '#722ED1', bg: '#F5E8FF', icon: '🔨', label: 'BuildKit' },
+  'git-clone': { color: '#0057c2', bg: '#d9e2ff', icon: '📥', label: 'Git Clone' },
+  shell:       { color: '#004398', bg: '#e7e8ea', icon: '💻', label: 'Shell' },
+  kaniko:      { color: '#9e3d00', bg: '#ffdbcc', icon: '🐳', label: 'Kaniko' },
+  buildkit:    { color: '#006ef2', bg: '#afc6ff', icon: '🔨', label: 'BuildKit' },
 };
 
 export interface StepNodeData {
@@ -35,14 +35,13 @@ function StepNodeComponent({ data }: NodeProps) {
     <div
       style={{
         background: '#fff',
-        border: `1.5px solid ${cfg.color}30`,
-        borderRadius: 10,
-        padding: '8px 12px',
+        borderRadius: 20,
+        padding: '10px 14px',
         minWidth: 180,
         cursor: 'pointer',
         transition: 'all 0.2s',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-        borderLeft: `4px solid ${cfg.color}`,
+        boxShadow: '0 1px 2px rgba(0, 87, 194, 0.04)',
+        borderLeft: `3px solid ${cfg.color}`,
       }}
       tabIndex={0}
       role="button"
@@ -54,12 +53,10 @@ function StepNodeComponent({ data }: NodeProps) {
         }
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${cfg.color}20`;
-        (e.currentTarget as HTMLElement).style.borderColor = cfg.color;
+        (e.currentTarget as HTMLElement).style.boxShadow = `0 0 0 3px ${cfg.color}1a, 0 8px 24px rgba(0, 87, 194, 0.08)`;
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
-        (e.currentTarget as HTMLElement).style.borderColor = `${cfg.color}30`;
+        (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 2px rgba(0, 87, 194, 0.04)';
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

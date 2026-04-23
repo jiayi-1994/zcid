@@ -111,71 +111,71 @@ export default function PipelineListPage() {
 
   return (
     <div className="page-container">
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div className="page-header">
         <div>
-          <h3 className="page-title" style={{ fontSize: 22, marginBottom: 4 }}>Automated Pipelines</h3>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-            管理和监控项目的 CI/CD 流水线
+          <div className="breadcrumb">Pipelines</div>
+          <h1 className="page-title">Automated Pipelines</h1>
+          <p className="page-subtitle">
+            Real-time status of your deployment infrastructure and service health across all environments.
           </p>
         </div>
         <Button
           type="primary"
           icon={<IconPlus />}
           onClick={() => navigate(`/projects/${projectId}/pipelines/new`)}
-          style={{ borderRadius: 8, height: 40, padding: '0 20px', fontWeight: 600 }}
+          size="large"
         >
-          + Create Pipeline
+          Create Pipeline
         </Button>
       </div>
 
-      {/* Metrics */}
       <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         <div className="metric-card" onClick={() => setStatusFilter('')} style={{ cursor: 'pointer' }}>
-          <span className="metric-card-label">TOTAL PIPELINES</span>
+          <span className="metric-card-label">Total Pipelines</span>
           <span className="metric-card-value">{metrics.total}</span>
           <span className="metric-card-sub">所有流水线</span>
         </div>
         <div className="metric-card" onClick={() => setStatusFilter('active')} style={{ cursor: 'pointer' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', marginBottom: 4 }} />
-          <span className="metric-card-label">ACTIVE</span>
-          <span className="metric-card-value" style={{ color: 'var(--success)' }}>{metrics.active}</span>
-          <span className="metric-card-sub">已启用</span>
+          <span className="metric-card-label">Active</span>
+          <span className="metric-card-value">{metrics.active}</span>
+          <span className="metric-card-sub">已启用 · running smoothly</span>
         </div>
         <div className="metric-card" onClick={() => setStatusFilter('draft')} style={{ cursor: 'pointer' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--muted-foreground)', marginBottom: 4 }} />
-          <span className="metric-card-label">DRAFT</span>
-          <span className="metric-card-value" style={{ color: 'var(--muted-foreground)' }}>{metrics.draft}</span>
-          <span className="metric-card-sub">草稿</span>
+          <span className="metric-card-label">Draft</span>
+          <span className="metric-card-value">{metrics.draft}</span>
+          <span className="metric-card-sub">待发布</span>
         </div>
         <div className="metric-card" onClick={() => setStatusFilter('disabled')} style={{ cursor: 'pointer' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warning)', marginBottom: 4 }} />
-          <span className="metric-card-label">DISABLED</span>
-          <span className="metric-card-value" style={{ color: 'var(--warning)' }}>{metrics.disabled}</span>
+          <span className="metric-card-label">Disabled</span>
+          <span className="metric-card-value">{metrics.disabled}</span>
           <span className="metric-card-sub">已停用</span>
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
       <div style={{
-        display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center',
-        padding: '12px 16px', background: 'var(--card)', borderRadius: 10,
-        border: '1px solid var(--border)',
+        display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-5)',
+        alignItems: 'center',
+        padding: 'var(--space-3) var(--space-4)',
+        background: 'var(--surface-container-lowest)',
+        borderRadius: 'var(--radius-lg)',
       }}>
         <div style={{ position: 'relative', flex: 1 }}>
-          <IconSearch style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)', fontSize: 16 }} />
+          <IconSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--on-surface-variant)', fontSize: 16 }} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索流水线..."
             style={{
-              width: '100%', height: 36, border: '1px solid var(--border)', borderRadius: 8,
-              paddingLeft: 36, paddingRight: 12, fontSize: 13, outline: 'none',
-              background: 'var(--muted)', color: 'var(--foreground)',
-              transition: 'border-color 200ms',
+              width: '100%', height: 38,
+              border: '1px solid var(--ghost-border-strong)',
+              borderRadius: 'var(--radius-sm)',
+              paddingLeft: 40, paddingRight: 12, fontSize: 13, outline: 'none',
+              background: 'var(--surface-container-low)',
+              color: 'var(--on-surface)',
+              transition: 'all 200ms',
             }}
-            onFocus={(e) => { e.target.style.borderColor = 'var(--primary)'; }}
-            onBlur={(e) => { e.target.style.borderColor = 'var(--border)'; }}
+            onFocus={(e) => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = 'var(--shadow-glow-primary)'; }}
+            onBlur={(e) => { e.target.style.borderColor = 'var(--ghost-border-strong)'; e.target.style.boxShadow = 'none'; }}
           />
         </div>
         <Space size={8}>
@@ -183,10 +183,10 @@ export default function PipelineListPage() {
             <Tag
               key={s}
               style={{
-                cursor: 'pointer', borderRadius: 20, padding: '4px 14px',
-                background: statusFilter === s ? 'var(--primary)' : 'var(--muted)',
-                color: statusFilter === s ? 'white' : 'var(--foreground)',
-                border: 'none', fontWeight: 500, fontSize: 12,
+                cursor: 'pointer', borderRadius: 'var(--radius-full)', padding: '5px 14px',
+                background: statusFilter === s ? 'var(--primary-gradient)' : 'var(--surface-container-low)',
+                color: statusFilter === s ? '#fff' : 'var(--on-surface)',
+                border: 'none', fontWeight: 600, fontSize: 12,
                 transition: 'all 150ms',
               }}
               onClick={() => setStatusFilter(s)}
@@ -203,22 +203,15 @@ export default function PipelineListPage() {
           加载中...
         </div>
       ) : filteredItems.length === 0 ? (
-        <div style={{
-          padding: '60px 0', textAlign: 'center',
-          background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)',
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🔧</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>
-            暂无流水线
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 16 }}>
+        <div className="zcid-card empty-state">
+          <div className="empty-state-title">暂无流水线</div>
+          <div className="empty-state-desc">
             创建你的第一条流水线，开始自动化构建
           </div>
           <Button
             type="primary"
             icon={<IconPlus />}
             onClick={() => navigate(`/projects/${projectId}/pipelines/new`)}
-            style={{ borderRadius: 8 }}
           >
             创建流水线
           </Button>

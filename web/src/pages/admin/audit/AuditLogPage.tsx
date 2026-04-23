@@ -1,11 +1,23 @@
-import { DatePicker, Input, Select, Space, Table, Tag, Tooltip } from '@arco-design/web-react';
+import { DatePicker, Input, Select, Space, Table, Tooltip } from '@arco-design/web-react';
 import { useCallback, useEffect, useState } from 'react';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { fetchAuditLogs, type AuditLog, type AuditLogFilters } from '../../../services/audit';
 
-const RESULT_CONFIG: Record<string, { color: string; text: string }> = {
-  success: { color: 'green', text: '成功' },
-  failure: { color: 'red', text: '失败' },
+const RESULT_CLS: Record<string, string> = {
+  success: 'pipeline-status-badge--success',
+  failure: 'pipeline-status-badge--failed',
+};
+const RESULT_LABEL: Record<string, string> = {
+  success: '成功',
+  failure: '失败',
+};
+
+const METHOD_CLS: Record<string, string> = {
+  GET: 'pipeline-status-badge--running',
+  POST: 'pipeline-status-badge--success',
+  PUT: 'pipeline-status-badge--cancelled',
+  DELETE: 'pipeline-status-badge--failed',
+  PATCH: 'pipeline-status-badge--cancelled',
 };
 
 const ACTION_OPTIONS = [
@@ -21,7 +33,10 @@ function extractMethod(action: string): string {
 }
 
 function extractPath(action: string): string {
-  return action.replace(/^(GET|POST|PUT|DELETE|PATCH)\s+/, '').replace(/\/api\/v1\//, '').replace(/:id/g, '*');
+  return action
+    .replace(/^(GET|POST|PUT|DELETE|PATCH)\s+/, '')
+    .replace(/\/api\/v1\//, '')
+    .replace(/:id/g, '*');
 }
 
 function shortenId(id: string): string {
@@ -59,9 +74,9 @@ export function AuditLogPage() {
     {
       title: '时间',
       dataIndex: 'createdAt',
-      width: 155,
+      width: 160,
       render: (v: string) => (
-        <span style={{ fontSize: 12, color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--on-surface-variant)', whiteSpace: 'nowrap' }}>
           {new Date(v).toLocaleString()}
         </span>
       ),
@@ -69,7 +84,7 @@ export function AuditLogPage() {
     {
       title: '用户',
       dataIndex: 'userId',
-      width: 90,
+      width: 100,
       render: (v: string) => (
         <span style={{ fontSize: 13 }}>{v?.replace('admin-bootstrap-', '#') || '-'}</span>
       ),
@@ -77,24 +92,27 @@ export function AuditLogPage() {
     {
       title: '方法',
       dataIndex: 'action',
-      width: 65,
+      width: 80,
       render: (val: string) => {
         const method = extractMethod(val);
-        const colors: Record<string, string> = { POST: 'green', PUT: 'orangered', DELETE: 'red', GET: 'blue' };
-        return <Tag size="small" color={colors[method] || 'gray'} style={{ borderRadius: 4, fontSize: 11 }}>{method}</Tag>;
+        return (
+          <span className={`pipeline-status-badge ${METHOD_CLS[method] || 'pipeline-status-badge--pending'}`}>
+            {method}
+          </span>
+        );
       },
     },
     {
       title: '接口',
       dataIndex: 'action',
-      width: 160,
+      width: 200,
       ellipsis: true,
       render: (val: string) => {
         const path = extractPath(val);
-        const short = path.length > 22 ? path.substring(0, 22) + '…' : path;
+        const short = path.length > 28 ? path.substring(0, 28) + '…' : path;
         return (
           <Tooltip content={val} mini>
-            <code style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{short}</code>
+            <code className="mono" style={{ color: 'var(--on-surface-variant)' }}>{short}</code>
           </Tooltip>
         );
       },
@@ -102,33 +120,38 @@ export function AuditLogPage() {
     {
       title: '资源',
       dataIndex: 'resourceType',
-      width: 80,
+      width: 100,
       render: (v: string) => <span style={{ fontSize: 12 }}>{v || '-'}</span>,
     },
     {
       title: 'ID',
       dataIndex: 'resourceId',
-      width: 85,
+      width: 100,
       render: (v: string) => (
         <Tooltip content={v} mini>
-          <code style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{shortenId(v)}</code>
+          <code className="mono" style={{ color: 'var(--on-surface-variant)' }}>{shortenId(v)}</code>
         </Tooltip>
       ),
     },
     {
       title: '结果',
       dataIndex: 'result',
-      width: 55,
-      render: (val: string) => {
-        const cfg = RESULT_CONFIG[val] || { color: 'gray', text: val };
-        return <Tag size="small" color={cfg.color} style={{ borderRadius: 999, fontSize: 11 }}>{cfg.text}</Tag>;
-      },
+      width: 80,
+      render: (val: string) => (
+        <span className={`pipeline-status-badge ${RESULT_CLS[val] || 'pipeline-status-badge--pending'}`}>
+          {RESULT_LABEL[val] || val}
+        </span>
+      ),
     },
     {
       title: 'IP',
       dataIndex: 'ip',
-      width: 70,
-      render: (v: string) => <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>{v || '-'}</span>,
+      width: 120,
+      render: (v: string) => (
+        <code className="mono" style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>
+          {v || '-'}
+        </code>
+      ),
     },
   ];
 
@@ -136,13 +159,27 @@ export function AuditLogPage() {
     <AppLayout>
       <div className="page-container">
         <div className="page-header">
-          <h3 className="page-title">审计日志</h3>
+          <div>
+            <div className="breadcrumb">System · Compliance</div>
+            <h1 className="page-title">审计日志</h1>
+            <p className="page-subtitle">全量 API 操作记录与合规追溯。</p>
+          </div>
           <Space wrap size={8}>
-            <Select placeholder="操作" options={ACTION_OPTIONS} style={{ width: 90 }} allowClear size="small" onChange={(v) => updateFilter('action', v)} />
-            <Input placeholder="用户" style={{ width: 100 }} allowClear size="small" onChange={(v) => updateFilter('userId', v)} />
+            <Select
+              placeholder="方法"
+              options={ACTION_OPTIONS}
+              style={{ width: 120 }}
+              allowClear
+              onChange={(v) => updateFilter('action', v)}
+            />
+            <Input
+              placeholder="用户"
+              style={{ width: 140 }}
+              allowClear
+              onChange={(v) => updateFilter('userId', v)}
+            />
             <DatePicker.RangePicker
-              style={{ width: 260 }}
-              size="small"
+              style={{ width: 280 }}
               showTime
               onChange={(_v, dates) => {
                 setFilters((prev) => ({
@@ -155,22 +192,30 @@ export function AuditLogPage() {
             />
           </Space>
         </div>
-        <Table
-          columns={columns}
-          data={logs}
-          rowKey="id"
-          loading={loading}
-          border={false}
-          stripe
-          scroll={{ x: 800 }}
-          pagination={{
-            total,
-            current: filters.page,
-            pageSize: filters.pageSize,
-            showTotal: true,
-            onChange: (page, pageSize) => setFilters((prev) => ({ ...prev, page, pageSize })),
-          }}
-        />
+        <div className="table-card">
+          <Table
+            columns={columns}
+            data={logs}
+            rowKey="id"
+            loading={loading}
+            border={false}
+            scroll={{ x: 960 }}
+            pagination={{
+              total,
+              current: filters.page,
+              pageSize: filters.pageSize,
+              showTotal: true,
+              onChange: (page, pageSize) =>
+                setFilters((prev) => ({ ...prev, page, pageSize })),
+            }}
+            noDataElement={
+              <div className="empty-state">
+                <div className="empty-state-title">暂无审计记录</div>
+                <div className="empty-state-desc">当前筛选条件下没有匹配的日志</div>
+              </div>
+            }
+          />
+        </div>
       </div>
     </AppLayout>
   );

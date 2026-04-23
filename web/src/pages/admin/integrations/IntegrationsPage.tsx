@@ -1,4 +1,4 @@
-import { Button, Message, Popconfirm, Space, Tooltip, Tag } from '@arco-design/web-react';
+import { Button, Message, Popconfirm, Space, Tooltip } from '@arco-design/web-react';
 import { IconDelete, IconEdit, IconPlayArrow, IconPlus, IconRefresh, IconCopy } from '@arco-design/web-react/icon';
 import { useCallback, useEffect, useState } from 'react';
 import { AppLayout } from '../../../components/layout/AppLayout';
@@ -13,9 +13,9 @@ import {
 } from '../../../services/integration';
 import { ConnectionFormModal } from './ConnectionFormModal';
 
-const PROVIDER_CONFIG: Record<string, { icon: string; bg: string; label: string }> = {
-  github: { icon: '🐙', bg: '#F6F8FA', label: 'GitHub' },
-  gitlab: { icon: '🦊', bg: '#FFF4E6', label: 'GitLab' },
+const PROVIDER_CONFIG: Record<string, { icon: string; label: string }> = {
+  github: { icon: '🐙', label: 'GitHub' },
+  gitlab: { icon: '🦊', label: 'GitLab' },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; cssClass: string }> = {
@@ -113,47 +113,46 @@ export function IntegrationsPage() {
   return (
     <AppLayout>
       <div className="page-container">
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div className="page-header">
           <div>
-            <h3 className="page-title" style={{ fontSize: 22, marginBottom: 4 }}>Integration Management</h3>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-              管理 Git 仓库连接、Registry 和 Webhook 配置
+            <div className="breadcrumb">Settings › Integrations</div>
+            <h1 className="page-title">Integration Management</h1>
+            <p className="page-subtitle">
+              Connect and manage your external CI/CD toolchain. Monitor connectivity status and streamline deployment workflows.
             </p>
           </div>
           <Space size={8}>
-            <Button
-              icon={<IconRefresh />}
-              onClick={loadData}
-              style={{ borderRadius: 8, height: 40 }}
-            >
+            <Button icon={<IconRefresh />} onClick={loadData}>
               刷新
             </Button>
             <Button
               type="primary"
               icon={<IconPlus />}
               onClick={() => setCreateVisible(true)}
-              style={{ borderRadius: 8, height: 40, fontWeight: 600 }}
+              size="large"
             >
-              + Add Connection
+              Connect New Service
             </Button>
           </Space>
         </div>
 
         {/* Metrics */}
-        <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
+        <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <div className="metric-card">
-            <span className="metric-card-label">TOTAL INTEGRATIONS</span>
+            <span className="metric-card-label">Total Integrations</span>
             <span className="metric-card-value">{connections.length}</span>
+            <span className="metric-card-sub">configured providers</span>
           </div>
           <div className="metric-card">
-            <span className="metric-card-label">CONNECTED</span>
-            <span className="metric-card-value" style={{ color: 'var(--success)' }}>{connectedCount}</span>
+            <span className="metric-card-label">Connected</span>
+            <span className="metric-card-value">{connectedCount}</span>
+            <span className="metric-card-sub">healthy & streaming</span>
           </div>
           <div className="metric-card">
-            <span className="metric-card-label">NEEDS ATTENTION</span>
-            <span className="metric-card-value" style={{ color: connections.length - connectedCount > 0 ? 'var(--warning)' : 'var(--muted-foreground)' }}>
-              {connections.length - connectedCount}
+            <span className="metric-card-label">Needs Attention</span>
+            <span className="metric-card-value">{connections.length - connectedCount}</span>
+            <span className="metric-card-sub">
+              {connections.length - connectedCount > 0 ? '需检查连接' : 'all green'}
             </span>
           </div>
         </div>
@@ -164,38 +163,25 @@ export function IntegrationsPage() {
             加载中...
           </div>
         ) : connections.length === 0 ? (
-          <div style={{
-            padding: '60px 0', textAlign: 'center',
-            background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)',
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🔗</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>
-              暂无集成连接
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 16 }}>
-              添加 Git 仓库连接，开始管理源代码
-            </div>
-            <Button
-              type="primary"
-              icon={<IconPlus />}
-              onClick={() => setCreateVisible(true)}
-              style={{ borderRadius: 8 }}
-            >
+          <div className="zcid-card empty-state">
+            <div className="empty-state-title">暂无集成连接</div>
+            <div className="empty-state-desc">添加 Git 仓库连接，开始管理源代码</div>
+            <Button type="primary" icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
               添加连接
             </Button>
           </div>
         ) : (
           <div className="integration-grid">
             {connections.map((conn) => {
-              const provider = PROVIDER_CONFIG[conn.providerType] || { icon: '🔌', bg: '#F3F4F6', label: conn.providerType };
-              const status = STATUS_CONFIG[conn.status] || { label: conn.status, cssClass: 'env-health-status--degraded' };
+              const provider = PROVIDER_CONFIG[conn.providerType] || { icon: '🔌', label: conn.providerType };
+              const statusDotCls = conn.status === 'connected' ? 'integration-status-dot--connected'
+                : conn.status === 'token_expired' ? 'integration-status-dot--pending'
+                : 'integration-status-dot--failed';
+              const statusLabel = STATUS_CONFIG[conn.status]?.label || conn.status;
               return (
                 <div key={conn.id} className="integration-card">
                   <div className="integration-card-header">
-                    <div
-                      className="integration-card-icon"
-                      style={{ background: provider.bg, fontSize: 22 }}
-                    >
+                    <div className="integration-card-icon">
                       {provider.icon}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -204,36 +190,31 @@ export function IntegrationsPage() {
                         {provider.label} · {conn.serverUrl}
                       </div>
                     </div>
-                    <span className={`env-health-status ${status.cssClass}`}>
-                      {status.label}
-                    </span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                      <span style={{ color: 'var(--muted-foreground)' }}>Token</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--zcid-text-4)', fontSize: 12 }}>
+                      <span style={{ color: 'var(--on-surface-variant)' }}>Token</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--on-surface-variant)', fontSize: 12 }}>
                         {conn.tokenMask}
                       </span>
                     </div>
                     {conn.description && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span style={{ color: 'var(--muted-foreground)' }}>Description</span>
-                        <span style={{ color: 'var(--foreground)' }}>{conn.description}</span>
+                        <span style={{ color: 'var(--on-surface-variant)' }}>Description</span>
+                        <span style={{ color: 'var(--on-surface)' }}>{conn.description}</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                      <span style={{ color: 'var(--muted-foreground)' }}>Created</span>
-                      <span style={{ color: 'var(--foreground)', fontSize: 12 }}>{conn.createdAt}</span>
+                      <span style={{ color: 'var(--on-surface-variant)' }}>Created</span>
+                      <span style={{ color: 'var(--on-surface)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{conn.createdAt}</span>
                     </div>
                   </div>
 
                   <div className="integration-card-footer">
-                    <Tag size="small" style={{
-                      borderRadius: 20, background: provider.bg, border: 'none', fontWeight: 500,
-                    }}>
-                      {provider.label}
-                    </Tag>
+                    <span className={`integration-status-dot ${statusDotCls}`}>
+                      {statusLabel}
+                    </span>
                     <Space size={4}>
                       <Tooltip content="测试连接">
                         <Button

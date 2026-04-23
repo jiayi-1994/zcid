@@ -1,4 +1,5 @@
 import { Button } from '@arco-design/web-react';
+import { IconArrowLeft } from '@arco-design/web-react/icon';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '../../components/layout/AppLayout';
 
@@ -16,9 +17,8 @@ export function ForbiddenPage() {
           </div>
           <Button
             type="primary"
-            size="large"
+            icon={<IconArrowLeft />}
             onClick={() => navigate('/dashboard', { replace: true })}
-            style={{ borderRadius: 'var(--zcid-radius-md)' }}
           >
             返回 Dashboard
           </Button>

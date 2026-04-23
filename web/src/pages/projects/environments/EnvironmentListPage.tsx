@@ -84,41 +84,38 @@ export function EnvironmentListPage() {
 
   return (
     <div className="page-container">
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div className="page-header">
         <div>
-          <h3 className="page-title" style={{ fontSize: 22, marginBottom: 4 }}>Environment Health</h3>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-            监控和管理部署环境状态
+          <div className="breadcrumb">Environments</div>
+          <h1 className="page-title">Environment Health</h1>
+          <p className="page-subtitle">
+            Deployment status & rollback. 监控和管理部署环境状态。
           </p>
         </div>
         {isAdmin && (
-          <Button
-            type="primary"
-            icon={<IconPlus />}
-            onClick={() => setModalVisible(true)}
-            style={{ borderRadius: 8, height: 40, fontWeight: 600 }}
-          >
-            + New Environment
+          <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)} size="large">
+            New Environment
           </Button>
         )}
       </div>
 
-      {/* Overview Metrics */}
-      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
+      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <div className="metric-card">
-          <span className="metric-card-label">TOTAL ENVIRONMENTS</span>
+          <span className="metric-card-label">Total Environments</span>
           <span className="metric-card-value">{total}</span>
+          <span className="metric-card-sub">managed targets</span>
         </div>
         <div className="metric-card">
-          <span className="metric-card-label">ACTIVE SERVICES</span>
-          <span className="metric-card-value" style={{ color: 'var(--success)' }}>{activeCount}</span>
+          <span className="metric-card-label">Active Services</span>
+          <span className="metric-card-value">{activeCount}</span>
+          <span className="metric-card-sub">online</span>
         </div>
         <div className="metric-card">
-          <span className="metric-card-label">HEALTH RATE</span>
-          <span className="metric-card-value" style={{ color: 'var(--success)' }}>
-            {total > 0 ? `${((healthyCount / total) * 100).toFixed(0)}%` : '-'}
+          <span className="metric-card-label">Health Rate</span>
+          <span className="metric-card-value">
+            {total > 0 ? `${((healthyCount / total) * 100).toFixed(0)}%` : '—'}
           </span>
+          <span className="metric-card-sub">healthy uptime</span>
         </div>
       </div>
 
@@ -128,24 +125,11 @@ export function EnvironmentListPage() {
           加载中...
         </div>
       ) : envs.length === 0 ? (
-        <div style={{
-          padding: '60px 0', textAlign: 'center',
-          background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)',
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🌐</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>
-            暂无环境
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 16 }}>
-            创建第一个环境，开始管理部署目标
-          </div>
+        <div className="zcid-card empty-state">
+          <div className="empty-state-title">暂无环境</div>
+          <div className="empty-state-desc">创建第一个环境，开始管理部署目标</div>
           {isAdmin && (
-            <Button
-              type="primary"
-              icon={<IconPlus />}
-              onClick={() => setModalVisible(true)}
-              style={{ borderRadius: 8 }}
-            >
+            <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
               新建环境
             </Button>
           )}
@@ -156,7 +140,7 @@ export function EnvironmentListPage() {
             const health = deriveHealth(env);
             const hcfg = healthConfig[health];
             return (
-              <div key={env.id} className="env-health-card">
+              <div key={env.id} className={`env-health-card env-health-card--${health}`}>
                 <div className="env-health-header">
                   <div className="env-health-name">{env.name}</div>
                   <span className={`env-health-status ${hcfg.cssClass}`}>
@@ -166,30 +150,24 @@ export function EnvironmentListPage() {
                 <div className="env-health-meta">
                   <div className="env-health-meta-item">
                     <span className="env-health-meta-label">Namespace</span>
-                    <Tag size="small" style={{ borderRadius: 20, fontSize: 11 }}>{env.namespace}</Tag>
+                    <Tag size="small" style={{ borderRadius: 'var(--radius-full)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>{env.namespace}</Tag>
                   </div>
                   {env.description && (
                     <div className="env-health-meta-item">
                       <span className="env-health-meta-label">Description</span>
-                      <span className="env-health-meta-value">{env.description}</span>
+                      <span className="env-health-meta-value" style={{ fontFamily: 'var(--font-body)' }}>{env.description}</span>
                     </div>
                   )}
                   <div className="env-health-meta-item">
                     <span className="env-health-meta-label">Created</span>
-                    <span className="env-health-meta-value" style={{ fontSize: 12 }}>
+                    <span className="env-health-meta-value">
                       {env.createdAt ? new Date(env.createdAt).toLocaleDateString() : '-'}
                     </span>
                   </div>
                 </div>
                 {isAdmin && (
-                  <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      type="text"
-                      size="small"
-                      status="danger"
-                      onClick={() => handleDelete(env.id)}
-                      style={{ borderRadius: 6, fontSize: 12 }}
-                    >
+                  <div style={{ marginTop: 16, paddingTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button type="text" size="small" status="danger" onClick={() => handleDelete(env.id)}>
                       删除
                     </Button>
                   </div>

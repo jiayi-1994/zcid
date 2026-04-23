@@ -1,4 +1,4 @@
-import { Button, Message, Popconfirm, Table, Tag } from '@arco-design/web-react';
+import { Button, Message, Popconfirm, Table } from '@arco-design/web-react';
 import { useCallback, useEffect, useState } from 'react';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import {
@@ -67,7 +67,9 @@ export function AdminVariablePage() {
       title: '类型',
       dataIndex: 'varType',
       render: (val: string) => (
-        <Tag size="small" color={val === 'secret' ? 'red' : 'blue'}>{val === 'secret' ? '密钥' : '普通'}</Tag>
+        <span className={`pipeline-status-badge ${val === 'secret' ? 'pipeline-status-badge--failed' : 'pipeline-status-badge--running'}`}>
+          {val === 'secret' ? 'Secret' : 'Variable'}
+        </span>
       ),
     },
     { title: '描述', dataIndex: 'description' },
@@ -92,10 +94,15 @@ export function AdminVariablePage() {
       <div className="page-container">
         <div className="page-header">
           <div>
-            <h3 className="page-title">全局变量管理</h3>
-            <p className="page-subtitle">管理跨项目共享的全局变量和密钥</p>
+            <div className="breadcrumb">System › Variables</div>
+            <h1 className="page-title">Global Variables</h1>
+            <p className="page-subtitle">
+              System-wide variable management. 管理跨项目共享的全局变量和密钥。
+            </p>
           </div>
-          <Button type="primary" onClick={() => setCreateVisible(true)}>新建全局变量</Button>
+          <Button type="primary" size="large" onClick={() => setCreateVisible(true)}>
+            + Add Variable
+          </Button>
         </div>
         <div className="table-card">
           <Table

@@ -7,10 +7,10 @@ import { configToJson } from '../../../lib/pipeline/configJson';
 
 const { Row, Col } = Grid;
 
-const categoryConfig: Record<string, { icon: string; color: string; bg: string }> = {
-  backend:  { icon: '⚙️', color: '#0066FF', bg: '#E8F0FE' },
-  frontend: { icon: '📦', color: '#00C853', bg: '#E8F5E9' },
-  general:  { icon: '🐳', color: '#FF9500', bg: '#FFF8E1' },
+const categoryConfig: Record<string, { icon: string }> = {
+  backend:  { icon: '⚙️' },
+  frontend: { icon: '📦' },
+  general:  { icon: '🐳' },
 };
 
 const langIcons: Record<string, string> = {
@@ -100,12 +100,14 @@ export default function TemplateSelectPage() {
         {selectedTemplate ? '返回模板列表' : '返回'}
       </Button>
 
-      {/* Page Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h3 className="page-title" style={{ fontSize: 22, marginBottom: 4 }}>Architect New Pipeline</h3>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-          从模板快速创建流水线，或从空白开始构建
-        </p>
+      <div className="page-header">
+        <div>
+          <div className="breadcrumb">Create Pipeline</div>
+          <h1 className="page-title">Architect New Pipeline</h1>
+          <p className="page-subtitle">
+            Real-time topology preview. 从模板快速创建流水线，或从空白开始构建。
+          </p>
+        </div>
       </div>
 
       {/* Wizard Steps */}
@@ -134,11 +136,9 @@ export default function TemplateSelectPage() {
             <div
               className="template-card"
               onClick={() => { if (projectId) navigate(`/projects/${projectId}/pipelines/blank`); }}
-              style={{ height: 180, borderStyle: 'dashed' }}
+              style={{ height: 180 }}
             >
-              <div className="template-card-icon" style={{ background: 'var(--muted)', border: '2px dashed var(--border)' }}>
-                ＋
-              </div>
+              <div className="template-card-icon">＋</div>
               <div className="template-card-name">Custom</div>
               <div className="template-card-desc">从零开始配置</div>
             </div>
@@ -146,7 +146,6 @@ export default function TemplateSelectPage() {
 
           {templates.map((template) => {
             const icon = langIcons[template.name] || categoryConfig[template.category]?.icon || '📦';
-            const catCfg = categoryConfig[template.category] || categoryConfig.general;
             return (
               <Col span={6} key={template.id}>
                 <div
@@ -154,9 +153,7 @@ export default function TemplateSelectPage() {
                   onClick={() => handleSelectTemplate(template)}
                   style={{ height: 180 }}
                 >
-                  <div className="template-card-icon" style={{ background: catCfg.bg }}>
-                    {icon}
-                  </div>
+                  <div className="template-card-icon">{icon}</div>
                   <div className="template-card-name">{template.name}</div>
                   <div className="template-card-desc">{template.description}</div>
                 </div>
@@ -203,10 +200,9 @@ export default function TemplateSelectPage() {
                   {selectedTemplate.params.length > 0 && (
                     <>
                       <div style={{
-                        fontSize: 13, fontWeight: 600, color: 'var(--muted-foreground)',
-                        textTransform: 'uppercase', letterSpacing: 0.5,
-                        margin: '16px 0 12px', paddingTop: 16,
-                        borderTop: '1px solid var(--border)',
+                        fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)',
+                        textTransform: 'uppercase', letterSpacing: '0.08em',
+                        margin: '20px 0 12px', paddingTop: 16,
                       }}>
                         Template Parameters
                       </div>
@@ -287,14 +283,14 @@ export default function TemplateSelectPage() {
                     </div>
                     <div style={{ marginTop: 16 }}>
                       <div style={{
-                        fontSize: 12, fontWeight: 600, color: 'var(--muted-foreground)',
-                        textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
+                        fontSize: 11, fontWeight: 600, color: 'var(--on-surface-variant)',
+                        textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8,
                       }}>
                         Config Preview
                       </div>
                       <pre style={{
-                        background: '#1A1F2E', color: '#CBD5E1',
-                        padding: 16, borderRadius: 8,
+                        background: 'var(--log-bg)', color: 'var(--log-fg)',
+                        padding: 'var(--space-4)', borderRadius: 'var(--radius-md)',
                         fontSize: 11, lineHeight: 1.6, maxHeight: 200, overflow: 'auto',
                         fontFamily: 'var(--font-mono)',
                       }}>
@@ -304,8 +300,8 @@ export default function TemplateSelectPage() {
                   </>
                 ) : (
                   <div style={{
-                    padding: 40, textAlign: 'center', color: 'var(--muted-foreground)',
-                    background: 'var(--muted)', borderRadius: 8,
+                    padding: 40, textAlign: 'center', color: 'var(--on-surface-variant)',
+                    background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)',
                   }}>
                     暂无配置预览
                   </div>

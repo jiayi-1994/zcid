@@ -26,12 +26,12 @@ const { Text } = Typography;
 const { Row, Col } = Grid;
 
 const statusConfig: Record<string, { color: string; label: string; badgeClass: string; dotClass: string; stageClass: string }> = {
-  pending:   { color: '#6B7280', label: '待执行',   badgeClass: 'pipeline-status-badge--pending',   dotClass: 'stage-progress-dot--pending',   stageClass: 'stage-progress-item--pending' },
-  queued:    { color: '#0066FF', label: '排队中',   badgeClass: 'pipeline-status-badge--running',   dotClass: 'stage-progress-dot--active',    stageClass: 'stage-progress-item--active' },
-  running:   { color: '#0066FF', label: '运行中',   badgeClass: 'pipeline-status-badge--running',   dotClass: 'stage-progress-dot--active',    stageClass: 'stage-progress-item--active' },
-  succeeded: { color: '#00C853', label: '成功',     badgeClass: 'pipeline-status-badge--success',   dotClass: 'stage-progress-dot--completed', stageClass: 'stage-progress-item--completed' },
-  failed:    { color: '#FF3B30', label: '失败',     badgeClass: 'pipeline-status-badge--failed',    dotClass: 'stage-progress-dot--completed', stageClass: 'stage-progress-item--completed' },
-  cancelled: { color: '#FF9500', label: '已取消',   badgeClass: 'pipeline-status-badge--cancelled', dotClass: 'stage-progress-dot--pending',   stageClass: 'stage-progress-item--pending' },
+  pending:   { color: '#414755', label: '待执行',   badgeClass: 'pipeline-status-badge--pending',   dotClass: 'stage-progress-dot--pending',   stageClass: 'stage-progress-item--pending' },
+  queued:    { color: '#0057c2', label: '排队中',   badgeClass: 'pipeline-status-badge--running',   dotClass: 'stage-progress-dot--active',    stageClass: 'stage-progress-item--active' },
+  running:   { color: '#0057c2', label: '运行中',   badgeClass: 'pipeline-status-badge--running',   dotClass: 'stage-progress-dot--active',    stageClass: 'stage-progress-item--active' },
+  succeeded: { color: '#004398', label: '成功',     badgeClass: 'pipeline-status-badge--success',   dotClass: 'stage-progress-dot--completed', stageClass: 'stage-progress-item--completed' },
+  failed:    { color: '#ba1a1a', label: '失败',     badgeClass: 'pipeline-status-badge--failed',    dotClass: 'stage-progress-dot--completed', stageClass: 'stage-progress-item--completed' },
+  cancelled: { color: '#9e3d00', label: '已取消',   badgeClass: 'pipeline-status-badge--cancelled', dotClass: 'stage-progress-dot--pending',   stageClass: 'stage-progress-item--pending' },
 };
 
 function formatDuration(start?: string, end?: string): string {
@@ -118,36 +118,30 @@ export default function PipelineRunDetailPage() {
 
   return (
     <div className="page-container" style={{ maxWidth: 1000 }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 24,
-      }}>
-        <Space size={16} align="center">
+      <div className="page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1 }}>
           <Button
             type="text"
             icon={<IconArrowLeft />}
             onClick={() => navigate(`/projects/${projectId}/pipelines/${pipelineId}/runs`)}
-            style={{ borderRadius: 8, color: 'var(--muted-foreground)' }}
           />
           <div>
-            <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>
-              Build #{run.runNumber}
-            </h3>
-            <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+            <div className="breadcrumb">Build Observation</div>
+            <h1 className="page-title">Build #{run.runNumber}</h1>
+            <p className="page-subtitle">
               {run.triggeredBy?.replace('admin-bootstrap-', 'admin#') ?? 'unknown'}
               {' · '}
               {formatDuration(run.startedAt, run.finishedAt)}
-            </span>
+            </p>
           </div>
-          <span className={`pipeline-status-badge ${cfg.badgeClass}`}>
+          <span className={`pipeline-status-badge ${cfg.badgeClass}`} style={{ marginLeft: 12 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color }} />
             {cfg.label}
           </span>
-        </Space>
+        </div>
         {canCancel && (
           <Popconfirm title="确定取消此运行？" onOk={handleCancel}>
-            <Button type="outline" status="danger" icon={<IconClose />} style={{ borderRadius: 8 }}>
+            <Button type="outline" status="danger" icon={<IconClose />}>
               取消运行
             </Button>
           </Popconfirm>
@@ -247,7 +241,7 @@ export default function PipelineRunDetailPage() {
                 <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>运行参数</Text>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {Object.entries(run.params).map(([k, v]) => (
-                    <Tag key={k} style={{ borderRadius: 6, background: 'var(--primary-light)', color: 'var(--primary)', border: 'none' }}>
+                    <Tag key={k} style={{ borderRadius: 'var(--radius-full)', background: 'var(--primary-fixed)', color: 'var(--primary)', border: 'none', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
                       {k}={v}
                     </Tag>
                   ))}
@@ -257,8 +251,9 @@ export default function PipelineRunDetailPage() {
             {run.errorMessage && (
               <Col span={24}>
                 <div style={{
-                  padding: '12px 16px', background: '#FFF1F0', borderRadius: 8,
-                  color: 'var(--destructive)', fontSize: 13, border: '1px solid #FFD6D6',
+                  padding: '12px 16px', background: 'var(--error-container)', borderRadius: 'var(--radius-md)',
+                  color: 'var(--on-error-container)', fontSize: 13,
+                  fontFamily: 'var(--font-mono)',
                 }}>
                   {run.errorMessage}
                 </div>
@@ -312,9 +307,9 @@ export default function PipelineRunDetailPage() {
               {artifacts.map((a) => (
                 <a key={a.name} href={a.url} target="_blank" rel="noopener noreferrer">
                   <Tag style={{
-                    borderRadius: 8, cursor: 'pointer', padding: '6px 14px',
-                    background: 'var(--primary-light)', color: 'var(--primary)',
-                    border: '1px solid var(--primary)', fontWeight: 500,
+                    borderRadius: 'var(--radius-full)', cursor: 'pointer', padding: '6px 14px',
+                    background: 'var(--primary-fixed)', color: 'var(--primary)',
+                    border: 'none', fontWeight: 600, fontFamily: 'var(--font-mono)',
                   }}>
                     {a.name}
                     {a.size != null ? ` (${(a.size / 1024).toFixed(1)} KB)` : ''}

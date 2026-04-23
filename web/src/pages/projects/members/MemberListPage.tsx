@@ -1,4 +1,4 @@
-import { Button, Table, Message, Popconfirm, Modal, Form, Input, Select, Tag } from '@arco-design/web-react';
+import { Button, Table, Message, Popconfirm, Modal, Form, Input, Select } from '@arco-design/web-react';
 import { IconPlus } from '@arco-design/web-react/icon';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
@@ -11,6 +11,11 @@ const FormItem = Form.Item;
 const ROLE_LABELS: Record<string, string> = {
   project_admin: '项目管理员',
   member: '普通成员',
+};
+
+const ROLE_CLS: Record<string, string> = {
+  project_admin: 'pipeline-status-badge--success',
+  member: 'pipeline-status-badge--pending',
 };
 
 export function MemberListPage() {
@@ -79,6 +84,7 @@ export function MemberListPage() {
     {
       title: '角色',
       dataIndex: 'role',
+      width: 160,
       render: (role: string, record: MemberItem) => isAdmin ? (
         <Select
           value={role}
@@ -91,12 +97,15 @@ export function MemberListPage() {
           ]}
         />
       ) : (
-        <Tag size="small">{ROLE_LABELS[role] || role}</Tag>
+        <span className={`pipeline-status-badge ${ROLE_CLS[role] || 'pipeline-status-badge--pending'}`}>
+          {ROLE_LABELS[role] || role}
+        </span>
       ),
     },
-    { title: '加入时间', dataIndex: 'joinedAt' },
+    { title: '加入时间', dataIndex: 'joinedAt', width: 200 },
     {
       title: '操作',
+      width: 100,
       render: (_: unknown, record: MemberItem) => isAdmin ? (
         <Popconfirm title="确定移除？" onOk={() => handleRemove(record.userId)}>
           <Button type="text" size="small" status="danger">移除</Button>
@@ -108,16 +117,24 @@ export function MemberListPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h3 className="page-title">成员管理</h3>
+        <div>
+          <div className="breadcrumb">Project · Access</div>
+          <h1 className="page-title">成员管理</h1>
+          <p className="page-subtitle">分配项目成员与角色权限。</p>
+        </div>
         {isAdmin && (
-          <Button type="primary" icon={<IconPlus />} size="small" onClick={() => setModalVisible(true)}>
+          <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
             添加成员
           </Button>
         )}
       </div>
       <div className="table-card">
         <Table
-          columns={columns} data={members} loading={loading} rowKey="userId" border={false}
+          columns={columns}
+          data={members}
+          loading={loading}
+          rowKey="userId"
+          border={false}
           noDataElement={
             <div className="empty-state">
               <div className="empty-state-title">暂无成员</div>
@@ -127,16 +144,30 @@ export function MemberListPage() {
         />
       </div>
       <Modal
-        title="添加成员" visible={modalVisible}
+        title="添加成员"
+        visible={modalVisible}
         onOk={handleAdd}
-        onCancel={() => { form.resetFields(); setModalVisible(false); }}
-        confirmLoading={submitLoading} unmountOnExit
+        onCancel={() => {
+          form.resetFields();
+          setModalVisible(false);
+        }}
+        confirmLoading={submitLoading}
+        unmountOnExit
       >
         <Form form={form} layout="vertical">
-          <FormItem label="用户 ID" field="userId" rules={[{ required: true, message: '请输入用户 ID' }]}>
+          <FormItem
+            label="用户 ID"
+            field="userId"
+            rules={[{ required: true, message: '请输入用户 ID' }]}
+          >
             <Input placeholder="输入要添加的用户 ID" />
           </FormItem>
-          <FormItem label="角色" field="role" rules={[{ required: true, message: '请选择角色' }]} initialValue="member">
+          <FormItem
+            label="角色"
+            field="role"
+            rules={[{ required: true, message: '请选择角色' }]}
+            initialValue="member"
+          >
             <Select
               options={[
                 { label: '项目管理员', value: 'project_admin' },

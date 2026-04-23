@@ -9,7 +9,6 @@ import {
   Space,
   Switch,
   Table,
-  Tag,
 } from '@arco-design/web-react';
 import { IconDelete, IconEdit, IconPlus } from '@arco-design/web-react/icon';
 import { useCallback, useEffect, useState } from 'react';
@@ -29,11 +28,11 @@ const EVENT_TYPES = [
   { value: 'deploy_failed', label: '部署失败' },
 ];
 
-const EVENT_LABELS: Record<string, { text: string; color: string }> = {
-  build_success: { text: '构建成功', color: 'green' },
-  build_failed: { text: '构建失败', color: 'red' },
-  deploy_success: { text: '部署成功', color: 'blue' },
-  deploy_failed: { text: '部署失败', color: 'orange' },
+const EVENT_META: Record<string, { text: string; cls: string }> = {
+  build_success: { text: '构建成功', cls: 'pipeline-status-badge--success' },
+  build_failed: { text: '构建失败', cls: 'pipeline-status-badge--failed' },
+  deploy_success: { text: '部署成功', cls: 'pipeline-status-badge--running' },
+  deploy_failed: { text: '部署失败', cls: 'pipeline-status-badge--cancelled' },
 };
 
 export function NotificationRulesPage() {
@@ -117,14 +116,14 @@ export function NotificationRulesPage() {
   };
 
   const columns = [
-    { title: '名称', dataIndex: 'name', width: 180 },
+    { title: '名称', dataIndex: 'name', width: 200 },
     {
       title: '事件类型',
       dataIndex: 'eventType',
-      width: 120,
+      width: 140,
       render: (val: string) => {
-        const cfg = EVENT_LABELS[val] || { text: val, color: 'gray' };
-        return <Tag color={cfg.color}>{cfg.text}</Tag>;
+        const meta = EVENT_META[val] || { text: val, cls: 'pipeline-status-badge--pending' };
+        return <span className={`pipeline-status-badge ${meta.cls}`}>{meta.text}</span>;
       },
     },
     {
@@ -132,13 +131,15 @@ export function NotificationRulesPage() {
       dataIndex: 'webhookUrl',
       ellipsis: true,
       render: (val: string) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{val}</span>
+        <code className="mono" style={{ fontSize: 12, color: 'var(--on-surface-variant)' }}>
+          {val}
+        </code>
       ),
     },
     {
       title: '状态',
       dataIndex: 'enabled',
-      width: 80,
+      width: 90,
       render: (val: boolean, record: NotificationRule) => (
         <Switch size="small" checked={val} onChange={(v) => handleToggle(record, v)} />
       ),
@@ -161,18 +162,31 @@ export function NotificationRulesPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h3 className="page-title">通知规则</h3>
+        <div>
+          <div className="breadcrumb">Project · Signals</div>
+          <h1 className="page-title">通知规则</h1>
+          <p className="page-subtitle">配置构建与部署事件的 Webhook 推送。</p>
+        </div>
         <Button type="primary" icon={<IconPlus />} onClick={openCreate}>
           创建规则
         </Button>
       </div>
-      <Table
-        columns={columns}
-        data={rules}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 20, showTotal: true }}
-      />
+      <div className="table-card">
+        <Table
+          columns={columns}
+          data={rules}
+          rowKey="id"
+          loading={loading}
+          border={false}
+          pagination={{ pageSize: 20, showTotal: true }}
+          noDataElement={
+            <div className="empty-state">
+              <div className="empty-state-title">暂无通知规则</div>
+              <div className="empty-state-desc">创建规则后事件会自动推送 Webhook</div>
+            </div>
+          }
+        />
+      </div>
       <Modal
         title={editRule ? '编辑通知规则' : '创建通知规则'}
         visible={modalVisible}
@@ -184,7 +198,11 @@ export function NotificationRulesPage() {
           <Form.Item label="名称" field="name" rules={[{ required: true, message: '请输入名称' }]}>
             <Input placeholder="例如：构建失败通知" />
           </Form.Item>
-          <Form.Item label="事件类型" field="eventType" rules={[{ required: true, message: '请选择事件类型' }]}>
+          <Form.Item
+            label="事件类型"
+            field="eventType"
+            rules={[{ required: true, message: '请选择事件类型' }]}
+          >
             <Select options={EVENT_TYPES} placeholder="选择触发事件" />
           </Form.Item>
           <Form.Item

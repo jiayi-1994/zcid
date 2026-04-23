@@ -63,21 +63,20 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="app-root" style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Custom sidebar */}
-      <div className="app-sider" style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+      <div className="app-sider" style={{ width: 232, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div className="sider-logo">
           <div className="sider-logo-icon">Z</div>
           <span className="sider-logo-text">zcid</span>
         </div>
 
-        <div style={{ flex: 1, overflow: 'auto', padding: '8px 12px' }}>
-          <div className="sider-section-label">工作台</div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '4px 12px' }}>
+          <div className="sider-section-label">Workspace</div>
           {canViewDashboard && <NavItem icon={<IconDashboard />} label="Dashboard" path="/dashboard" active={isActive('/dashboard')} onClick={navigate} />}
           <NavItem icon={<IconApps />} label="项目管理" path="/projects" active={isActive('/projects')} onClick={navigate} />
 
           {hasAdminSection && (
             <>
-              <div className="sider-section-label" style={{ marginTop: 12 }}>系统管理</div>
+              <div className="sider-section-label">System</div>
               {canViewAdminUsers && <NavItem icon={<IconUser />} label="用户管理" path="/admin/users" active={isActive('/admin/users')} onClick={navigate} />}
               {canViewAdminVariables && <NavItem icon={<IconLock />} label="全局变量" path="/admin/variables" active={isActive('/admin/variables')} onClick={navigate} />}
               {canViewAdminIntegrations && <NavItem icon={<IconLink />} label="集成管理" path="/admin/integrations" active={isActive('/admin/integrations')} onClick={navigate} />}
@@ -87,8 +86,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           )}
         </div>
 
-        {/* Bottom user section */}
-        <div style={{ padding: '12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ padding: '12px', flexShrink: 0 }}>
           <Dropdown
             trigger="click"
             position="tr"
@@ -98,36 +96,18 @@ export function AppLayout({ children }: AppLayoutProps) {
               </Menu>
             )}
           >
-            <div className="user-entry" style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '8px 10px', borderRadius: 8,
-              cursor: 'pointer', transition: 'background 0.15s',
-              color: 'var(--foreground)',
-            }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
-              <div style={{
-                width: 28, height: 28, borderRadius: 6,
-                background: '#18181B',
-                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 600, flexShrink: 0,
-              }}>
-                {userInitial}
-              </div>
+            <div className="sider-user-entry">
+              <div className="sider-user-avatar">{userInitial}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user?.username}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{roleLabel}</div>
+                <div className="sider-user-name">{user?.username}</div>
+                <div className="sider-user-role">{roleLabel}</div>
               </div>
-              <IconDown style={{ fontSize: 10, color: 'var(--muted-foreground)' }} />
+              <IconDown style={{ fontSize: 10, color: 'var(--sidebar-muted)' }} />
             </div>
           </Dropdown>
         </div>
       </div>
 
-      {/* Main content area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <Header className="app-header">
           <div className="app-header-inner">

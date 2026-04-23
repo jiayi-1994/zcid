@@ -78,7 +78,13 @@ export function SystemSettingsPage() {
     <AppLayout>
       <div className="page-container" style={{ maxWidth: 900 }}>
         <div className="page-header">
-          <h3 className="page-title">系统设置</h3>
+          <div>
+            <div className="breadcrumb">System › Settings</div>
+            <h1 className="page-title">System Settings</h1>
+            <p className="page-subtitle">
+              Platform configuration & health. 平台级配置、健康状态与集成监控。
+            </p>
+          </div>
         </div>
 
         <Card title="平台配置" style={{ marginBottom: 24 }}>
@@ -126,11 +132,11 @@ export function SystemSettingsPage() {
 
         <Card title="集成状态">
           {integrations.map((item) => (
-            <div key={item.name} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--color-border)' }}>
-              <Typography.Text bold style={{ width: 120 }}>{item.name}</Typography.Text>
+            <div key={item.name} style={{ display: 'flex', alignItems: 'center', padding: '10px 0', gap: 12 }}>
+              <Typography.Text bold style={{ width: 120, fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>{item.name}</Typography.Text>
               <Badge color={statusColor(item.status)} text={item.status} />
               {item.detail && (
-                <Typography.Text type="secondary" style={{ marginLeft: 12, fontSize: 12 }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                   {item.detail}
                 </Typography.Text>
               )}

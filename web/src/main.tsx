@@ -8,7 +8,7 @@ import './styles/global.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ConfigProvider theme={{ primaryColor: zcidTheme.primaryColor }}>
+    <ConfigProvider theme={{ primaryColor: zcidTheme.primaryOverride }}>
       <App />
     </ConfigProvider>
   </React.StrictMode>,

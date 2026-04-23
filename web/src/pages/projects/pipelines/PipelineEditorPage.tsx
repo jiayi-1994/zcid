@@ -113,27 +113,27 @@ export default function PipelineEditorPage() {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: '#fff' }}>
-      {/* Fullscreen header bar */}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
       <div style={{
         height: 56, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 20px',
-        borderBottom: '1px solid #E5E6EB',
-        background: 'linear-gradient(180deg, #FAFBFC 0%, #F7F8FA 100%)',
+        background: 'var(--glass-fill)',
+        backdropFilter: 'var(--glass-blur)',
+        WebkitBackdropFilter: 'var(--glass-blur)',
       }}>
-        {/* Left: back + name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
           <Tooltip content="返回流水线列表">
-            <Button type="text" icon={<IconArrowLeft />} onClick={handleBack} style={{ borderRadius: 8, color: '#4E5969' }} />
+            <Button type="text" icon={<IconArrowLeft />} onClick={handleBack} style={{ color: 'var(--on-surface-variant)' }} />
           </Tooltip>
-          <Divider type="vertical" style={{ height: 20 }} />
+          <Divider type="vertical" style={{ height: 20, borderColor: 'var(--ghost-border-strong)' }} />
           <div style={{
-            width: 28, height: 28, borderRadius: 6,
-            background: 'linear-gradient(135deg, #165DFF, #0FC6C2)',
+            width: 32, height: 32, borderRadius: 'var(--radius-md)',
+            background: 'var(--primary-gradient)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0, 87, 194, 0.3)',
           }}>
-            <IconCode style={{ color: '#fff', fontSize: 14 }} />
+            <IconCode style={{ color: '#fff', fontSize: 15 }} />
           </div>
           <Form form={headerForm} style={{ marginBottom: 0, flex: 1, maxWidth: 320 }}>
             <Form.Item field="name" rules={[{ required: true, message: '请输入名称' }]} style={{ marginBottom: 0 }}>
@@ -141,43 +141,47 @@ export default function PipelineEditorPage() {
                 value={name}
                 onChange={handleNameChange}
                 placeholder="流水线名称"
-                style={{ border: 'none', background: 'transparent', fontSize: 15, fontWeight: 600, padding: '4px 8px' }}
+                style={{
+                  border: 'none', background: 'transparent',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 17, fontWeight: 700,
+                  letterSpacing: '-0.015em',
+                  padding: '4px 8px',
+                  color: 'var(--on-surface)',
+                }}
               />
             </Form.Item>
           </Form>
           {description && (
-            <span style={{ fontSize: 12, color: '#86909C', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 12, color: 'var(--on-surface-variant)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {description}
             </span>
           )}
         </div>
 
-        {/* Center: mode switch */}
         <div>
           <ModeSwitch mode={editorMode} onChange={setEditorMode} />
         </div>
 
-        {/* Right: actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {!isNew && pipeline && (
-            <Button type="text" icon={<IconSettings />} onClick={() => setSettingsVisible(true)} style={{ borderRadius: 6 }}>
+            <Button type="text" icon={<IconSettings />} onClick={() => setSettingsVisible(true)}>
               设置
             </Button>
           )}
           {editorMode === 'json' && (
-            <Button type="primary" icon={<IconSave />} onClick={handleSaveFromJson} loading={saving} disabled={!jsonValid} style={{ borderRadius: 6 }}>
+            <Button type="primary" icon={<IconSave />} onClick={handleSaveFromJson} loading={saving} disabled={!jsonValid}>
               保存
             </Button>
           )}
         </div>
       </div>
 
-      {/* Canvas area — full remaining height */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--surface)' }}>
         {editorMode === 'visual' ? (
           <PipelineEditor config={effectiveConfig} onSave={handleSave} onChange={handleConfigChange} saving={saving} />
         ) : (
-          <div style={{ padding: 20, height: '100%', display: 'flex', flexDirection: 'column', background: '#F7F8FA' }}>
+          <div style={{ padding: 20, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
             <div style={{ flex: 1, minHeight: 0 }}>
               <YamlEditor config={effectiveConfig} onChange={handleConfigChange} onValidationError={handleJsonValidationError} />
             </div>

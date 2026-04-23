@@ -1,4 +1,4 @@
-import { Button, Message, Popconfirm, Table, Tag } from '@arco-design/web-react';
+import { Button, Message, Popconfirm, Table } from '@arco-design/web-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/auth';
@@ -74,7 +74,9 @@ export function VariableListPage() {
       title: '类型',
       dataIndex: 'varType',
       render: (val: string) => (
-        <Tag size="small" color={val === 'secret' ? 'red' : 'blue'}>{val === 'secret' ? '密钥' : '普通'}</Tag>
+        <span className={`pipeline-status-badge ${val === 'secret' ? 'pipeline-status-badge--failed' : 'pipeline-status-badge--running'}`}>
+          {val === 'secret' ? 'Secret' : 'Variable'}
+        </span>
       ),
     },
     { title: '描述', dataIndex: 'description' },
@@ -99,9 +101,17 @@ export function VariableListPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h3 className="page-title">项目变量</h3>
+        <div>
+          <div className="breadcrumb">Project › Variables</div>
+          <h1 className="page-title">Project Variables</h1>
+          <p className="page-subtitle">
+            Secure variable management for the project. 项目级环境变量与密钥管理。
+          </p>
+        </div>
         {canManage && (
-          <Button type="primary" onClick={() => setCreateVisible(true)}>新建变量</Button>
+          <Button type="primary" size="large" onClick={() => setCreateVisible(true)}>
+            + Add Variable
+          </Button>
         )}
       </div>
       <div className="table-card">

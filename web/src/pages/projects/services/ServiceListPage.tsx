@@ -64,11 +64,16 @@ export function ServiceListPage() {
 
   const columns = [
     { title: '服务名称', dataIndex: 'name' },
-    { title: '描述', dataIndex: 'description' },
-    { title: '仓库地址', dataIndex: 'repoUrl', render: (url: string) => url || '-' },
-    { title: '创建时间', dataIndex: 'createdAt' },
+    { title: '描述', dataIndex: 'description', render: (v: string) => v || '-' },
+    {
+      title: '仓库地址',
+      dataIndex: 'repoUrl',
+      render: (url: string) => url ? <code className="mono">{url}</code> : '-',
+    },
+    { title: '创建时间', dataIndex: 'createdAt', width: 200 },
     {
       title: '操作',
+      width: 100,
       render: (_: unknown, record: ServiceItem) => isAdmin ? (
         <Popconfirm title="确定删除？" onOk={() => handleDelete(record.id)}>
           <Button type="text" size="small" status="danger">删除</Button>
@@ -80,17 +85,25 @@ export function ServiceListPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h3 className="page-title">服务管理</h3>
+        <div>
+          <div className="breadcrumb">Project · Services</div>
+          <h1 className="page-title">服务管理</h1>
+          <p className="page-subtitle">管理项目下的微服务与源码仓库绑定。</p>
+        </div>
         {isAdmin && (
-          <Button type="primary" icon={<IconPlus />} size="small" onClick={() => setModalVisible(true)}>
+          <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
             新建服务
           </Button>
         )}
       </div>
       <div className="table-card">
         <Table
-          columns={columns} data={svcs} loading={loading} rowKey="id" border={false}
-          pagination={{ current: page, total, pageSize: 20, onChange: setPage, style: { padding: '12px 16px' } }}
+          columns={columns}
+          data={svcs}
+          loading={loading}
+          rowKey="id"
+          border={false}
+          pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
           noDataElement={
             <div className="empty-state">
               <div className="empty-state-title">暂无服务</div>
@@ -100,13 +113,22 @@ export function ServiceListPage() {
         />
       </div>
       <Modal
-        title="新建服务" visible={modalVisible}
+        title="新建服务"
+        visible={modalVisible}
         onOk={handleCreate}
-        onCancel={() => { form.resetFields(); setModalVisible(false); }}
-        confirmLoading={submitLoading} unmountOnExit
+        onCancel={() => {
+          form.resetFields();
+          setModalVisible(false);
+        }}
+        confirmLoading={submitLoading}
+        unmountOnExit
       >
         <Form form={form} layout="vertical">
-          <FormItem label="服务名称" field="name" rules={[{ required: true, message: '请输入服务名称' }]}>
+          <FormItem
+            label="服务名称"
+            field="name"
+            rules={[{ required: true, message: '请输入服务名称' }]}
+          >
             <Input placeholder="如 api-gateway" />
           </FormItem>
           <FormItem label="描述" field="description">
