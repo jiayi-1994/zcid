@@ -1,35 +1,17 @@
-import { Button, Table, Message, Modal, Form, Input, Select } from '@arco-design/web-react';
-import { IconPlus } from '@arco-design/web-react/icon';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Message } from '@arco-design/web-react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  fetchDeployments,
-  triggerDeploy,
-  type DeploymentSummary,
-  type DeploymentList,
-} from '../../../services/deployment';
+import { fetchDeployments, triggerDeploy, type DeploymentSummary, type DeploymentList } from '../../../services/deployment';
 import { fetchEnvironments, type EnvironmentItem } from '../../../services/project';
 import { extractErrorMessage } from '../../../services/http';
-
-const FormItem = Form.Item;
-
-const STATUS_CLS: Record<string, string> = {
-  pending: 'pipeline-status-badge--pending',
-  syncing: 'pipeline-status-badge--running',
-  healthy: 'pipeline-status-badge--success',
-  degraded: 'pipeline-status-badge--cancelled',
-  failed: 'pipeline-status-badge--failed',
-  rolled_back: 'pipeline-status-badge--pending',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: '待部署',
-  syncing: '同步中',
-  healthy: '健康',
-  degraded: '异常',
-  failed: '失败',
-  rolled_back: '已回滚',
-};
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { Card } from '../../../components/ui/Card';
+import { Btn } from '../../../components/ui/Btn';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { ZModal } from '../../../components/ui/ZModal';
+import { ZSelect } from '../../../components/ui/ZSelect';
+import { Field } from '../../../components/ui/Field';
+import { IPlus, IChevL, IChevR } from '../../../components/ui/icons';
 
 export function DeploymentListPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -38,9 +20,9 @@ export function DeploymentListPage() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form] = Form.useForm();
-  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [envs, setEnvs] = useState<EnvironmentItem[]>([]);
+  const [form, setForm] = useState({ environmentId: '', image: '', pipelineRunId: '' });
 
   const loadData = useCallback(async (p: number) => {
     if (!projectId) return;
@@ -60,141 +42,130 @@ export function DeploymentListPage() {
     try {
       const r = await fetchEnvironments(projectId, 1, 100);
       setEnvs(r.items ?? []);
-    } catch {
-      Message.error('加载环境列表失败');
-    }
+    } catch { /* silent */ }
   }, [projectId]);
 
   useEffect(() => { loadData(page); }, [page, loadData]);
-  useEffect(() => {
-    if (modalVisible && projectId) loadEnvs();
-  }, [modalVisible, projectId, loadEnvs]);
+
+  const openModal = () => {
+    loadEnvs();
+    setForm({ environmentId: '', image: '', pipelineRunId: '' });
+    setModalVisible(true);
+  };
 
   const handleSubmit = async () => {
+    if (!form.environmentId || !form.image) { Message.error('请选择环境并填写镜像地址'); return; }
+    if (!projectId) return;
+    setSubmitting(true);
     try {
-      const values = await form.validate();
-      if (!projectId) return;
-      setSubmitLoading(true);
       await triggerDeploy(projectId, {
-        environmentId: values.environmentId,
-        image: values.image,
-        pipelineRunId: values.pipelineRunId || undefined,
+        environmentId: form.environmentId,
+        image: form.image,
+        pipelineRunId: form.pipelineRunId || undefined,
       });
       Message.success('部署已触发');
-      form.resetFields();
       setModalVisible(false);
       loadData(page);
     } catch (err: unknown) {
-      const msg = extractErrorMessage(err, '');
-      if (msg) Message.error(msg);
+      Message.error(extractErrorMessage(err, '触发失败'));
     } finally {
-      setSubmitLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const columns = [
-    {
-      title: '镜像',
-      dataIndex: 'image',
-      render: (v: string) => <code className="mono">{v}</code>,
-    },
-    { title: '环境', dataIndex: 'environmentId', render: (id: string) => id || '-' },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 110,
-      render: (s: string) => (
-        <span className={`pipeline-status-badge ${STATUS_CLS[s] || 'pipeline-status-badge--pending'}`}>
-          {STATUS_LABEL[s] || s}
-        </span>
-      ),
-    },
-    { title: '同步', dataIndex: 'syncStatus', width: 100, render: (v: string) => v ?? '-' },
-    { title: '健康', dataIndex: 'healthStatus', width: 100, render: (v: string) => v ?? '-' },
-    { title: '部署人', dataIndex: 'deployedBy', width: 120 },
-    {
-      title: '时间',
-      dataIndex: 'createdAt',
-      width: 180,
-      render: (t: string) => new Date(t).toLocaleString(),
-    },
-    {
-      title: '操作',
-      width: 100,
-      render: (_: unknown, record: DeploymentSummary) => (
-        <Button
-          type="text"
-          size="small"
-          onClick={() => navigate(`/projects/${projectId}/deployments/${record.id}`)}
-        >
-          详情
-        </Button>
-      ),
-    },
-  ];
+  const totalPages = Math.ceil(data.total / 20);
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <div className="breadcrumb">Project · Delivery</div>
-          <h1 className="page-title">部署管理</h1>
-          <p className="page-subtitle">触发与追踪 ArgoCD 部署同步状态。</p>
-        </div>
-        <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
-          触发部署
-        </Button>
+    <>
+      <PageHeader
+        crumb="Project · Delivery"
+        title="部署管理"
+        sub="触发与追踪 ArgoCD 部署同步状态。"
+        actions={
+          <Btn size="sm" variant="primary" icon={<IPlus size={13} />} onClick={openModal}>
+            触发部署
+          </Btn>
+        }
+      />
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Card padding={false}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--z-400)' }}>加载中...</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>镜像</th><th>环境</th><th>状态</th><th>同步</th><th>健康</th><th>部署人</th><th>时间</th><th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((d: DeploymentSummary) => (
+                  <tr key={d.id}>
+                    <td><span className="code" style={{ fontSize: 11.5 }}>{d.image}</span></td>
+                    <td><span className="sub">{d.environmentId || '-'}</span></td>
+                    <td><StatusBadge status={d.status} /></td>
+                    <td><span className="sub">{d.syncStatus ?? '-'}</span></td>
+                    <td><span className="sub">{d.healthStatus ?? '-'}</span></td>
+                    <td><span className="mono sub" style={{ fontSize: 11 }}>{d.deployedBy}</span></td>
+                    <td><span className="sub mono" style={{ fontSize: 11 }}>{new Date(d.createdAt).toLocaleString()}</span></td>
+                    <td>
+                      <Btn size="xs" variant="ghost" onClick={() => navigate(`/projects/${projectId}/deployments/${d.id}`)}>
+                        详情
+                      </Btn>
+                    </td>
+                  </tr>
+                ))}
+                {data.items.length === 0 && !loading && (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>暂无部署记录</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </Card>
+
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--z-500)' }}>
+            <span>共 {data.total} 条 · 第 {page} / {totalPages} 页</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <Btn size="xs" variant="ghost" iconOnly icon={<IChevL size={12} />} disabled={page <= 1} onClick={() => setPage((p) => p - 1)} />
+              <Btn size="xs" variant="outline">{page}</Btn>
+              <Btn size="xs" variant="ghost" iconOnly icon={<IChevR size={12} />} disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} />
+            </div>
+          </div>
+        )}
       </div>
-      <div className="table-card">
-        <Table
-          columns={columns}
-          data={data.items}
-          loading={loading}
-          rowKey="id"
-          border={false}
-          pagination={{ current: page, total: data.total, pageSize: 20, onChange: setPage }}
-          noDataElement={
-            <div className="empty-state">
-              <div className="empty-state-title">暂无部署</div>
-              <div className="empty-state-desc">触发部署后这里会显示列表</div>
+
+      {modalVisible && (
+        <ZModal
+          title="触发部署"
+          onClose={() => setModalVisible(false)}
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Btn onClick={() => setModalVisible(false)}>取消</Btn>
+              <Btn variant="primary" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? '触发中...' : '触发'}
+              </Btn>
             </div>
           }
-        />
-      </div>
-      <Modal
-        title="触发部署"
-        visible={modalVisible}
-        onOk={handleSubmit}
-        onCancel={() => {
-          form.resetFields();
-          setModalVisible(false);
-        }}
-        confirmLoading={submitLoading}
-        unmountOnExit
-      >
-        <Form form={form} layout="vertical">
-          <FormItem
-            label="环境"
-            field="environmentId"
-            rules={[{ required: true, message: '请选择环境' }]}
-          >
-            <Select
-              placeholder="选择环境"
-              options={envs.map((e) => ({ label: `${e.name} (${e.namespace})`, value: e.id }))}
-            />
-          </FormItem>
-          <FormItem
-            label="镜像"
-            field="image"
-            rules={[{ required: true, message: '请输入镜像地址' }]}
-          >
-            <Input placeholder="如 nginx:latest 或 registry.io/app:v1" />
-          </FormItem>
-          <FormItem label="流水线运行 ID (可选)" field="pipelineRunId">
-            <Input placeholder="关联的 Pipeline Run ID" />
-          </FormItem>
-        </Form>
-      </Modal>
-    </div>
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Field label="环境" required>
+              <ZSelect
+                width={300}
+                value={form.environmentId}
+                options={[{ value: '', label: '选择环境' }, ...envs.map((e) => ({ value: e.id, label: `${e.name} (${e.namespace})` }))]}
+                onChange={(v) => setForm({ ...form, environmentId: v })}
+              />
+            </Field>
+            <Field label="镜像" required>
+              <input className="input" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="nginx:latest 或 registry.io/app:v1" />
+            </Field>
+            <Field label="Pipeline Run ID（可选）">
+              <input className="input" value={form.pipelineRunId} onChange={(e) => setForm({ ...form, pipelineRunId: e.target.value })} placeholder="关联的 Pipeline Run ID" />
+            </Field>
+          </div>
+        </ZModal>
+      )}
+    </>
   );
 }

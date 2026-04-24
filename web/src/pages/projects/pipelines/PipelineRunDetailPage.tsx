@@ -1,49 +1,31 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Message } from '@arco-design/web-react';
 import {
-  Skeleton,
-  Message,
-  Typography,
-  Button,
-  Space,
-  Tag,
-  Popconfirm,
-  Grid,
-} from '@arco-design/web-react';
-import { IconArrowLeft, IconClose, IconBranch, IconCode, IconClockCircle, IconUser } from '@arco-design/web-react/icon';
-import {
-  fetchPipelineRun,
-  cancelPipelineRun,
-  fetchRunArtifacts,
-  fetchArchivedLogs,
-  type PipelineRun,
-  type Artifact,
-  type LogEntry,
-  type ArchivedLogsResponse,
+  fetchPipelineRun, cancelPipelineRun, fetchRunArtifacts, fetchArchivedLogs,
+  type PipelineRun, type Artifact, type LogEntry, type ArchivedLogsResponse,
 } from '../../../services/pipelineRun';
-
-const { Text } = Typography;
-const { Row, Col } = Grid;
-
-const statusConfig: Record<string, { color: string; label: string; badgeClass: string; dotClass: string; stageClass: string }> = {
-  pending:   { color: '#414755', label: '待执行',   badgeClass: 'pipeline-status-badge--pending',   dotClass: 'stage-progress-dot--pending',   stageClass: 'stage-progress-item--pending' },
-  queued:    { color: '#0057c2', label: '排队中',   badgeClass: 'pipeline-status-badge--running',   dotClass: 'stage-progress-dot--active',    stageClass: 'stage-progress-item--active' },
-  running:   { color: '#0057c2', label: '运行中',   badgeClass: 'pipeline-status-badge--running',   dotClass: 'stage-progress-dot--active',    stageClass: 'stage-progress-item--active' },
-  succeeded: { color: '#004398', label: '成功',     badgeClass: 'pipeline-status-badge--success',   dotClass: 'stage-progress-dot--completed', stageClass: 'stage-progress-item--completed' },
-  failed:    { color: '#ba1a1a', label: '失败',     badgeClass: 'pipeline-status-badge--failed',    dotClass: 'stage-progress-dot--completed', stageClass: 'stage-progress-item--completed' },
-  cancelled: { color: '#9e3d00', label: '已取消',   badgeClass: 'pipeline-status-badge--cancelled', dotClass: 'stage-progress-dot--pending',   stageClass: 'stage-progress-item--pending' },
-};
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { Card } from '../../../components/ui/Card';
+import { Metric } from '../../../components/ui/Metric';
+import { Btn } from '../../../components/ui/Btn';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { Badge } from '../../../components/ui/Badge';
+import { IArrL, IPlay, IClock, IUser, ICode } from '../../../components/ui/icons';
 
 function formatDuration(start?: string, end?: string): string {
   if (!start) return '-';
-  const s = new Date(start).getTime();
-  const e = end ? new Date(end).getTime() : Date.now();
-  const diff = Math.floor((e - s) / 1000);
+  const diff = Math.floor(((end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime()) / 1000);
   if (diff < 60) return `${diff}s`;
   const min = Math.floor(diff / 60);
-  const sec = diff % 60;
-  return `${min}m ${sec}s`;
+  return min < 60 ? `${min}m ${diff % 60}s` : `${Math.floor(min / 60)}h ${min % 60}m`;
 }
+
+const STAGE_TONE: Record<string, 'green' | 'amber' | 'blue' | 'red'> = {
+  completed: 'green',
+  active: 'blue',
+  pending: 'amber',
+};
 
 export default function PipelineRunDetailPage() {
   const { id: projectId, pipelineId, runId } = useParams<{ id: string; pipelineId: string; runId: string }>();
@@ -80,246 +62,157 @@ export default function PipelineRunDetailPage() {
 
   const handleCancel = async () => {
     if (!projectId || !pipelineId || !runId) return;
-    try {
-      await cancelPipelineRun(projectId, pipelineId, runId);
-      Message.success('已取消');
-      loadData();
-    } catch {
-      Message.error('取消失败');
-    }
+    try { await cancelPipelineRun(projectId, pipelineId, runId); Message.success('已取消'); loadData(); }
+    catch { Message.error('取消失败'); }
   };
-
-  const canCancel = run && ['pending', 'queued', 'running'].includes(run.status);
 
   if (loading && !run) {
     return (
-      <div className="page-container">
-        <Skeleton text={{ rows: 6 }} animation />
-      </div>
+      <>
+        <PageHeader crumb="Build Observation" title="运行详情" />
+        <div style={{ padding: '40px 24px', color: 'var(--z-400)' }}>加载中...</div>
+      </>
     );
   }
 
   if (!run) {
     return (
-      <div className="page-container">
-        <Message type="error">运行记录不存在</Message>
-      </div>
+      <>
+        <PageHeader crumb="Build Observation" title="运行详情" />
+        <div style={{ padding: '40px 24px', color: 'var(--z-400)' }}>运行记录不存在</div>
+      </>
     );
   }
 
-  const cfg = statusConfig[run.status] || statusConfig.pending;
+  const canCancel = ['pending', 'queued', 'running'].includes(run.status);
+  const duration = formatDuration(run.startedAt, run.finishedAt);
 
   const mockStages = [
-    { name: 'Source Checkout', status: run.status === 'succeeded' || run.status === 'failed' ? 'completed' : run.status === 'running' ? 'completed' : 'pending' },
+    { name: 'Source Checkout', status: run.status === 'pending' ? 'pending' : 'completed' },
     { name: 'Build Artifacts', status: run.status === 'succeeded' || run.status === 'failed' ? 'completed' : run.status === 'running' ? 'active' : 'pending' },
     { name: 'Image Push', status: run.status === 'succeeded' ? 'completed' : 'pending' },
-    { name: 'K8s Deployment', status: run.status === 'succeeded' ? 'completed' : 'pending' },
+    { name: 'K8s Deploy', status: run.status === 'succeeded' ? 'completed' : 'pending' },
   ];
 
   return (
-    <div className="page-container" style={{ maxWidth: 1000 }}>
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1 }}>
-          <Button
-            type="text"
-            icon={<IconArrowLeft />}
-            onClick={() => navigate(`/projects/${projectId}/pipelines/${pipelineId}/runs`)}
-          />
-          <div>
-            <div className="breadcrumb">Build Observation</div>
-            <h1 className="page-title">Build #{run.runNumber}</h1>
-            <p className="page-subtitle">
-              {run.triggeredBy?.replace('admin-bootstrap-', 'admin#') ?? 'unknown'}
-              {' · '}
-              {formatDuration(run.startedAt, run.finishedAt)}
-            </p>
+    <>
+      <PageHeader
+        crumb="Build Observation"
+        title={`Build #${run.runNumber}`}
+        sub={`${run.triggeredBy?.replace('admin-bootstrap-', 'admin#') ?? 'unknown'} · ${duration}`}
+        actions={
+          <>
+            <Btn size="sm" icon={<IArrL size={13} />} onClick={() => navigate(`/projects/${projectId}/pipelines/${pipelineId}/runs`)}>返回</Btn>
+            {canCancel && <Btn size="sm" onClick={handleCancel}>取消运行</Btn>}
+          </>
+        }
+      />
+      <div style={{ padding: '24px 24px 48px', display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 960 }}>
+        {/* Stage progress */}
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            {mockStages.map((stage, i) => (
+              <div key={stage.name} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                {i > 0 && <div style={{ height: 2, flex: 1, background: stage.status === 'pending' ? 'var(--z-150)' : 'var(--green)' }} />}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 80 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: stage.status === 'completed' ? 'var(--green-soft)' : stage.status === 'active' ? 'var(--blue-soft)' : 'var(--z-100)',
+                    border: `2px solid ${stage.status === 'completed' ? 'var(--green)' : stage.status === 'active' ? 'var(--blue-ink)' : 'var(--z-200)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12,
+                  }}>
+                    {stage.status === 'completed' ? '✓' : stage.status === 'active' ? '●' : '○'}
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--z-500)', textAlign: 'center', lineHeight: 1.3 }}>{stage.name}</span>
+                  <Badge tone={STAGE_TONE[stage.status] ?? 'amber'}>
+                    {stage.status === 'completed' ? 'Done' : stage.status === 'active' ? 'Running' : 'Pending'}
+                  </Badge>
+                </div>
+              </div>
+            ))}
           </div>
-          <span className={`pipeline-status-badge ${cfg.badgeClass}`} style={{ marginLeft: 12 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color }} />
-            {cfg.label}
-          </span>
+        </Card>
+
+        {/* Info metrics */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+          <Metric label="TRIGGER" value={run.triggerType === 'manual' ? '手动' : run.triggerType} icon={<IPlay size={14} />} iconBg="var(--z-100)" iconColor="var(--z-700)" />
+          <Metric label="BRANCH" value={run.gitBranch ?? '-'} icon={<ICode size={14} />} iconBg="var(--blue-soft)" iconColor="var(--blue-ink)" />
+          <Metric label="TRIGGERED BY" value={run.triggeredBy?.replace('admin-bootstrap-', 'admin#') ?? '-'} icon={<IUser size={14} />} iconBg="var(--z-100)" iconColor="var(--z-700)" />
+          <Metric label="DURATION" value={duration} icon={<IClock size={14} />} iconBg="var(--amber-soft)" iconColor="var(--amber-ink)" />
         </div>
-        {canCancel && (
-          <Popconfirm title="确定取消此运行？" onOk={handleCancel}>
-            <Button type="outline" status="danger" icon={<IconClose />}>
-              取消运行
-            </Button>
-          </Popconfirm>
-        )}
-      </div>
 
-      {/* Stage Progress */}
-      <div className="stage-progress-bar">
-        {mockStages.map((stage) => (
-          <div key={stage.name} className={`stage-progress-item stage-progress-item--${stage.status}`}>
-            <div className={`stage-progress-dot stage-progress-dot--${stage.status}`} />
-            <div className="stage-progress-label">{stage.name}</div>
-            <div className="stage-progress-status">
-              {stage.status === 'completed' ? 'Completed' : stage.status === 'active' ? 'Active' : 'Pending'}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Info Cards */}
-      <Row gutter={12} style={{ marginBottom: 20 }}>
-        <Col span={6}>
-          <div className="metric-card" style={{ padding: 16 }}>
-            <span className="metric-card-label">TRIGGER</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
-              {run.triggerType === 'manual' ? '手动' : run.triggerType}
-            </span>
-          </div>
-        </Col>
-        <Col span={6}>
-          <div className="metric-card" style={{ padding: 16 }}>
-            <span className="metric-card-label">
-              <IconBranch style={{ fontSize: 12, marginRight: 4 }} />BRANCH
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
-              {run.gitBranch ?? '-'}
-            </span>
-          </div>
-        </Col>
-        <Col span={6}>
-          <div className="metric-card" style={{ padding: 16 }}>
-            <span className="metric-card-label">
-              <IconUser style={{ fontSize: 12, marginRight: 4 }} />TRIGGERED BY
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
-              {run.triggeredBy?.replace('admin-bootstrap-', 'admin#') ?? '-'}
-            </span>
-          </div>
-        </Col>
-        <Col span={6}>
-          <div className="metric-card" style={{ padding: 16 }}>
-            <span className="metric-card-label">
-              <IconCode style={{ fontSize: 12, marginRight: 4 }} />COMMIT
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'var(--font-mono)' }}>
-              {run.gitCommit ? run.gitCommit.substring(0, 8) : '-'}
-            </span>
-          </div>
-        </Col>
-      </Row>
-
-      {/* Detail Info */}
-      <div className="config-panel" style={{ marginBottom: 20 }}>
-        <div className="config-panel-header">Run Details</div>
-        <div className="config-panel-body">
-          <Row gutter={[24, 16]}>
-            <Col span={12}>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                <IconClockCircle style={{ fontSize: 12, marginRight: 4 }} />开始时间
-              </Text>
-              <Text style={{ fontSize: 14, fontWeight: 500 }}>
-                {run.startedAt ? new Date(run.startedAt).toLocaleString() : '尚未开始'}
-              </Text>
-            </Col>
-            <Col span={12}>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                <IconClockCircle style={{ fontSize: 12, marginRight: 4 }} />结束时间
-              </Text>
-              <Text style={{ fontSize: 14, fontWeight: 500 }}>
-                {run.finishedAt ? new Date(run.finishedAt).toLocaleString() : '进行中'}
-              </Text>
-            </Col>
-            <Col span={12}>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Tekton Name</Text>
-              <Text style={{ fontSize: 14, fontWeight: 500, fontFamily: 'var(--font-mono)' }}>
-                {run.tektonName ?? '-'}
-              </Text>
-            </Col>
-            <Col span={12}>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Namespace</Text>
-              <Text style={{ fontSize: 14, fontWeight: 500, fontFamily: 'var(--font-mono)' }}>
-                {run.namespace ?? '-'}
-              </Text>
-            </Col>
+        {/* Details */}
+        <Card title="Run Details" extra={<StatusBadge status={run.status} />}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 14, columnGap: 24 }}>
+            {[
+              { label: 'Tekton Name', value: <span className="mono" style={{ fontSize: 11.5 }}>{run.tektonName ?? '-'}</span> },
+              { label: 'Namespace', value: <span className="mono" style={{ fontSize: 11.5 }}>{run.namespace ?? '-'}</span> },
+              { label: '开始时间', value: <span className="mono sub" style={{ fontSize: 11.5 }}>{run.startedAt ? new Date(run.startedAt).toLocaleString() : '尚未开始'}</span> },
+              { label: '结束时间', value: <span className="mono sub" style={{ fontSize: 11.5 }}>{run.finishedAt ? new Date(run.finishedAt).toLocaleString() : '进行中'}</span> },
+              { label: 'Commit', value: <span className="code" style={{ fontSize: 11 }}>{run.gitCommit ? run.gitCommit.substring(0, 8) : '-'}</span> },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <div style={{ fontSize: 11, color: 'var(--z-400)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>{label}</div>
+                <div>{value}</div>
+              </div>
+            ))}
             {run.params && Object.keys(run.params).length > 0 && (
-              <Col span={24}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>运行参数</Text>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ fontSize: 11, color: 'var(--z-400)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>运行参数</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {Object.entries(run.params).map(([k, v]) => (
-                    <Tag key={k} style={{ borderRadius: 'var(--radius-full)', background: 'var(--primary-fixed)', color: 'var(--primary)', border: 'none', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                      {k}={v}
-                    </Tag>
+                    <span key={k} className="code" style={{ fontSize: 11 }}>{k}={v}</span>
                   ))}
                 </div>
-              </Col>
+              </div>
             )}
             {run.errorMessage && (
-              <Col span={24}>
-                <div style={{
-                  padding: '12px 16px', background: 'var(--error-container)', borderRadius: 'var(--radius-md)',
-                  color: 'var(--on-error-container)', fontSize: 13,
-                  fontFamily: 'var(--font-mono)',
-                }}>
-                  {run.errorMessage}
-                </div>
-              </Col>
+              <div style={{ gridColumn: '1 / -1', padding: '10px 12px', background: 'var(--red-soft)', borderRadius: 6, color: 'var(--red-ink)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                {run.errorMessage}
+              </div>
             )}
-          </Row>
-        </div>
-      </div>
+          </div>
+        </Card>
 
-      {/* Build Logs - Dark Terminal */}
-      <div className="build-log-terminal" style={{ marginBottom: 20 }}>
-        <div className="build-log-header">
-          <span className="build-log-title">Build Output</span>
-          <Space size={8}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF5F57' }} />
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FFBD2E' }} />
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#28C840' }} />
-          </Space>
-        </div>
-        <div className="build-log-body">
-          {logsTotal > 0 ? (
-            logs.map((l, i) => {
-              const levelClass = l.level === 'error' ? 'build-log-content--error'
-                : l.level === 'info' ? 'build-log-content--info'
-                : '';
-              return (
-                <div key={i} className="build-log-line">
-                  <span className="build-log-linenum">{i + 1}</span>
-                  <span className={`build-log-content ${levelClass}`}>
-                    [{l.level.toUpperCase()}] {l.content}
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748B' }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>{'>'}_</div>
-              <div>Waiting for build output...</div>
-              <div style={{ fontSize: 12, marginTop: 4, color: '#475569' }}>暂无归档日志</div>
-            </div>
-          )}
-        </div>
-      </div>
+        {/* Build log terminal */}
+        <Card title="Build Output" padding={false}>
+          <div style={{
+            background: '#0d1117', borderRadius: '0 0 8px 8px',
+            minHeight: 240, maxHeight: 480, overflow: 'auto',
+            fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.7,
+          }}>
+            {logsTotal > 0 ? logs.map((l, i) => (
+              <div key={i} style={{ display: 'flex', gap: 16, padding: '1px 16px' }}>
+                <span style={{ color: '#484f58', userSelect: 'none', minWidth: 32, textAlign: 'right' }}>{i + 1}</span>
+                <span style={{ color: l.level === 'error' ? '#f85149' : l.level === 'info' ? '#79c0ff' : '#e6edf3' }}>
+                  [{l.level.toUpperCase()}] {l.content}
+                </span>
+              </div>
+            )) : (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: '#484f58' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>{'>'}_</div>
+                <div style={{ color: '#8b949e' }}>Waiting for build output...</div>
+              </div>
+            )}
+          </div>
+        </Card>
 
-      {/* Artifacts */}
-      {artifacts.length > 0 && (
-        <div className="config-panel">
-          <div className="config-panel-header">Build Artifacts</div>
-          <div className="config-panel-body">
-            <Space wrap size={12}>
+        {/* Artifacts */}
+        {artifacts.length > 0 && (
+          <Card title="Build Artifacts">
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {artifacts.map((a) => (
-                <a key={a.name} href={a.url} target="_blank" rel="noopener noreferrer">
-                  <Tag style={{
-                    borderRadius: 'var(--radius-full)', cursor: 'pointer', padding: '6px 14px',
-                    background: 'var(--primary-fixed)', color: 'var(--primary)',
-                    border: 'none', fontWeight: 600, fontFamily: 'var(--font-mono)',
-                  }}>
-                    {a.name}
-                    {a.size != null ? ` (${(a.size / 1024).toFixed(1)} KB)` : ''}
-                  </Tag>
+                <a key={a.name} href={a.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                  <span className="code" style={{ fontSize: 12, cursor: 'pointer' }}>
+                    {a.name}{a.size != null ? ` (${(a.size / 1024).toFixed(1)} KB)` : ''}
+                  </span>
                 </a>
               ))}
-            </Space>
-          </div>
-        </div>
-      )}
-    </div>
+            </div>
+          </Card>
+        )}
+      </div>
+    </>
   );
 }

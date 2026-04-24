@@ -1,12 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Skeleton, Message, Button, Space, Input, Form, Divider, Tooltip } from '@arco-design/web-react';
-import { IconArrowLeft, IconSettings, IconSave, IconCode } from '@arco-design/web-react/icon';
+import { Message } from '@arco-design/web-react';
 import { PipelineEditor } from '../../../components/pipeline/PipelineEditor';
 import { YamlEditor } from '../../../components/pipeline/YamlEditor';
 import { ModeSwitch, type EditorMode } from '../../../components/pipeline/ModeSwitch';
 import { PipelineSettingsPanel } from '../../../components/pipeline/PipelineSettingsPanel';
 import { fetchPipeline, updatePipeline, createPipeline, type Pipeline, type PipelineConfig } from '../../../services/pipeline';
+import { Btn } from '../../../components/ui/Btn';
+import { IArrL, ISettings, ICheck, ICode } from '../../../components/ui/icons';
 
 export default function PipelineEditorPage() {
   const { id: projectId, pipelineId } = useParams<{ id: string; pipelineId: string }>();
@@ -23,8 +24,6 @@ export default function PipelineEditorPage() {
   const [dirty, setDirty] = useState(false);
   const isNew = !pipelineId;
 
-  const [headerForm] = Form.useForm();
-
   useEffect(() => {
     if (!projectId || !pipelineId || isNew) return;
     setLoading(true);
@@ -34,12 +33,11 @@ export default function PipelineEditorPage() {
         setName(p.name);
         setDescription(p.description);
         setConfig(p.config);
-        headerForm.setFieldsValue({ name: p.name });
         setDirty(false);
       })
       .catch(() => Message.error('加载流水线失败'))
       .finally(() => setLoading(false));
-  }, [projectId, pipelineId, isNew, headerForm]);
+  }, [projectId, pipelineId, isNew]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -104,84 +102,87 @@ export default function PipelineEditorPage() {
     navigate(`/projects/${projectId}/pipelines`);
   };
 
+  const stageCount = effectiveConfig.stages.length;
+  const stepCount = effectiveConfig.stages.reduce((a, s) => a + s.steps.length, 0);
+
   if (loading) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Skeleton text={{ rows: 6 }} animation style={{ width: 600 }} />
+      <div className="zc" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--z-0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'var(--z-500)', fontFamily: 'var(--font-sans)' }}>加载中...</div>
       </div>
     );
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+    <div className="zc" style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--z-0)', fontFamily: 'var(--font-sans)' }}>
+      {/* Header */}
       <div style={{
-        height: 56, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px',
-        background: 'var(--glass-fill)',
-        backdropFilter: 'var(--glass-blur)',
-        WebkitBackdropFilter: 'var(--glass-blur)',
+        height: 56, flex: 'none',
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '0 16px',
+        background: 'rgba(255,255,255,0.75)',
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid var(--z-150)',
+        zIndex: 5,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-          <Tooltip content="返回流水线列表">
-            <Button type="text" icon={<IconArrowLeft />} onClick={handleBack} style={{ color: 'var(--on-surface-variant)' }} />
-          </Tooltip>
-          <Divider type="vertical" style={{ height: 20, borderColor: 'var(--ghost-border-strong)' }} />
-          <div style={{
-            width: 32, height: 32, borderRadius: 'var(--radius-md)',
-            background: 'var(--primary-gradient)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0, 87, 194, 0.3)',
-          }}>
-            <IconCode style={{ color: '#fff', fontSize: 15 }} />
-          </div>
-          <Form form={headerForm} style={{ marginBottom: 0, flex: 1, maxWidth: 320 }}>
-            <Form.Item field="name" rules={[{ required: true, message: '请输入名称' }]} style={{ marginBottom: 0 }}>
-              <Input
-                value={name}
-                onChange={handleNameChange}
-                placeholder="流水线名称"
-                style={{
-                  border: 'none', background: 'transparent',
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 17, fontWeight: 700,
-                  letterSpacing: '-0.015em',
-                  padding: '4px 8px',
-                  color: 'var(--on-surface)',
-                }}
-              />
-            </Form.Item>
-          </Form>
-          {description && (
-            <span style={{ fontSize: 12, color: 'var(--on-surface-variant)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {description}
-            </span>
-          )}
+        <Btn size="sm" variant="ghost" iconOnly icon={<IArrL size={13} />} onClick={handleBack} title="返回" />
+        <div style={{ width: 1, height: 22, background: 'var(--z-200)' }} />
+        <div style={{
+          width: 32, height: 32, borderRadius: 8,
+          background: 'linear-gradient(135deg, var(--accent-1), var(--accent-2))',
+          color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flex: 'none',
+        }}>
+          <ICode size={14} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+          <input
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder="流水线名称"
+            style={{
+              border: 0, outline: 'none', background: 'transparent',
+              fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em',
+              color: 'var(--z-900)', padding: 0, minWidth: 180,
+              fontFamily: 'var(--font-sans)',
+            }}
+          />
+          <span className="sub mono" style={{ fontSize: 10.5 }}>
+            {pipeline?.triggerType ?? (isNew ? 'manual' : '...')} · {stageCount} stages · {stepCount} steps
+            {dirty && <>  · <span style={{ color: 'var(--amber-ink)' }}>● 未保存</span></>}
+          </span>
         </div>
 
-        <div>
-          <ModeSwitch mode={editorMode} onChange={setEditorMode} />
-        </div>
+        <div style={{ flex: 1 }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {!isNew && pipeline && (
-            <Button type="text" icon={<IconSettings />} onClick={() => setSettingsVisible(true)}>
-              设置
-            </Button>
-          )}
-          {editorMode === 'json' && (
-            <Button type="primary" icon={<IconSave />} onClick={handleSaveFromJson} loading={saving} disabled={!jsonValid}>
-              保存
-            </Button>
-          )}
-        </div>
+        <ModeSwitch mode={editorMode} onChange={setEditorMode} />
+
+        <div style={{ width: 1, height: 22, background: 'var(--z-200)' }} />
+
+        {!isNew && pipeline && (
+          <Btn size="sm" variant="ghost" icon={<ISettings size={13} />} onClick={() => setSettingsVisible(true)}>
+            设置
+          </Btn>
+        )}
+        <Btn size="sm" variant="outline" onClick={handleBack}>取消</Btn>
+        {editorMode === 'json' ? (
+          <Btn size="sm" variant="primary" icon={<ICheck size={13} />} onClick={handleSaveFromJson} disabled={!jsonValid || saving}>
+            {saving ? '保存中...' : '保存'}
+          </Btn>
+        ) : (
+          <Btn size="sm" variant="primary" icon={<ICheck size={13} />} onClick={() => handleSave(effectiveConfig)} disabled={saving}>
+            {saving ? '保存中...' : '保存'}
+          </Btn>
+        )}
       </div>
 
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--surface)' }}>
+      {/* Main area */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--z-25)' }}>
         {editorMode === 'visual' ? (
           <PipelineEditor config={effectiveConfig} onSave={handleSave} onChange={handleConfigChange} saving={saving} />
         ) : (
-          <div style={{ padding: 20, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+          <div style={{ padding: 20, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--z-0)' }}>
             <div style={{ flex: 1, minHeight: 0 }}>
               <YamlEditor config={effectiveConfig} onChange={handleConfigChange} onValidationError={handleJsonValidationError} />
             </div>

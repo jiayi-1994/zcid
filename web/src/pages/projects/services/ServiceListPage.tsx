@@ -1,12 +1,15 @@
-import { Button, Table, Message, Popconfirm, Modal, Form, Input } from '@arco-design/web-react';
-import { IconPlus } from '@arco-design/web-react/icon';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Message } from '@arco-design/web-react';
 import { useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/auth';
 import { fetchServices, createService, deleteService, type ServiceItem } from '../../../services/project';
 import { extractErrorMessage } from '../../../services/http';
-
-const FormItem = Form.Item;
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { Card } from '../../../components/ui/Card';
+import { Btn } from '../../../components/ui/Btn';
+import { ZModal } from '../../../components/ui/ZModal';
+import { Field } from '../../../components/ui/Field';
+import { IPlus, IChevL, IChevR } from '../../../components/ui/icons';
 
 export function ServiceListPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -15,8 +18,8 @@ export function ServiceListPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form] = Form.useForm();
-  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '', repoUrl: '' });
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin');
 
   const loadData = useCallback(async (p: number) => {
@@ -36,19 +39,18 @@ export function ServiceListPage() {
   useEffect(() => { loadData(page); }, [page, loadData]);
 
   const handleCreate = async () => {
+    if (!form.name) { Message.error('请输入服务名称'); return; }
+    setSubmitting(true);
     try {
-      const values = await form.validate();
-      setSubmitLoading(true);
-      await createService(projectId!, values.name, values.description || '', values.repoUrl || '');
+      await createService(projectId!, form.name, form.description, form.repoUrl);
       Message.success('服务创建成功');
-      form.resetFields();
+      setForm({ name: '', description: '', repoUrl: '' });
       setModalVisible(false);
       loadData(page);
     } catch (err: unknown) {
-      const msg = extractErrorMessage(err, '');
-      if (msg) Message.error(msg);
+      Message.error(extractErrorMessage(err, '创建失败'));
     } finally {
-      setSubmitLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -62,83 +64,100 @@ export function ServiceListPage() {
     }
   };
 
-  const columns = [
-    { title: '服务名称', dataIndex: 'name' },
-    { title: '描述', dataIndex: 'description', render: (v: string) => v || '-' },
-    {
-      title: '仓库地址',
-      dataIndex: 'repoUrl',
-      render: (url: string) => url ? <code className="mono">{url}</code> : '-',
-    },
-    { title: '创建时间', dataIndex: 'createdAt', width: 200 },
-    {
-      title: '操作',
-      width: 100,
-      render: (_: unknown, record: ServiceItem) => isAdmin ? (
-        <Popconfirm title="确定删除？" onOk={() => handleDelete(record.id)}>
-          <Button type="text" size="small" status="danger">删除</Button>
-        </Popconfirm>
-      ) : null,
-    },
-  ];
+  const totalPages = Math.ceil(total / 20);
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <div className="breadcrumb">Project · Services</div>
-          <h1 className="page-title">服务管理</h1>
-          <p className="page-subtitle">管理项目下的微服务与源码仓库绑定。</p>
-        </div>
-        {isAdmin && (
-          <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
+    <>
+      <PageHeader
+        crumb="Project · Services"
+        title="服务管理"
+        sub="管理项目下的微服务与源码仓库绑定。"
+        actions={isAdmin && (
+          <Btn size="sm" variant="primary" icon={<IPlus size={13} />} onClick={() => setModalVisible(true)}>
             新建服务
-          </Button>
+          </Btn>
+        )}
+      />
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Card padding={false}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--z-400)' }}>加载中...</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>服务名称</th><th>描述</th><th>仓库地址</th><th>创建时间</th>
+                  {isAdmin && <th style={{ textAlign: 'right' }}>操作</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {svcs.map((svc) => (
+                  <tr key={svc.id}>
+                    <td><span style={{ fontWeight: 500 }}>{svc.name}</span></td>
+                    <td><span className="sub">{svc.description || '-'}</span></td>
+                    <td>
+                      {svc.repoUrl
+                        ? <span className="code" style={{ fontSize: 11.5 }}>{svc.repoUrl}</span>
+                        : <span className="sub">-</span>}
+                    </td>
+                    <td><span className="sub mono" style={{ fontSize: 11.5 }}>{svc.createdAt}</span></td>
+                    {isAdmin && (
+                      <td style={{ textAlign: 'right' }}>
+                        <Btn size="xs" variant="ghost" onClick={() => handleDelete(svc.id)}>删除</Btn>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {svcs.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={isAdmin ? 5 : 4} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>
+                      暂无服务
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </Card>
+
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--z-500)' }}>
+            <span>共 {total} 条 · 第 {page} / {totalPages} 页</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <Btn size="xs" variant="ghost" iconOnly icon={<IChevL size={12} />} disabled={page <= 1} onClick={() => setPage((p) => p - 1)} />
+              <Btn size="xs" variant="outline">{page}</Btn>
+              <Btn size="xs" variant="ghost" iconOnly icon={<IChevR size={12} />} disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} />
+            </div>
+          </div>
         )}
       </div>
-      <div className="table-card">
-        <Table
-          columns={columns}
-          data={svcs}
-          loading={loading}
-          rowKey="id"
-          border={false}
-          pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
-          noDataElement={
-            <div className="empty-state">
-              <div className="empty-state-title">暂无服务</div>
-              <div className="empty-state-desc">创建服务后这里会显示列表</div>
+
+      {modalVisible && (
+        <ZModal
+          title="新建服务"
+          onClose={() => setModalVisible(false)}
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Btn onClick={() => setModalVisible(false)}>取消</Btn>
+              <Btn variant="primary" onClick={handleCreate} disabled={submitting}>
+                {submitting ? '创建中...' : '创建'}
+              </Btn>
             </div>
           }
-        />
-      </div>
-      <Modal
-        title="新建服务"
-        visible={modalVisible}
-        onOk={handleCreate}
-        onCancel={() => {
-          form.resetFields();
-          setModalVisible(false);
-        }}
-        confirmLoading={submitLoading}
-        unmountOnExit
-      >
-        <Form form={form} layout="vertical">
-          <FormItem
-            label="服务名称"
-            field="name"
-            rules={[{ required: true, message: '请输入服务名称' }]}
-          >
-            <Input placeholder="如 api-gateway" />
-          </FormItem>
-          <FormItem label="描述" field="description">
-            <Input.TextArea placeholder="服务描述" rows={2} />
-          </FormItem>
-          <FormItem label="仓库地址" field="repoUrl">
-            <Input placeholder="如 https://github.com/org/repo" />
-          </FormItem>
-        </Form>
-      </Modal>
-    </div>
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Field label="服务名称" required>
+              <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="如 api-gateway" />
+            </Field>
+            <Field label="描述">
+              <textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="服务描述" style={{ resize: 'vertical' }} />
+            </Field>
+            <Field label="仓库地址">
+              <input className="input" value={form.repoUrl} onChange={(e) => setForm({ ...form, repoUrl: e.target.value })} placeholder="https://github.com/org/repo" />
+            </Field>
+          </div>
+        </ZModal>
+      )}
+    </>
   );
 }

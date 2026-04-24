@@ -10,11 +10,12 @@ import {
   type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Button, Space, Tooltip, Dropdown, Menu } from '@arco-design/web-react';
-import { IconPlus, IconSave, IconLeft, IconRight } from '@arco-design/web-react/icon';
+import type { ReactNode } from 'react';
 import { StageNode, type StageNodeData } from './StageNode';
 import { StepNode, type StepNodeData } from './StepNode';
 import { StepConfigPanel } from './StepConfigPanel';
+import { Btn } from '../ui/Btn';
+import { IPlus, IUndo, IRedo, ICheck, IAlert, IBranch, ITerminal, ICube, ILayers } from '../ui/icons';
 import type { PipelineConfig, StageConfig, StepConfig } from '../../services/pipeline';
 
 interface PipelineEditorProps {
@@ -35,11 +36,12 @@ const CANVAS_PADDING_Y = 40;
 
 const nodeTypes = { stage: StageNode, step: StepNode };
 
-const STEP_TEMPLATES: { type: string; name: string; icon: string; image?: string }[] = [
-  { type: 'git-clone', name: 'Git Clone', icon: '📥' },
-  { type: 'shell', name: 'Shell 脚本', icon: '💻' },
-  { type: 'kaniko', name: 'Kaniko 构建', icon: '🐳' },
-  { type: 'buildkit', name: 'BuildKit 构建', icon: '🔨' },
+type StepTemplate = { type: string; name: string; icon: ReactNode };
+const STEP_TEMPLATES: StepTemplate[] = [
+  { type: 'git-clone', name: 'Git Clone', icon: <IBranch size={12} /> },
+  { type: 'shell',     name: 'Shell 脚本', icon: <ITerminal size={12} /> },
+  { type: 'kaniko',    name: 'Kaniko 构建', icon: <ICube size={12} /> },
+  { type: 'buildkit',  name: 'BuildKit 构建', icon: <ILayers size={12} /> },
 ];
 
 function layoutNodes(stages: StageConfig[], callbacks: {
@@ -72,7 +74,7 @@ function layoutNodes(stages: StageConfig[], callbacks: {
         onDelete: callbacks.onDeleteStage,
         onMove: callbacks.onMoveStage,
         onRename: callbacks.onRenameStage,
-      },
+      } satisfies StageNodeData as unknown as Record<string, unknown>,
     });
 
     stage.steps.forEach((step, stepIndex) => {
@@ -94,7 +96,7 @@ function layoutNodes(stages: StageConfig[], callbacks: {
           onSelect: callbacks.onSelectStep,
           onDelete: callbacks.onDeleteStep,
           onMove: callbacks.onMoveStep,
-        },
+        } satisfies StepNodeData as unknown as Record<string, unknown>,
       });
 
       if (stepIndex > 0) {
@@ -104,7 +106,7 @@ function layoutNodes(stages: StageConfig[], callbacks: {
           source: `step-${stage.id}-${prevStep.id}`,
           target: stepNodeId,
           type: 'smoothstep',
-          style: { stroke: '#C9CDD4', strokeWidth: 1 },
+          style: { stroke: '#d3d3d7', strokeWidth: 1 },
         });
       }
     });
@@ -116,7 +118,7 @@ function layoutNodes(stages: StageConfig[], callbacks: {
         source: `stage-${prevStage.id}`,
         target: stageNodeId,
         type: 'smoothstep',
-        style: { stroke: '#165DFF', strokeWidth: 2 },
+        style: { stroke: 'var(--accent-1)', strokeWidth: 1.5 },
         animated: true,
       });
     }
@@ -129,6 +131,7 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
   const [stages, setStages] = useState<StageConfig[]>(config.stages || []);
   const [selectedStep, setSelectedStep] = useState<{ stageId: string; stepId: string } | null>(null);
   const [panelVisible, setPanelVisible] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
   const idCounterRef = useRef(0);
 
@@ -186,34 +189,34 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
     }
   }, [stages]);
 
-  const handleAddStage = useCallback(() => {
+  const handleAddStage = useCallback((tplType?: string) => {
     setStages((prev) => {
-      const newStage: StageConfig = { id: genId(), name: `Stage ${prev.length + 1}`, steps: [] };
+      const newStageId = genId();
+      const tpl = tplType ? STEP_TEMPLATES.find(t => t.type === tplType) : null;
+      const steps: StepConfig[] = tpl ? [{ id: genId(), name: tpl.name, type: tpl.type }] : [];
+      const newStage: StageConfig = { id: newStageId, name: `Stage ${prev.length + 1}`, steps };
       const newStages = [...prev, newStage];
       pushHistory(newStages);
       return newStages;
     });
+    setAddMenuOpen(false);
   }, [pushHistory]);
 
   const handleDeleteStage = useCallback((stageId: string) => {
     setStages((prev) => { const ns = prev.filter((s) => s.id !== stageId); pushHistory(ns); return ns; });
   }, [pushHistory]);
 
-  const handleAddStepWithType = useCallback((stageId: string, stepType: string, stepName: string) => {
+  const handleAddStep = useCallback((stageId: string) => {
     setStages((prev) => {
       const newStages = prev.map((stage) => {
         if (stage.id !== stageId) return stage;
-        const newStep: StepConfig = { id: genId(), name: stepName, type: stepType };
+        const newStep: StepConfig = { id: genId(), name: `Step ${stage.steps.length + 1}`, type: 'shell' };
         return { ...stage, steps: [...stage.steps, newStep] };
       });
       pushHistory(newStages);
       return newStages;
     });
   }, [pushHistory]);
-
-  const handleAddStep = useCallback((stageId: string) => {
-    handleAddStepWithType(stageId, 'shell', `Step ${(stages.find(s => s.id === stageId)?.steps.length ?? 0) + 1}`);
-  }, [handleAddStepWithType, stages]);
 
   const handleDeleteStep = useCallback((stageId: string, stepId: string) => {
     setStages((prev) => {
@@ -339,89 +342,88 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
 
   const validationError = useMemo(() => validateConfig({ ...configRef.current, stages }), [stages, validateConfig]);
 
-  const addStageDroplist = (
-    <Menu onClickMenuItem={(key) => {
-      const newStageId = genId();
-      setStages((prev) => {
-        const newStage: StageConfig = { id: newStageId, name: `Stage ${prev.length + 1}`, steps: [] };
-        const newStages = [...prev, newStage];
-        pushHistory(newStages);
-        if (key !== 'empty') {
-          const tpl = STEP_TEMPLATES.find(t => t.type === key);
-          if (tpl) {
-            const stepStages = newStages.map(s => {
-              if (s.id !== newStageId) return s;
-              return { ...s, steps: [{ id: genId(), name: tpl.name, type: tpl.type } as StepConfig] };
-            });
-            pushHistory(stepStages);
-            return stepStages;
-          }
-        }
-        return newStages;
-      });
-    }}>
-      <Menu.Item key="empty"><span style={{ marginRight: 8 }}>📋</span>空白 Stage</Menu.Item>
-      <Menu.ItemGroup title="快速创建 Stage + Step">
-        {STEP_TEMPLATES.map(t => (
-          <Menu.Item key={t.type}><span style={{ marginRight: 8 }}>{t.icon}</span>{t.name}</Menu.Item>
-        ))}
-      </Menu.ItemGroup>
-    </Menu>
-  );
-
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div className="zc" style={{ width: '100%', height: '100%', position: 'relative' }}>
       {/* Floating toolbar */}
       <div style={{
         position: 'absolute', top: 12, left: 12, zIndex: 10,
-        display: 'flex', alignItems: 'center', gap: 6,
-        background: 'rgba(255,255,255,0.95)', padding: '6px 12px',
-        borderRadius: 10, boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-        backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', gap: 4,
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid var(--z-150)',
+        borderRadius: 8,
+        padding: 4,
+        boxShadow: 'var(--shadow-sm)',
+        fontFamily: 'var(--font-sans)',
       }}>
-        <Tooltip content="撤销 (Ctrl+Z)">
-          <Button size="small" icon={<IconLeft />} onClick={undo} disabled={!canUndo} style={{ borderRadius: 6 }} />
-        </Tooltip>
-        <Tooltip content="重做 (Ctrl+Y)">
-          <Button size="small" icon={<IconRight />} onClick={redo} disabled={!canRedo} style={{ borderRadius: 6 }} />
-        </Tooltip>
-        <div style={{ width: 1, height: 20, background: '#E5E6EB', margin: '0 4px' }} />
-        <Dropdown droplist={addStageDroplist} position="bl">
-          <Button size="small" type="primary" icon={<IconPlus />} style={{ borderRadius: 6 }}>
+        <Btn size="xs" variant="ghost" iconOnly icon={<IUndo size={12} />} title="撤销 (Ctrl+Z)" onClick={undo} disabled={!canUndo} />
+        <Btn size="xs" variant="ghost" iconOnly icon={<IRedo size={12} />} title="重做 (Ctrl+Y)" onClick={redo} disabled={!canRedo} />
+        <div style={{ width: 1, height: 18, background: 'var(--z-200)', margin: '0 2px' }} />
+
+        <div style={{ position: 'relative' }}>
+          <Btn size="xs" variant="primary" icon={<IPlus size={11} />} onClick={() => setAddMenuOpen((v) => !v)}>
             添加 Stage
-          </Button>
-        </Dropdown>
-        <div style={{ width: 1, height: 20, background: '#E5E6EB', margin: '0 4px' }} />
-        <Button
-          size="small"
-          type="primary"
-          status={validationError ? 'warning' : 'success'}
-          icon={<IconSave />}
+          </Btn>
+          {addMenuOpen && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setAddMenuOpen(false)} />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 21,
+                minWidth: 200,
+                background: 'var(--z-0)', border: '1px solid var(--z-200)',
+                borderRadius: 7, padding: 4,
+                boxShadow: 'var(--shadow-md)',
+              }}>
+                <button className="btn btn--ghost btn--xs" style={{ width: '100%', justifyContent: 'flex-start', height: 28 }} onClick={() => handleAddStage()}>
+                  <IPlus size={11} /> <span>空白 Stage</span>
+                </button>
+                <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--z-400)', padding: '6px 8px 2px', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                  快速创建 Stage + Step
+                </div>
+                {STEP_TEMPLATES.map((t) => (
+                  <button key={t.type} className="btn btn--ghost btn--xs" style={{ width: '100%', justifyContent: 'flex-start', height: 28 }} onClick={() => handleAddStage(t.type)}>
+                    {t.icon} <span>{t.name}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ width: 1, height: 18, background: 'var(--z-200)', margin: '0 2px' }} />
+        <Btn
+          size="xs"
+          variant={validationError ? 'outline' : 'primary'}
+          icon={<ICheck size={11} />}
           onClick={handleSave}
-          loading={saving}
-          disabled={!!validationError}
-          style={{ borderRadius: 6 }}
+          disabled={!!validationError || saving}
+          title={saving ? '保存中...' : validationError || 'Ctrl+S'}
         >
-          保存
-        </Button>
+          {saving ? '保存中...' : '保存'}
+        </Btn>
+
         {validationError && (
-          <Tooltip content={validationError}>
-            <span style={{ color: '#FF7D00', fontSize: 11, padding: '2px 8px', background: '#FFF7E8', borderRadius: 10 }}>
-              {validationError}
-            </span>
-          </Tooltip>
+          <span title={validationError} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            color: 'var(--amber-ink)', background: 'var(--amber-soft)',
+            fontSize: 11, padding: '2px 8px', borderRadius: 10,
+            maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            <IAlert size={10} />
+            {validationError}
+          </span>
         )}
       </div>
 
-      {/* Empty state hint */}
       {stages.length === 0 && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          zIndex: 5, textAlign: 'center', color: '#86909C',
+          zIndex: 5, textAlign: 'center', color: 'var(--z-500)',
+          fontFamily: 'var(--font-sans)',
         }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>⚡</div>
-          <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>开始构建你的流水线</div>
-          <div style={{ fontSize: 13, marginBottom: 16 }}>点击上方「添加 Stage」开始，流程从左到右执行</div>
+          <div style={{ fontSize: 42, marginBottom: 10 }}>⚡</div>
+          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4, color: 'var(--z-700)' }}>开始构建你的流水线</div>
+          <div style={{ fontSize: 12.5 }}>点击上方「添加 Stage」开始，流程从左到右执行</div>
         </div>
       )}
 
@@ -436,11 +438,11 @@ export function PipelineEditor({ config, onSave, onChange, saving }: PipelineEdi
         minZoom={0.3}
         maxZoom={2}
         attributionPosition="bottom-left"
-        style={{ background: '#F7F8FA' }}
+        style={{ background: 'var(--z-25)' }}
         nodesDraggable={false}
       >
         <Controls position="bottom-left" style={{ borderRadius: 8 }} />
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#E5E6EB" />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--z-200)" />
       </ReactFlow>
 
       <StepConfigPanel visible={panelVisible} step={currentStep} onClose={() => setPanelVisible(false)} onSave={handleSaveStep} />

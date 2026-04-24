@@ -1,16 +1,28 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { type NodeProps } from '@xyflow/react';
-import { Tag, Typography, Button, Tooltip } from '@arco-design/web-react';
-import { IconDelete, IconUp, IconDown } from '@arco-design/web-react/icon';
+import { Btn } from '../ui/Btn';
+import { ITrash, IUp, IDown, IBranch, ITerminal, ICube, ILayers } from '../ui/icons';
 
-const { Text } = Typography;
+type Tone = 'blue' | 'accent' | 'cyan' | 'grey';
 
-const stepTypeConfig: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-  'git-clone': { color: '#0057c2', bg: '#d9e2ff', icon: '📥', label: 'Git Clone' },
-  shell:       { color: '#004398', bg: '#e7e8ea', icon: '💻', label: 'Shell' },
-  kaniko:      { color: '#9e3d00', bg: '#ffdbcc', icon: '🐳', label: 'Kaniko' },
-  buildkit:    { color: '#006ef2', bg: '#afc6ff', icon: '🔨', label: 'BuildKit' },
+const STEP_META: Record<string, { tone: Tone; label: string; icon: ReactNode }> = {
+  'git-clone':    { tone: 'blue',   label: 'Git Clone',    icon: <IBranch size={11} /> },
+  'shell':        { tone: 'grey',   label: 'Shell',        icon: <ITerminal size={11} /> },
+  'kaniko':       { tone: 'accent', label: 'Kaniko',       icon: <ICube size={11} /> },
+  'kaniko-build': { tone: 'accent', label: 'Kaniko',       icon: <ICube size={11} /> },
+  'buildkit':     { tone: 'cyan',   label: 'BuildKit',     icon: <ILayers size={11} /> },
+  'buildkit-build': { tone: 'cyan', label: 'BuildKit',     icon: <ILayers size={11} /> },
 };
+
+function toneSoft(tone: Tone): string {
+  return tone === 'grey' ? 'var(--z-100)' : tone === 'accent' ? 'color-mix(in oklch, var(--accent-1), white 85%)' : `var(--${tone}-soft)`;
+}
+function toneInk(tone: Tone): string {
+  return tone === 'grey' ? 'var(--z-700)' : tone === 'accent' ? 'var(--accent-ink)' : `var(--${tone}-ink)`;
+}
+function toneBorder(tone: Tone): string {
+  return tone === 'grey' ? 'var(--z-300)' : tone === 'accent' ? 'var(--accent-1)' : `var(--${tone}-ink)`;
+}
 
 export interface StepNodeData {
   label: string;
@@ -29,80 +41,65 @@ function StepNodeComponent({ data }: NodeProps) {
   const { label, stepId, stageId, stepIndex, totalSteps, type, image, onSelect, onDelete, onMove } = data as unknown as StepNodeData;
   const canMoveUp = stepIndex > 0;
   const canMoveDown = stepIndex < totalSteps - 1;
-  const cfg = stepTypeConfig[type] || { color: '#86909C', bg: '#F2F3F5', icon: '⚙️', label: type };
+  const meta = STEP_META[type] ?? { tone: 'grey' as Tone, label: type, icon: null };
 
   return (
     <div
+      className="zc"
       style={{
-        background: '#fff',
-        borderRadius: 20,
-        padding: '10px 14px',
-        minWidth: 180,
+        background: 'var(--z-0)',
+        border: '1px solid var(--z-200)',
+        borderLeft: `3px solid ${toneBorder(meta.tone)}`,
+        borderRadius: 8,
+        padding: '9px 11px',
+        minWidth: 200,
         cursor: 'pointer',
-        transition: 'all 0.2s',
-        boxShadow: '0 1px 2px rgba(0, 87, 194, 0.04)',
-        borderLeft: `3px solid ${cfg.color}`,
+        boxShadow: 'var(--shadow-xs)',
+        fontFamily: 'var(--font-sans)',
+        transition: 'box-shadow .15s, border-color .15s',
       }}
       tabIndex={0}
       role="button"
       onClick={() => onSelect?.(stageId, stepId)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect?.(stageId, stepId);
-        }
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 0 0 3px ${cfg.color}1a, 0 8px 24px rgba(0, 87, 194, 0.08)`;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 2px rgba(0, 87, 194, 0.04)';
-      }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(stageId, stepId); } }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 14 }}>{cfg.icon}</span>
-          <Text style={{ fontSize: 13, fontWeight: 600, color: '#1D2129' }}>{label}</Text>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0 }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: 5,
+            background: toneSoft(meta.tone), color: toneInk(meta.tone),
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
+          }}>
+            {meta.icon}
+          </div>
+          <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--z-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {label}
+          </span>
         </div>
-        <div style={{ display: 'flex', gap: 1 }}>
+        <div style={{ display: 'flex', gap: 2, flex: 'none' }}>
           {canMoveUp && (
-            <Tooltip content="上移" mini>
-              <Button size="mini" type="text" icon={<IconUp />}
-                onClick={(e) => { e.stopPropagation(); onMove?.(stageId, stepId, 'up'); }}
-                style={{ color: '#86909C' }}
-              />
-            </Tooltip>
+            <Btn size="xs" variant="ghost" iconOnly icon={<IUp size={10} />} title="上移" onClick={(e) => { e.stopPropagation(); onMove?.(stageId, stepId, 'up'); }} />
           )}
           {canMoveDown && (
-            <Tooltip content="下移" mini>
-              <Button size="mini" type="text" icon={<IconDown />}
-                onClick={(e) => { e.stopPropagation(); onMove?.(stageId, stepId, 'down'); }}
-                style={{ color: '#86909C' }}
-              />
-            </Tooltip>
+            <Btn size="xs" variant="ghost" iconOnly icon={<IDown size={10} />} title="下移" onClick={(e) => { e.stopPropagation(); onMove?.(stageId, stepId, 'down'); }} />
           )}
-          <Tooltip content="删除" mini>
-            <Button size="mini" type="text" status="danger" icon={<IconDelete />}
-              onClick={(e) => { e.stopPropagation(); onDelete?.(stageId, stepId); }}
-            />
-          </Tooltip>
+          <Btn size="xs" variant="ghost" iconOnly icon={<ITrash size={10} />} title="删除" onClick={(e) => { e.stopPropagation(); onDelete?.(stageId, stepId); }} />
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 5, marginTop: 5, alignItems: 'center' }}>
         <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          padding: '2px 8px', borderRadius: 10,
-          background: cfg.bg, color: cfg.color,
-          fontSize: 11, fontWeight: 600,
+          display: 'inline-flex', alignItems: 'center',
+          padding: '1px 6px', borderRadius: 4,
+          background: toneSoft(meta.tone), color: toneInk(meta.tone),
+          fontSize: 10.5, fontWeight: 500,
         }}>
-          {cfg.label}
+          {meta.label}
         </span>
         {image && (
-          <span style={{
-            padding: '2px 8px', borderRadius: 10,
-            background: '#F2F3F5', color: '#4E5969',
-            fontSize: 11, maxWidth: 120, overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          <span className="mono" style={{
+            padding: '1px 6px', borderRadius: 4,
+            background: 'var(--z-50)', color: 'var(--z-600)',
+            fontSize: 10.5, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {image}
           </span>

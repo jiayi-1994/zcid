@@ -1,12 +1,13 @@
-import { Dropdown, Layout, Menu } from '@arco-design/web-react';
-import { IconDashboard, IconDown, IconUser, IconApps, IconLock, IconLink, IconFile, IconSettings } from '@arco-design/web-react/icon';
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Message } from '@arco-design/web-react';
 import { logout } from '../../services/auth';
 import { type SystemRole, useAuthStore } from '../../stores/auth';
-
-const { Header, Content } = Layout;
-const MenuItem = Menu.Item;
+import {
+  IGrid, IFolder, IUsers, IKey, IPlug, IShield, ISettings,
+  ISearch, IChevD, IChevR, IHome,
+} from '../ui/icons';
+import { Avatar } from '../ui/Avatar';
 
 const ROLE_LABELS: Record<SystemRole, string> = {
   admin: '管理员',
@@ -18,19 +19,50 @@ interface AppLayoutProps {
   children?: ReactNode;
 }
 
-function NavItem({ icon, label, path, active, onClick }: {
-  icon: ReactNode; label: string; path: string; active: boolean; onClick: (path: string) => void;
-}) {
+interface NavItemProps {
+  icon: ReactNode;
+  label: string;
+  path: string;
+  active: boolean;
+  onClick: (path: string) => void;
+}
+
+function NavItem({ icon, label, path, active, onClick }: NavItemProps) {
   return (
-    <div
-      className={`nav-item ${active ? 'nav-item-active' : ''}`}
+    <button
+      type="button"
+      className={`nav-item${active ? ' is-active' : ''}`}
       onClick={() => onClick(path)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') onClick(path); }}
     >
-      <span className="nav-item-icon">{icon}</span>
-      <span className="nav-item-label">{label}</span>
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+interface TopbarProps {
+  crumbs?: string[];
+}
+
+function Topbar({ crumbs = [] }: TopbarProps) {
+  return (
+    <div className="top">
+      <div className="crumb-path">
+        <IHome size={13} />
+        <span>zcid</span>
+        {crumbs.map((c, i) => (
+          <span key={i} style={{ display: 'contents' }}>
+            <IChevR size={11} style={{ opacity: 0.5 }} />
+            {i === crumbs.length - 1 ? <b>{c}</b> : <span>{c}</span>}
+          </span>
+        ))}
+      </div>
+      <div style={{ flex: 1 }} />
+      <span style={{ fontSize: 11.5, color: 'var(--z-500)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span className="st-dot st-dot--green" />
+        all systems operational
+      </span>
+      <span className="kbd">⌘ K</span>
     </div>
   );
 }
@@ -38,84 +70,126 @@ function NavItem({ icon, label, path, active, onClick }: {
 export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const canViewDashboard = useAuthStore((state) => state.hasPermission('route:dashboard:view'));
-  const canViewAdminUsers = useAuthStore((state) => state.hasPermission('route:admin-users:view'));
-  const canViewAdminVariables = useAuthStore((state) => state.hasPermission('route:admin-variables:view'));
-  const canViewAdminIntegrations = useAuthStore((state) => state.hasPermission('route:admin-integrations:view'));
-  const canViewAuditLogs = useAuthStore((state) => state.hasPermission('route:admin-audit:view'));
-  const canViewSystemSettings = useAuthStore((state) => state.hasPermission('route:admin-settings:view'));
-  const user = useAuthStore((state) => state.user);
-  const refreshToken = useAuthStore((state) => state.refreshToken);
-  const clearSession = useAuthStore((state) => state.clearSession);
+  const canViewDashboard        = useAuthStore((s) => s.hasPermission('route:dashboard:view'));
+  const canViewAdminUsers       = useAuthStore((s) => s.hasPermission('route:admin-users:view'));
+  const canViewAdminVariables   = useAuthStore((s) => s.hasPermission('route:admin-variables:view'));
+  const canViewAdminIntegrations = useAuthStore((s) => s.hasPermission('route:admin-integrations:view'));
+  const canViewAuditLogs        = useAuthStore((s) => s.hasPermission('route:admin-audit:view'));
+  const canViewSystemSettings   = useAuthStore((s) => s.hasPermission('route:admin-settings:view'));
+  const user = useAuthStore((s) => s.user);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
+  const clearSession = useAuthStore((s) => s.clearSession);
+
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const roleLabel = user ? ROLE_LABELS[user.role] : '';
-  const userInitial = user?.username?.charAt(0).toUpperCase() || 'U';
 
   const hasAdminSection = canViewAdminUsers || canViewAdminVariables || canViewAdminIntegrations || canViewAuditLogs || canViewSystemSettings;
 
+  const isActive = (path: string) =>
+    location.pathname === path || location.pathname.startsWith(path + '/');
+
   const handleLogout = async () => {
-    try { if (refreshToken) await logout(refreshToken); }
-    catch { /* ignore */ }
+    try { if (refreshToken) await logout(refreshToken); } catch { /* ignore */ }
     finally { clearSession(); navigate('/login', { replace: true }); }
   };
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
+  const crumbs = getBreadcrumbs(location.pathname);
 
   return (
-    <div className="app-root" style={{ display: 'flex', minHeight: '100vh' }}>
-      <div className="app-sider" style={{ width: 232, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-        <div className="sider-logo">
-          <div className="sider-logo-icon">Z</div>
-          <span className="sider-logo-text">zcid</span>
+    <div className="zc">
+      <div className="nav">
+        <div className="nav-hd">
+          <div className="logo">Z</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.01 }}>zcid</span>
+            <span style={{ fontSize: 10.5, color: 'var(--z-500)' }}>Cloud-Native CI/CD</span>
+          </div>
         </div>
 
-        <div style={{ flex: 1, overflow: 'auto', padding: '4px 12px' }}>
-          <div className="sider-section-label">Workspace</div>
-          {canViewDashboard && <NavItem icon={<IconDashboard />} label="Dashboard" path="/dashboard" active={isActive('/dashboard')} onClick={navigate} />}
-          <NavItem icon={<IconApps />} label="项目管理" path="/projects" active={isActive('/projects')} onClick={navigate} />
+        <div style={{ padding: '4px 10px 6px' }}>
+          <div className="input-wrap" style={{ width: '100%' }}>
+            <ISearch size={13} />
+            <input className="input input--with-icon" style={{ height: 28, fontSize: 12 }} placeholder="搜索..." />
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          <div className="nav-group">
+            <div className="nav-title">Workspace</div>
+            {canViewDashboard && (
+              <NavItem icon={<IGrid size={14} />} label="Dashboard" path="/dashboard" active={isActive('/dashboard')} onClick={navigate} />
+            )}
+            <NavItem icon={<IFolder size={14} />} label="项目管理" path="/projects" active={isActive('/projects')} onClick={navigate} />
+          </div>
 
           {hasAdminSection && (
-            <>
-              <div className="sider-section-label">System</div>
-              {canViewAdminUsers && <NavItem icon={<IconUser />} label="用户管理" path="/admin/users" active={isActive('/admin/users')} onClick={navigate} />}
-              {canViewAdminVariables && <NavItem icon={<IconLock />} label="全局变量" path="/admin/variables" active={isActive('/admin/variables')} onClick={navigate} />}
-              {canViewAdminIntegrations && <NavItem icon={<IconLink />} label="集成管理" path="/admin/integrations" active={isActive('/admin/integrations')} onClick={navigate} />}
-              {canViewAuditLogs && <NavItem icon={<IconFile />} label="审计日志" path="/admin/audit-logs" active={isActive('/admin/audit-logs')} onClick={navigate} />}
-              {canViewSystemSettings && <NavItem icon={<IconSettings />} label="系统设置" path="/admin/settings" active={isActive('/admin/settings')} onClick={navigate} />}
-            </>
+            <div className="nav-group">
+              <div className="nav-title">System</div>
+              {canViewAdminUsers && (
+                <NavItem icon={<IUsers size={14} />} label="用户管理" path="/admin/users" active={isActive('/admin/users')} onClick={navigate} />
+              )}
+              {canViewAdminVariables && (
+                <NavItem icon={<IKey size={14} />} label="全局变量" path="/admin/variables" active={isActive('/admin/variables')} onClick={navigate} />
+              )}
+              {canViewAdminIntegrations && (
+                <NavItem icon={<IPlug size={14} />} label="集成管理" path="/admin/integrations" active={isActive('/admin/integrations')} onClick={navigate} />
+              )}
+              {canViewAuditLogs && (
+                <NavItem icon={<IShield size={14} />} label="审计日志" path="/admin/audit-logs" active={isActive('/admin/audit-logs')} onClick={navigate} />
+              )}
+              {canViewSystemSettings && (
+                <NavItem icon={<ISettings size={14} />} label="系统设置" path="/admin/settings" active={isActive('/admin/settings')} onClick={navigate} />
+              )}
+            </div>
           )}
         </div>
 
-        <div style={{ padding: '12px', flexShrink: 0 }}>
-          <Dropdown
-            trigger="click"
-            position="tr"
-            droplist={(
-              <Menu onClickMenuItem={(key) => key === 'logout' && void handleLogout()}>
-                <MenuItem key="logout">退出登录</MenuItem>
-              </Menu>
-            )}
-          >
-            <div className="sider-user-entry">
-              <div className="sider-user-avatar">{userInitial}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="sider-user-name">{user?.username}</div>
-                <div className="sider-user-role">{roleLabel}</div>
+        <div className="nav-ft">
+          <div style={{ position: 'relative' }}>
+            <button type="button" className="nav-user" onClick={() => setUserMenuOpen(!userMenuOpen)}>
+              <Avatar name={user?.username ?? 'U'} size="sm" round />
+              <div className="who">
+                <b>{user?.username}</b>
+                <small>{roleLabel}</small>
               </div>
-              <IconDown style={{ fontSize: 10, color: 'var(--sidebar-muted)' }} />
-            </div>
-          </Dropdown>
+              <IChevD size={13} style={{ color: 'var(--z-500)', flex: 'none' }} />
+            </button>
+            {userMenuOpen && (
+              <div style={{
+                position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 4,
+                background: 'var(--z-0)', border: '1px solid var(--z-200)', borderRadius: 8,
+                boxShadow: 'var(--shadow-md)', overflow: 'hidden', zIndex: 100,
+              }}>
+                <button
+                  type="button"
+                  className="nav-item"
+                  style={{ color: 'var(--red)' }}
+                  onClick={() => { setUserMenuOpen(false); void handleLogout(); }}
+                >
+                  退出登录
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <Header className="app-header">
-          <div className="app-header-inner">
-            <span className="app-header-breadcrumb">zcid</span>
-          </div>
-        </Header>
-        <Content className="app-content">{children}</Content>
+      <div className="main">
+        <Topbar crumbs={crumbs} />
+        <div className="scroll">{children}</div>
       </div>
     </div>
   );
+}
+
+function getBreadcrumbs(pathname: string): string[] {
+  if (pathname.startsWith('/dashboard')) return ['Dashboard'];
+  if (pathname.startsWith('/projects')) return ['项目管理'];
+  if (pathname.startsWith('/admin/users')) return ['用户管理'];
+  if (pathname.startsWith('/admin/variables')) return ['全局变量'];
+  if (pathname.startsWith('/admin/integrations')) return ['集成管理'];
+  if (pathname.startsWith('/admin/audit-logs')) return ['审计日志'];
+  if (pathname.startsWith('/admin/settings')) return ['系统设置'];
+  return [];
 }

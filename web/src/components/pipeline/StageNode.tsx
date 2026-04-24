@@ -1,9 +1,7 @@
-import { memo, useState, useRef, useEffect } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Button, Typography, Tooltip, Input } from '@arco-design/web-react';
-import { IconPlus, IconDelete, IconUp, IconDown, IconEdit } from '@arco-design/web-react/icon';
-
-const { Text } = Typography;
+import { Btn } from '../ui/Btn';
+import { IPlus, ITrash, IUp, IDown } from '../ui/icons';
 
 export interface StageNodeData {
   label: string;
@@ -33,95 +31,71 @@ function StageNodeComponent({ data }: NodeProps) {
 
   const handleSaveName = () => {
     const trimmed = editName.trim();
-    if (trimmed && trimmed !== label) {
-      onRename?.(stageId, trimmed);
-    } else {
-      setEditName(label);
-    }
+    if (trimmed && trimmed !== label) onRename?.(stageId, trimmed);
+    else setEditName(label);
     setEditing(false);
   };
 
   return (
     <div
+      className="zc"
       style={{
-        background: 'linear-gradient(135deg, #d9e2ff 0%, #f8f9fb 100%)',
-        borderRadius: 24,
-        padding: '10px 18px',
+        background: 'color-mix(in oklch, var(--accent-1), white 90%)',
+        border: '1px solid color-mix(in oklch, var(--accent-1), white 75%)',
+        borderRadius: 10,
+        padding: '8px 12px',
         minWidth: 220,
-        boxShadow: '0 2px 8px rgba(0, 87, 194, 0.1)',
-        transition: 'all 0.2s',
+        boxShadow: 'var(--shadow-sm)',
+        fontFamily: 'var(--font-sans)',
+        transition: 'box-shadow .15s, border-color .15s',
       }}
       tabIndex={0}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 4px rgba(0, 87, 194, 0.2), 0 8px 24px rgba(0, 87, 194, 0.15)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0, 87, 194, 0.1)';
-      }}
     >
-      <Handle type="target" position={Position.Left} style={{ background: '#0057c2', width: 8, height: 8 }} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+      <Handle type="target" position={Position.Left} style={{ background: 'var(--accent-1)', width: 8, height: 8, border: 'none' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
           <div style={{
-            width: 26, height: 26, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #0057c2 0%, #006ef2 100%)',
+            width: 22, height: 22, borderRadius: '50%',
+            background: 'linear-gradient(135deg, var(--accent-1), var(--accent-2))',
             color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Manrope', system-ui, sans-serif",
-            fontSize: 12, fontWeight: 700, flexShrink: 0,
-            boxShadow: '0 2px 6px rgba(0, 87, 194, 0.4)',
+            fontSize: 11, fontWeight: 700, flex: 'none',
+            boxShadow: '0 1px 3px rgba(0,0,0,.15)',
           }}>
             {stageIndex + 1}
           </div>
           {editing ? (
-            <Input
-              ref={inputRef as any}
-              size="mini"
+            <input
+              ref={inputRef}
+              className="input"
+              style={{ height: 22, fontSize: 12.5, fontWeight: 600, flex: 1, minWidth: 0, padding: '0 6px' }}
               value={editName}
-              onChange={setEditName}
+              onChange={(e) => setEditName(e.target.value)}
               onBlur={handleSaveName}
-              onPressEnter={handleSaveName}
-              style={{ flex: 1, fontSize: 13, fontWeight: 600, borderRadius: 4 }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); else if (e.key === 'Escape') { setEditName(label); setEditing(false); } }}
             />
           ) : (
-            <Text bold style={{ fontSize: 14, color: '#1D2129', cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            <span
+              style={{ fontSize: 13, fontWeight: 600, color: 'var(--z-900)', cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+              title="双击重命名"
             >
               {label}
-            </Text>
+            </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 2, flex: 'none' }}>
           {canMoveUp && (
-            <Tooltip content="左移" mini>
-              <Button size="mini" type="text" icon={<IconUp />}
-                onClick={(e) => { e.stopPropagation(); onMove?.(stageId, 'up'); }}
-                style={{ color: '#86909C' }}
-              />
-            </Tooltip>
+            <Btn size="xs" variant="ghost" iconOnly icon={<IUp size={10} />} title="左移" onClick={(e) => { e.stopPropagation(); onMove?.(stageId, 'up'); }} />
           )}
           {canMoveDown && (
-            <Tooltip content="右移" mini>
-              <Button size="mini" type="text" icon={<IconDown />}
-                onClick={(e) => { e.stopPropagation(); onMove?.(stageId, 'down'); }}
-                style={{ color: '#86909C' }}
-              />
-            </Tooltip>
+            <Btn size="xs" variant="ghost" iconOnly icon={<IDown size={10} />} title="右移" onClick={(e) => { e.stopPropagation(); onMove?.(stageId, 'down'); }} />
           )}
-          <Tooltip content="添加 Step" mini>
-            <Button size="mini" type="text" icon={<IconPlus />}
-              onClick={(e) => { e.stopPropagation(); onAddStep?.(stageId); }}
-              style={{ color: '#0057c2' }}
-            />
-          </Tooltip>
-          <Tooltip content="删除" mini>
-            <Button size="mini" type="text" status="danger" icon={<IconDelete />}
-              onClick={(e) => { e.stopPropagation(); onDelete?.(stageId); }}
-            />
-          </Tooltip>
+          <Btn size="xs" variant="ghost" iconOnly icon={<IPlus size={11} />} title="添加 Step" onClick={(e) => { e.stopPropagation(); onAddStep?.(stageId); }} />
+          <Btn size="xs" variant="ghost" iconOnly icon={<ITrash size={10} />} title="删除" onClick={(e) => { e.stopPropagation(); onDelete?.(stageId); }} />
         </div>
       </div>
-      <Handle type="source" position={Position.Right} style={{ background: '#0057c2', width: 8, height: 8 }} />
+      <Handle type="source" position={Position.Right} style={{ background: 'var(--accent-1)', width: 8, height: 8, border: 'none' }} />
     </div>
   );
 }

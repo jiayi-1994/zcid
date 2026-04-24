@@ -1,9 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { Input } from '@arco-design/web-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PipelineConfig } from '../../services/pipeline';
 import { configToJson, jsonToConfig } from '../../lib/pipeline/configJson';
-
-const { TextArea } = Input;
 
 interface YamlEditorProps {
   config: PipelineConfig;
@@ -25,10 +22,7 @@ export function YamlEditor({ config, onChange, onValidationError, disabled }: Ya
   onValidationErrorRef.current = onValidationError;
 
   useEffect(() => {
-    if (internalChange.current) {
-      internalChange.current = false;
-      return;
-    }
+    if (internalChange.current) { internalChange.current = false; return; }
     setValue(configToJson(config));
   }, [config]);
 
@@ -54,23 +48,26 @@ export function YamlEditor({ config, onChange, onValidationError, disabled }: Ya
   }, []);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <TextArea
+    <div className="zc" style={{ height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
+      <textarea
+        className="input mono"
         value={value}
-        onChange={handleChange}
+        onChange={(e) => handleChange(e.target.value)}
         disabled={disabled}
         placeholder='{"schemaVersion":"1.0","stages":[]}'
+        spellCheck={false}
         style={{
           flex: 1,
-          fontFamily: 'ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, monospace',
-          fontSize: 13,
-          lineHeight: 1.5,
+          height: '100%',
+          minHeight: 300,
+          fontSize: 12.5,
+          lineHeight: 1.6,
           resize: 'none',
+          padding: 12,
         }}
-        autoSize={{ minRows: 10 }}
       />
       {error && (
-        <div role="alert" style={{ marginTop: 8, color: 'var(--color-red-6)', fontSize: 12 }}>
+        <div role="alert" style={{ marginTop: 8, color: 'var(--red-ink)', background: 'var(--red-soft)', padding: '6px 10px', borderRadius: 6, fontSize: 12, fontFamily: 'var(--font-mono)' }}>
           {error}
         </div>
       )}

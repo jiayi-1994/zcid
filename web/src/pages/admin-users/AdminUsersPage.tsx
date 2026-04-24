@@ -1,10 +1,15 @@
-import { Button, Table, Space, Message, Popconfirm } from '@arco-design/web-react';
-import { IconPlus } from '@arco-design/web-react/icon';
-import { AppLayout } from '../../components/layout/AppLayout';
 import { useState, useEffect } from 'react';
+import { Message } from '@arco-design/web-react';
 import axios from 'axios';
+import { AppLayout } from '../../components/layout/AppLayout';
 import { http, extractErrorMessage } from '../../services/http';
 import { UserFormModal } from './UserFormModal';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Card } from '../../components/ui/Card';
+import { Btn } from '../../components/ui/Btn';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { Avatar } from '../../components/ui/Avatar';
+import { IPlus, IEdit } from '../../components/ui/icons';
 
 interface User {
   id: string;
@@ -13,18 +18,6 @@ interface User {
   status: string;
   created_at: string;
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: '管理员',
-  project_admin: '项目管理员',
-  member: '普通成员',
-};
-
-const ROLE_CLS: Record<string, string> = {
-  admin: 'pipeline-status-badge--running',
-  project_admin: 'pipeline-status-badge--success',
-  member: 'pipeline-status-badge--pending',
-};
 
 export function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -40,8 +33,6 @@ export function AdminUsersPage() {
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response?.status === 403) {
         Message.error('权限不足，无法访问用户列表');
-      } else if (axios.isAxiosError(error) && error.response?.status === 401) {
-        Message.error('登录已过期，请重新登录');
       } else {
         Message.error(extractErrorMessage(error, '加载用户列表失败'));
       }
@@ -50,19 +41,7 @@ export function AdminUsersPage() {
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const handleCreate = () => {
-    setEditingUser(null);
-    setModalVisible(true);
-  };
-
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
-    setModalVisible(true);
-  };
+  useEffect(() => { fetchUsers(); }, []);
 
   const handleToggleStatus = async (user: User) => {
     try {
@@ -75,95 +54,71 @@ export function AdminUsersPage() {
     }
   };
 
-  const columns = [
-    { title: '用户名', dataIndex: 'username' },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      width: 140,
-      render: (role: string) => (
-        <span className={`pipeline-status-badge ${ROLE_CLS[role] || 'pipeline-status-badge--pending'}`}>
-          {ROLE_LABELS[role] || role}
-        </span>
-      ),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 120,
-      render: (status: string) => (
-        <span
-          className={`pipeline-status-badge ${
-            status === 'active'
-              ? 'pipeline-status-badge--success'
-              : 'pipeline-status-badge--cancelled'
-          }`}
-        >
-          {status === 'active' ? '启用' : '禁用'}
-        </span>
-      ),
-    },
-    { title: '创建时间', dataIndex: 'created_at', width: 200 },
-    {
-      title: '操作',
-      width: 180,
-      render: (_: unknown, record: User) => (
-        <Space size="mini">
-          <Button type="text" size="small" onClick={() => handleEdit(record)}>
-            编辑
-          </Button>
-          <Popconfirm
-            title={`确定${record.status === 'active' ? '禁用' : '启用'}该用户？`}
-            onOk={() => handleToggleStatus(record)}
-          >
-            <Button
-              type="text"
-              size="small"
-              status={record.status === 'active' ? 'danger' : 'success'}
-            >
-              {record.status === 'active' ? '禁用' : '启用'}
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
   return (
     <AppLayout>
-      <div className="page-container">
-        <div className="page-header">
-          <div>
-            <div className="breadcrumb">System · Access Control</div>
-            <h1 className="page-title">用户管理</h1>
-            <p className="page-subtitle">管理系统用户账号与角色</p>
-          </div>
-          <Button type="primary" icon={<IconPlus />} onClick={handleCreate}>
+      <PageHeader
+        crumb="System · Access Control"
+        title="用户管理"
+        sub="管理系统用户账号与角色。"
+        actions={
+          <Btn size="sm" variant="primary" icon={<IPlus size={13} />} onClick={() => { setEditingUser(null); setModalVisible(true); }}>
             新建用户
-          </Button>
-        </div>
-        <div className="table-card">
-          <Table
-            columns={columns}
-            data={users}
-            loading={loading}
-            rowKey="id"
-            border={false}
-            noDataElement={
-              <div className="empty-state">
-                <div className="empty-state-title">暂无用户数据</div>
-                <div className="empty-state-desc">点击右上角新建第一个用户</div>
-              </div>
-            }
-          />
-        </div>
-        <UserFormModal
-          visible={modalVisible}
-          user={editingUser}
-          onClose={() => setModalVisible(false)}
-          onSuccess={fetchUsers}
-        />
+          </Btn>
+        }
+      />
+      <div style={{ padding: 24 }}>
+        <Card padding={false}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--z-400)' }}>加载中...</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>用户名</th>
+                  <th>角色</th>
+                  <th>状态</th>
+                  <th>创建时间</th>
+                  <th style={{ textAlign: 'right' }}>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Avatar name={u.username} size="sm" round />
+                        <b style={{ fontWeight: 500 }}>{u.username}</b>
+                      </div>
+                    </td>
+                    <td><StatusBadge status={u.role} /></td>
+                    <td><StatusBadge status={u.status === 'active' ? 'enabled' : 'userDisabled'} /></td>
+                    <td><span className="sub mono" style={{ fontSize: 11.5 }}>{u.created_at}</span></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 4 }}>
+                        <Btn size="xs" variant="ghost" iconOnly icon={<IEdit size={12} />} onClick={() => { setEditingUser(u); setModalVisible(true); }} />
+                        <Btn size="xs" variant="ghost" onClick={() => handleToggleStatus(u)}>
+                          {u.status === 'active' ? '禁用' : '启用'}
+                        </Btn>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>暂无用户数据</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </Card>
       </div>
+      <UserFormModal
+        visible={modalVisible}
+        user={editingUser}
+        onClose={() => setModalVisible(false)}
+        onSuccess={fetchUsers}
+      />
     </AppLayout>
   );
 }

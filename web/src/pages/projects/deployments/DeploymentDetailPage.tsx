@@ -1,40 +1,13 @@
-import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Skeleton,
-  Message,
-  Button,
-  Space,
-  Descriptions,
-  Popconfirm,
-} from '@arco-design/web-react';
-import { IconArrowLeft, IconRefresh, IconRotateLeft, IconSync } from '@arco-design/web-react/icon';
-import {
-  fetchDeployment,
-  fetchDeployStatus,
-  resyncDeploy,
-  rollbackDeploy,
-  type Deployment,
-} from '../../../services/deployment';
+import { Message } from '@arco-design/web-react';
+import { fetchDeployment, fetchDeployStatus, resyncDeploy, rollbackDeploy, type Deployment } from '../../../services/deployment';
 import { extractErrorMessage } from '../../../services/http';
-
-const STATUS_CLS: Record<string, string> = {
-  pending: 'pipeline-status-badge--pending',
-  syncing: 'pipeline-status-badge--running',
-  healthy: 'pipeline-status-badge--success',
-  degraded: 'pipeline-status-badge--cancelled',
-  failed: 'pipeline-status-badge--failed',
-  rolled_back: 'pipeline-status-badge--pending',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: '待部署',
-  syncing: '同步中',
-  healthy: '健康',
-  degraded: '异常',
-  failed: '失败',
-  rolled_back: '已回滚',
-};
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { Card } from '../../../components/ui/Card';
+import { Btn } from '../../../components/ui/Btn';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { IArrL, IRefresh, ISync } from '../../../components/ui/icons';
 
 export function DeploymentDetailPage() {
   const { id: projectId, deployId } = useParams<{ id: string; deployId: string }>();
@@ -93,94 +66,67 @@ export function DeploymentDetailPage() {
 
   if (loading && !deploy) {
     return (
-      <div className="page-container">
-        <Skeleton text={{ rows: 4 }} animation />
-      </div>
+      <>
+        <PageHeader crumb="Project · Delivery" title="部署详情" />
+        <div style={{ padding: '40px 24px', color: 'var(--z-400)' }}>加载中...</div>
+      </>
     );
   }
 
   if (!deploy) {
     return (
-      <div className="page-container">
-        <div className="empty-state">
-          <div className="empty-state-title">部署记录不存在</div>
-        </div>
-      </div>
+      <>
+        <PageHeader crumb="Project · Delivery" title="部署详情" />
+        <div style={{ padding: '40px 24px', color: 'var(--z-400)' }}>部署记录不存在</div>
+      </>
     );
   }
 
-  const statusCls = STATUS_CLS[deploy.status] || 'pipeline-status-badge--pending';
-  const statusLabel = STATUS_LABEL[deploy.status] || deploy.status;
+  const rows: { label: string; value: React.ReactNode }[] = [
+    { label: 'ID', value: <span className="mono" style={{ fontSize: 11.5 }}>{deploy.id}</span> },
+    { label: '镜像', value: <span className="code" style={{ fontSize: 11.5 }}>{deploy.image}</span> },
+    { label: '环境 ID', value: <span className="sub">{deploy.environmentId}</span> },
+    { label: '同步状态', value: <span className="sub">{deploy.syncStatus ?? '-'}</span> },
+    { label: '健康状态', value: <span className="sub">{deploy.healthStatus ?? '-'}</span> },
+    { label: 'ArgoCD 应用', value: <span className="mono sub" style={{ fontSize: 11.5 }}>{deploy.argoAppName ?? '-'}</span> },
+    { label: '部署人', value: <span className="sub">{deploy.deployedBy}</span> },
+    ...(deploy.errorMessage ? [{ label: '错误信息', value: <span style={{ color: 'var(--red-ink)', fontSize: 12 }}>{deploy.errorMessage}</span> }] : []),
+    { label: '开始时间', value: <span className="mono sub" style={{ fontSize: 11 }}>{deploy.startedAt ? new Date(deploy.startedAt).toLocaleString() : '-'}</span> },
+    { label: '完成时间', value: <span className="mono sub" style={{ fontSize: 11 }}>{deploy.finishedAt ? new Date(deploy.finishedAt).toLocaleString() : '-'}</span> },
+    { label: '创建时间', value: <span className="mono sub" style={{ fontSize: 11 }}>{new Date(deploy.createdAt).toLocaleString()}</span> },
+  ];
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <Button
-            type="text"
-            icon={<IconArrowLeft />}
-            onClick={() => navigate(`/projects/${projectId}/deployments`)}
-            style={{ marginBottom: 4 }}
-          >
-            返回列表
-          </Button>
-          <h1 className="page-title">部署详情</h1>
-          <p className="page-subtitle">
-            <code className="mono">{deploy.image}</code>
-          </p>
-        </div>
-        <Space>
-          <Button icon={<IconRefresh />} onClick={handleRefresh}>
-            刷新状态
-          </Button>
-          <Button icon={<IconSync />} onClick={handleResync}>
-            重新同步
-          </Button>
-          <Popconfirm title="确定回滚到上一个版本？" onOk={handleRollback}>
-            <Button status="warning" icon={<IconRotateLeft />}>
-              回滚
-            </Button>
-          </Popconfirm>
-        </Space>
+    <>
+      <PageHeader
+        crumb="Project · Delivery"
+        title="部署详情"
+        sub={<span className="code" style={{ fontSize: 12 }}>{deploy.image}</span>}
+        actions={
+          <>
+            <Btn size="sm" icon={<IArrL size={13} />} onClick={() => navigate(`/projects/${projectId}/deployments`)}>返回</Btn>
+            <Btn size="sm" icon={<IRefresh size={13} />} onClick={handleRefresh}>刷新状态</Btn>
+            <Btn size="sm" icon={<ISync size={13} />} onClick={handleResync}>重新同步</Btn>
+            <Btn size="sm" variant="primary" onClick={handleRollback}>回滚</Btn>
+          </>
+        }
+      />
+      <div style={{ padding: 24 }}>
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>基本信息</div>
+            <StatusBadge status={deploy.status} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 12, columnGap: 20 }}>
+            {rows.map(({ label, value }) => (
+              <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 11, color: 'var(--z-400)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+                <div style={{ fontSize: 12.5 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
-
-      <div className="zcid-card" style={{ padding: 'var(--space-6)' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 'var(--space-4)',
-          }}
-        >
-          <h2 className="section-title" style={{ margin: 0 }}>基本信息</h2>
-          <span className={`pipeline-status-badge ${statusCls}`}>{statusLabel}</span>
-        </div>
-        <Descriptions
-          column={1}
-          data={
-            [
-              { label: 'ID', value: <code className="mono">{deploy.id}</code> },
-              { label: '镜像', value: <code className="mono">{deploy.image}</code> },
-              { label: '环境 ID', value: deploy.environmentId },
-              { label: '同步状态', value: deploy.syncStatus ?? '-' },
-              { label: '健康状态', value: deploy.healthStatus ?? '-' },
-              { label: 'ArgoCD 应用', value: deploy.argoAppName ?? '-' },
-              { label: '部署人', value: deploy.deployedBy },
-              deploy.errorMessage ? { label: '错误信息', value: deploy.errorMessage } : null,
-              {
-                label: '开始时间',
-                value: deploy.startedAt ? new Date(deploy.startedAt).toLocaleString() : '-',
-              },
-              {
-                label: '完成时间',
-                value: deploy.finishedAt ? new Date(deploy.finishedAt).toLocaleString() : '-',
-              },
-              { label: '创建时间', value: new Date(deploy.createdAt).toLocaleString() },
-            ].filter(Boolean) as { label: string; value: ReactNode }[]
-          }
-        />
-      </div>
-    </div>
+    </>
   );
 }

@@ -1,110 +1,16 @@
-import { Button, Message, Popconfirm, Skeleton, Input, Pagination } from '@arco-design/web-react';
-import {
-  IconPlus,
-  IconSearch,
-  IconApps,
-  IconCheckCircle,
-  IconClockCircle,
-  IconArrowRight,
-} from '@arco-design/web-react/icon';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Message } from '@arco-design/web-react';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { useAuthStore } from '../../stores/auth';
 import { fetchProjects, deleteProject, type Project } from '../../services/project';
 import { ProjectFormModal } from './ProjectFormModal';
-
-const STATUS_CONFIG: Record<string, { cls: string; label: string }> = {
-  active: { cls: 'pipeline-status-badge--success', label: '运行中' },
-  inactive: { cls: 'pipeline-status-badge--pending', label: '未激活' },
-  archived: { cls: 'pipeline-status-badge--cancelled', label: '已归档' },
-};
-
-function ProjectCard({ project, onEnter, onDelete, canDelete }: {
-  project: Project;
-  onEnter: (id: string) => void;
-  onDelete: (id: string) => void;
-  canDelete: boolean;
-}) {
-  const cfg = STATUS_CONFIG[project.status] || STATUS_CONFIG.active;
-  const initial = project.name.charAt(0).toUpperCase();
-
-  return (
-    <div className="project-card zcid-card-interactive" onClick={() => onEnter(project.id)}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-        <div
-          className="stat-card-icon stat-card-icon--primary"
-          style={{ background: 'var(--primary-gradient)', color: '#fff' }}
-        >
-          {initial}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="pipeline-status-name" style={{ marginBottom: 2 }}>
-            {project.name}
-          </div>
-          <span className={`pipeline-status-badge ${cfg.cls}`}>{cfg.label}</span>
-        </div>
-      </div>
-
-      <div
-        style={{
-          fontSize: 13,
-          color: 'var(--on-surface-variant)',
-          lineHeight: 1.5,
-          flex: 1,
-          marginBottom: 12,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical' as const,
-        }}
-      >
-        {project.description || '暂无项目描述'}
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingTop: 12,
-          borderTop: '1px solid var(--ghost-border)',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            fontSize: 12,
-            color: 'var(--on-surface-variant)',
-          }}
-        >
-          <IconClockCircle style={{ fontSize: 12 }} />
-          {new Date(project.createdAt).toLocaleDateString()}
-        </div>
-        <div style={{ display: 'flex', gap: 4 }} onClick={(e) => e.stopPropagation()}>
-          {canDelete && (
-            <Popconfirm title="确定删除此项目？" onOk={() => onDelete(project.id)}>
-              <Button size="mini" type="text" status="danger">
-                删除
-              </Button>
-            </Popconfirm>
-          )}
-          <Button
-            size="mini"
-            type="outline"
-            icon={<IconArrowRight />}
-            onClick={() => onEnter(project.id)}
-          >
-            进入
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Metric } from '../../components/ui/Metric';
+import { Btn } from '../../components/ui/Btn';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { Avatar } from '../../components/ui/Avatar';
+import { IFolder, ICheck, ISearch, IPlus, ITrash, IArrR } from '../../components/ui/icons';
 
 const PROJECT_PAGE_SIZE = 12;
 
@@ -124,142 +30,136 @@ export function ProjectListPage() {
       const data = await fetchProjects(p, PROJECT_PAGE_SIZE);
       setProjects(data.items ?? []);
       setTotal(data.total);
-    } catch {
-      Message.error('加载项目列表失败');
-    } finally {
-      setLoading(false);
-    }
+    } catch { Message.error('加载项目列表失败'); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    loadProjects(page);
-  }, [loadProjects, page]);
+  useEffect(() => { loadProjects(page); }, [loadProjects, page]);
 
-  const filteredProjects = useMemo(() => {
+  const filtered = useMemo(() => {
     if (!search.trim()) return projects;
     const q = search.toLowerCase();
-    return projects.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q),
-    );
+    return projects.filter((p) => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
   }, [projects, search]);
 
   const activeCount = projects.filter((p) => p.status === 'active').length;
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteProject(id);
-      Message.success('项目已删除');
-      loadProjects(page);
-    } catch {
-      Message.error('删除失败');
-    }
+    try { await deleteProject(id); Message.success('项目已删除'); loadProjects(page); }
+    catch { Message.error('删除失败'); }
   };
 
   return (
     <AppLayout>
-      <div className="page-container">
-        <div className="page-header">
-          <div>
-            <div className="breadcrumb">Project Directory</div>
-            <h1 className="page-title">项目管理</h1>
-            <p className="page-subtitle">管理所有项目及其 CI/CD 配置</p>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Input
-              prefix={<IconSearch />}
-              placeholder="搜索项目..."
-              value={search}
-              onChange={setSearch}
-              allowClear
-              style={{ width: 220 }}
-            />
+      <PageHeader
+        crumb="Project Directory"
+        title="项目管理"
+        sub="管理所有项目及其 CI/CD 配置。"
+        actions={
+          <>
+            <div className="input-wrap">
+              <ISearch size={13} />
+              <input
+                className="input input--with-icon"
+                style={{ width: 220 }}
+                placeholder="搜索项目..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
             {isAdmin && (
-              <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
+              <Btn size="sm" variant="primary" icon={<IPlus size={13} />} onClick={() => setModalVisible(true)}>
                 新建项目
-              </Button>
+              </Btn>
             )}
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-          <div className="metric-card">
-            <div className="stat-card-icon stat-card-icon--primary">
-              <IconApps />
-            </div>
-            <div className="metric-card-label">Total Projects</div>
-            <div className="metric-card-value">{total}</div>
-            <div className="metric-card-sub">全量项目数</div>
-          </div>
-          <div className="metric-card">
-            <div className="stat-card-icon stat-card-icon--success">
-              <IconCheckCircle />
-            </div>
-            <div className="metric-card-label">Active</div>
-            <div className="metric-card-value">{activeCount}</div>
-            <div className="metric-card-sub">当前活跃</div>
-          </div>
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, maxWidth: 520 }}>
+          <Metric label="TOTAL PROJECTS" value={total} icon={<IFolder size={14} />} iconBg="var(--accent-soft)" iconColor="var(--accent-ink)" />
+          <Metric label="ACTIVE" value={activeCount} icon={<ICheck size={14} />} iconBg="var(--green-soft)" iconColor="var(--green-ink)" />
         </div>
 
         {loading ? (
-          <div className="metrics-grid">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="project-card">
-                <Skeleton text={{ rows: 3 }} animation />
-              </div>
-            ))}
-          </div>
-        ) : filteredProjects.length === 0 ? (
-          <div className="zcid-card empty-state">
-            <div className="empty-state-title">
+          <div style={{ color: 'var(--z-400)', padding: '40px 0', textAlign: 'center' }}>加载中...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--z-500)' }}>
+            <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--z-800)', marginBottom: 4 }}>
               {search ? '没有找到匹配的项目' : '还没有项目'}
             </div>
-            <div className="empty-state-desc">
+            <div style={{ fontSize: 12.5, marginBottom: 14 }}>
               {search ? '尝试调整搜索关键词' : '创建你的第一个项目，开始 CI/CD 之旅'}
             </div>
             {!search && isAdmin && (
-              <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
+              <Btn variant="primary" icon={<IPlus size={13} />} onClick={() => setModalVisible(true)}>
                 创建第一个项目
-              </Button>
+              </Btn>
             )}
           </div>
         ) : (
           <>
-            <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-              {filteredProjects.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  project={p}
-                  onEnter={(id) => navigate(`/projects/${id}/pipelines`)}
-                  onDelete={handleDelete}
-                  canDelete={isAdmin}
-                />
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+              {filtered.map((p) => {
+                const hue = (p.name.charCodeAt(0) * 17) % 360;
+                return (
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}
+                    onClick={() => navigate(`/projects/${p.id}/pipelines`)}
+                  >
+                    <div style={{ padding: '14px 14px 10px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                        background: `linear-gradient(135deg, oklch(0.64 0.17 ${hue}), oklch(0.52 0.19 ${(hue + 24) % 360}))`,
+                        color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 700, fontSize: 15,
+                      }}>
+                        {p.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.name}</div>
+                        <StatusBadge status={p.status === 'active' ? 'active' : 'userDisabled'} />
+                      </div>
+                    </div>
+                    <div style={{ padding: '0 14px 12px', fontSize: 12, color: 'var(--z-600)', minHeight: 34, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
+                      {p.description || '暂无项目描述'}
+                    </div>
+                    <div style={{ padding: '10px 14px', borderTop: '1px solid var(--z-150)', background: 'var(--z-25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className="sub" style={{ fontSize: 11 }}>{new Date(p.createdAt).toLocaleDateString()}</span>
+                      <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                        {isAdmin && (
+                          <Btn size="xs" variant="ghost" iconOnly icon={<ITrash size={12} />} onClick={() => handleDelete(p.id)} />
+                        )}
+                        <Btn size="xs" variant="outline" onClick={() => navigate(`/projects/${p.id}/pipelines`)}>
+                          进入 <IArrR size={11} />
+                        </Btn>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
             {total > PROJECT_PAGE_SIZE && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-5)' }}>
-                <Pagination
-                  current={page}
-                  pageSize={PROJECT_PAGE_SIZE}
-                  total={total}
-                  onChange={setPage}
-                  showTotal
-                />
+              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', fontSize: 11.5, color: 'var(--z-500)' }}>
+                <span style={{ paddingRight: 8, lineHeight: '22px' }}>共 {total} 个</span>
+                <Btn size="xs" variant="ghost" disabled={page === 1} onClick={() => setPage(page - 1)}>上一页</Btn>
+                <Btn size="xs" variant="outline">{page}</Btn>
+                <Btn size="xs" variant="ghost" disabled={page * PROJECT_PAGE_SIZE >= total} onClick={() => setPage(page + 1)}>下一页</Btn>
               </div>
             )}
           </>
         )}
-
-        <ProjectFormModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          onSuccess={() => {
-            setModalVisible(false);
-            loadProjects(page);
-          }}
-        />
       </div>
+
+      <ProjectFormModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onSuccess={() => { setModalVisible(false); loadProjects(page); }}
+      />
     </AppLayout>
   );
 }

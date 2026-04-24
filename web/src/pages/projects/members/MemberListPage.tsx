@@ -1,30 +1,26 @@
-import { Button, Table, Message, Popconfirm, Modal, Form, Input, Select } from '@arco-design/web-react';
-import { IconPlus } from '@arco-design/web-react/icon';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Message } from '@arco-design/web-react';
 import { useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/auth';
 import { fetchMembers, addMember, removeMember, updateMemberRole, type MemberItem } from '../../../services/project';
 import { extractErrorMessage } from '../../../services/http';
-
-const FormItem = Form.Item;
-
-const ROLE_LABELS: Record<string, string> = {
-  project_admin: '项目管理员',
-  member: '普通成员',
-};
-
-const ROLE_CLS: Record<string, string> = {
-  project_admin: 'pipeline-status-badge--success',
-  member: 'pipeline-status-badge--pending',
-};
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { Card } from '../../../components/ui/Card';
+import { Btn } from '../../../components/ui/Btn';
+import { Avatar } from '../../../components/ui/Avatar';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { ZSelect } from '../../../components/ui/ZSelect';
+import { ZModal } from '../../../components/ui/ZModal';
+import { Field } from '../../../components/ui/Field';
+import { IPlus } from '../../../components/ui/icons';
 
 export function MemberListPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form] = Form.useForm();
-  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ userId: '', role: 'member' });
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin');
 
   const loadData = useCallback(async () => {
@@ -43,19 +39,18 @@ export function MemberListPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleAdd = async () => {
+    if (!form.userId) { Message.error('请输入用户 ID'); return; }
+    setSubmitting(true);
     try {
-      const values = await form.validate();
-      setSubmitLoading(true);
-      await addMember(projectId!, values.userId, values.role);
+      await addMember(projectId!, form.userId, form.role);
       Message.success('成员添加成功');
-      form.resetFields();
+      setForm({ userId: '', role: 'member' });
       setModalVisible(false);
       loadData();
     } catch (err: unknown) {
-      const msg = extractErrorMessage(err, '');
-      if (msg) Message.error(msg);
+      Message.error(extractErrorMessage(err, '添加失败'));
     } finally {
-      setSubmitLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -79,104 +74,113 @@ export function MemberListPage() {
     }
   };
 
-  const columns = [
-    { title: '用户名', dataIndex: 'username' },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      width: 160,
-      render: (role: string, record: MemberItem) => isAdmin ? (
-        <Select
-          value={role}
-          size="small"
-          style={{ width: 140 }}
-          onChange={(val) => handleRoleChange(record.userId, val)}
-          options={[
-            { label: '项目管理员', value: 'project_admin' },
-            { label: '普通成员', value: 'member' },
-          ]}
-        />
-      ) : (
-        <span className={`pipeline-status-badge ${ROLE_CLS[role] || 'pipeline-status-badge--pending'}`}>
-          {ROLE_LABELS[role] || role}
-        </span>
-      ),
-    },
-    { title: '加入时间', dataIndex: 'joinedAt', width: 200 },
-    {
-      title: '操作',
-      width: 100,
-      render: (_: unknown, record: MemberItem) => isAdmin ? (
-        <Popconfirm title="确定移除？" onOk={() => handleRemove(record.userId)}>
-          <Button type="text" size="small" status="danger">移除</Button>
-        </Popconfirm>
-      ) : null,
-    },
-  ];
-
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <div className="breadcrumb">Project · Access</div>
-          <h1 className="page-title">成员管理</h1>
-          <p className="page-subtitle">分配项目成员与角色权限。</p>
-        </div>
-        {isAdmin && (
-          <Button type="primary" icon={<IconPlus />} onClick={() => setModalVisible(true)}>
+    <>
+      <PageHeader
+        crumb="Project · Access"
+        title="成员管理"
+        sub="分配项目成员与角色权限。"
+        actions={isAdmin && (
+          <Btn size="sm" variant="primary" icon={<IPlus size={13} />} onClick={() => setModalVisible(true)}>
             添加成员
-          </Button>
+          </Btn>
         )}
+      />
+      <div style={{ padding: 24 }}>
+        <Card padding={false}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--z-400)' }}>加载中...</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>用户名</th>
+                  <th>角色</th>
+                  <th>加入时间</th>
+                  {isAdmin && <th style={{ textAlign: 'right' }}>操作</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <tr key={m.userId}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Avatar name={m.username} size="sm" round />
+                        <span style={{ fontWeight: 500 }}>{m.username}</span>
+                      </div>
+                    </td>
+                    <td>
+                      {isAdmin ? (
+                        <ZSelect
+                          width={150}
+                          value={m.role}
+                          options={[
+                            { value: 'project_admin', label: '项目管理员' },
+                            { value: 'member', label: '普通成员' },
+                          ]}
+                          onChange={(val) => handleRoleChange(m.userId, val)}
+                        />
+                      ) : (
+                        <StatusBadge status={m.role} />
+                      )}
+                    </td>
+                    <td><span className="sub mono" style={{ fontSize: 11.5 }}>{m.joinedAt}</span></td>
+                    {isAdmin && (
+                      <td style={{ textAlign: 'right' }}>
+                        <Btn size="xs" variant="ghost" onClick={() => handleRemove(m.userId)}>移除</Btn>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {members.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={isAdmin ? 4 : 3} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>
+                      暂无成员
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </Card>
       </div>
-      <div className="table-card">
-        <Table
-          columns={columns}
-          data={members}
-          loading={loading}
-          rowKey="userId"
-          border={false}
-          noDataElement={
-            <div className="empty-state">
-              <div className="empty-state-title">暂无成员</div>
-              <div className="empty-state-desc">添加成员后这里会显示列表</div>
+
+      {modalVisible && (
+        <ZModal
+          title="添加成员"
+          onClose={() => setModalVisible(false)}
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Btn onClick={() => setModalVisible(false)}>取消</Btn>
+              <Btn variant="primary" onClick={handleAdd} disabled={submitting}>
+                {submitting ? '添加中...' : '添加'}
+              </Btn>
             </div>
           }
-        />
-      </div>
-      <Modal
-        title="添加成员"
-        visible={modalVisible}
-        onOk={handleAdd}
-        onCancel={() => {
-          form.resetFields();
-          setModalVisible(false);
-        }}
-        confirmLoading={submitLoading}
-        unmountOnExit
-      >
-        <Form form={form} layout="vertical">
-          <FormItem
-            label="用户 ID"
-            field="userId"
-            rules={[{ required: true, message: '请输入用户 ID' }]}
-          >
-            <Input placeholder="输入要添加的用户 ID" />
-          </FormItem>
-          <FormItem
-            label="角色"
-            field="role"
-            rules={[{ required: true, message: '请选择角色' }]}
-            initialValue="member"
-          >
-            <Select
-              options={[
-                { label: '项目管理员', value: 'project_admin' },
-                { label: '普通成员', value: 'member' },
-              ]}
-            />
-          </FormItem>
-        </Form>
-      </Modal>
-    </div>
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Field label="用户 ID" required>
+              <input
+                className="input"
+                value={form.userId}
+                onChange={(e) => setForm({ ...form, userId: e.target.value })}
+                placeholder="输入要添加的用户 ID"
+              />
+            </Field>
+            <Field label="角色">
+              <ZSelect
+                width={200}
+                value={form.role}
+                options={[
+                  { value: 'project_admin', label: '项目管理员' },
+                  { value: 'member', label: '普通成员' },
+                ]}
+                onChange={(val) => setForm({ ...form, role: val })}
+              />
+            </Field>
+          </div>
+        </ZModal>
+      )}
+    </>
   );
 }

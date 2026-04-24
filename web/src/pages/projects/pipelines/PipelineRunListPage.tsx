@@ -1,83 +1,33 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table, Button, Space, Tag, Message, Popconfirm, Tooltip, Divider } from '@arco-design/web-react';
-import { IconPlayArrow, IconArrowLeft, IconEye, IconClose, IconBranch } from '@arco-design/web-react/icon';
+import { Message } from '@arco-design/web-react';
 import {
-  fetchPipelineRuns,
-  cancelPipelineRun,
-  triggerPipelineRun,
-  type PipelineRunSummary,
-  type PipelineRunList,
+  fetchPipelineRuns, cancelPipelineRun, triggerPipelineRun,
+  type PipelineRunSummary, type PipelineRunList,
 } from '../../../services/pipelineRun';
 import { fetchPipeline, type PipelineSummary, type PipelineConfig } from '../../../services/pipeline';
 import { RunPipelineModal } from '../../../components/pipeline/RunPipelineModal';
 import { ListFilters } from '../../../components/common/ListFilters';
 import { useQueryFilters } from '../../../hooks/useQueryFilters';
-
-const statusConfig: Record<string, { color: string; bg: string }> = {
-  pending:   { color: '#86909C', bg: '#F2F3F5' },
-  queued:    { color: '#165DFF', bg: '#E8F3FF' },
-  running:   { color: '#0FC6C2', bg: '#E8FFFB' },
-  succeeded: { color: '#00B42A', bg: '#E8FFEA' },
-  failed:    { color: '#F53F3F', bg: '#FFECE8' },
-  cancelled: { color: '#FF7D00', bg: '#FFF7E8' },
-};
-
-const statusColors: Record<string, string> = {
-  pending: 'gray',
-  queued: 'blue',
-  running: 'arcoblue',
-  succeeded: 'green',
-  failed: 'red',
-  cancelled: 'orange',
-};
-
-const statusLabels: Record<string, string> = {
-  pending: '待执行',
-  queued: '排队中',
-  running: '运行中',
-  succeeded: '成功',
-  failed: '失败',
-  cancelled: '已取消',
-};
-
-const triggerLabels: Record<string, string> = {
-  manual: '手动',
-  webhook: 'Webhook',
-  scheduled: '定时',
-};
-
-const runStatusFilterOptions = [
-  { label: '全部', value: '' },
-  { label: '待执行', value: 'pending' },
-  { label: '排队中', value: 'queued' },
-  { label: '运行中', value: 'running' },
-  { label: '成功', value: 'succeeded' },
-  { label: '失败', value: 'failed' },
-  { label: '已取消', value: 'cancelled' },
-];
-
-const runTriggerFilterOptions = [
-  { label: '全部', value: '' },
-  { label: '手动', value: 'manual' },
-  { label: 'Webhook', value: 'webhook' },
-  { label: '定时', value: 'scheduled' },
-];
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { Card } from '../../../components/ui/Card';
+import { Btn } from '../../../components/ui/Btn';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { IArrL, IPlay, IChevL, IChevR } from '../../../components/ui/icons';
 
 const RUN_FILTER_DEFAULTS = { status: '', triggerType: '', commit: '' };
 
+const TRIGGER_LABELS: Record<string, string> = {
+  manual: '手动', webhook: 'Webhook', scheduled: '定时',
+};
+
 function formatDuration(startedAt?: string, finishedAt?: string): string {
   if (!startedAt || !finishedAt) return '-';
-  const start = new Date(startedAt).getTime();
-  const end = new Date(finishedAt).getTime();
-  const sec = Math.floor((end - start) / 1000);
+  const sec = Math.floor((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 1000);
   if (sec < 60) return `${sec}s`;
   const min = Math.floor(sec / 60);
-  const s = sec % 60;
-  if (min < 60) return `${min}m ${s}s`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return `${h}h ${m}m`;
+  if (min < 60) return `${min}m ${sec % 60}s`;
+  return `${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
 export default function PipelineRunListPage() {
@@ -91,38 +41,23 @@ export default function PipelineRunListPage() {
   const [page, setPage] = useState(1);
   const [runModalVisible, setRunModalVisible] = useState(false);
 
-  const filteredItems = useMemo(() => {
-    return (data.items ?? []).filter((item) => {
-      if (filters.status && item.status !== filters.status) return false;
-      if (filters.triggerType && item.triggerType !== filters.triggerType) return false;
-      if (filters.commit) {
-        const commit = (item as PipelineRunSummary & { gitCommit?: string }).gitCommit ?? '';
-        if (!commit.toLowerCase().includes(filters.commit.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [data.items, filters.status, filters.triggerType, filters.commit]);
+  const filteredItems = useMemo(() => (data.items ?? []).filter((item) => {
+    if (filters.status && item.status !== filters.status) return false;
+    if (filters.triggerType && item.triggerType !== filters.triggerType) return false;
+    if (filters.commit) {
+      const commit = (item as PipelineRunSummary & { gitCommit?: string }).gitCommit ?? '';
+      if (!commit.toLowerCase().includes(filters.commit.toLowerCase())) return false;
+    }
+    return true;
+  }), [data.items, filters]);
 
   const loadPipeline = useCallback(async () => {
     if (!projectId || !pipelineId) return;
     try {
       const p = await fetchPipeline(projectId, pipelineId);
-      setPipeline({
-        id: p.id,
-        projectId: p.projectId,
-        name: p.name,
-        description: p.description,
-        status: p.status,
-        triggerType: p.triggerType,
-        concurrencyPolicy: p.concurrencyPolicy,
-        createdBy: p.createdBy,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-      });
+      setPipeline({ id: p.id, projectId: p.projectId, name: p.name, description: p.description, status: p.status, triggerType: p.triggerType, concurrencyPolicy: p.concurrencyPolicy, createdBy: p.createdBy, createdAt: p.createdAt, updatedAt: p.updatedAt });
       setPipelineConfig(p.config);
-    } catch {
-      Message.error('加载流水线失败');
-    }
+    } catch { Message.error('加载流水线失败'); }
   }, [projectId, pipelineId]);
 
   const loadData = useCallback(async (p: number) => {
@@ -131,24 +66,12 @@ export default function PipelineRunListPage() {
     try {
       const result = await fetchPipelineRuns(projectId, pipelineId, p, 20);
       setData(result);
-    } catch {
-      Message.error('加载运行历史失败');
-    } finally {
-      setLoading(false);
-    }
+    } catch { Message.error('加载运行历史失败'); }
+    finally { setLoading(false); }
   }, [projectId, pipelineId]);
 
-  useEffect(() => {
-    loadPipeline();
-  }, [loadPipeline]);
-
-  useEffect(() => {
-    loadData(page);
-  }, [page, loadData]);
-
-  const handleTrigger = async () => {
-    setRunModalVisible(true);
-  };
+  useEffect(() => { loadPipeline(); }, [loadPipeline]);
+  useEffect(() => { loadData(page); }, [page, loadData]);
 
   const handleRunSubmit = async (params: { params?: Record<string, string>; gitBranch?: string; gitCommit?: string }) => {
     if (!projectId || !pipelineId) return;
@@ -157,151 +80,105 @@ export default function PipelineRunListPage() {
       Message.success('已触发运行');
       setRunModalVisible(false);
       loadData(page);
-    } catch {
-      Message.error('触发运行失败');
-    }
+    } catch { Message.error('触发运行失败'); }
   };
 
   const handleCancel = async (runId: string) => {
     if (!projectId || !pipelineId) return;
-    try {
-      await cancelPipelineRun(projectId, pipelineId, runId);
-      Message.success('已取消');
-      loadData(page);
-    } catch {
-      Message.error('取消失败');
-    }
+    try { await cancelPipelineRun(projectId, pipelineId, runId); Message.success('已取消'); loadData(page); }
+    catch { Message.error('取消失败'); }
   };
 
-  const columns = useMemo(
-    () => [
-      {
-        title: '#',
-        dataIndex: 'runNumber',
-        width: 80,
-      },
-      {
-        title: '状态',
-        dataIndex: 'status',
-        width: 110,
-        render: (status: string) => {
-          const cfg = statusConfig[status] || { color: '#86909C', bg: '#F2F3F5' };
-          return (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 12,
-              background: cfg.bg, color: cfg.color,
-              fontWeight: 600, fontSize: 12,
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color }} />
-              {statusLabels[status] || status}
-            </span>
-          );
-        },
-      },
-      {
-        title: '触发方式',
-        dataIndex: 'triggerType',
-        render: (type: string) => triggerLabels[type] || type,
-      },
-      {
-        title: '触发人',
-        dataIndex: 'triggeredBy',
-        render: (v: string | undefined) => v ?? '-',
-      },
-      {
-        title: '分支',
-        dataIndex: 'gitBranch',
-        render: (v: string | undefined) => v ? (
-          <Space size={4}><IconBranch style={{ fontSize: 13, color: 'var(--color-text-3)' }} /><span>{v}</span></Space>
-        ) : '-',
-      },
-      {
-        title: '耗时',
-        render: (_: unknown, record: PipelineRunSummary) =>
-          formatDuration(record.startedAt, record.finishedAt),
-      },
-      {
-        title: '时间',
-        dataIndex: 'createdAt',
-        render: (t: string) => new Date(t).toLocaleString(),
-      },
-      {
-        title: '操作',
-        width: 160,
-        render: (_: unknown, record: PipelineRunSummary) => (
-          <Space size={4}>
-            <Tooltip content="查看详情">
-              <Button
-                size="small"
-                type="outline"
-                icon={<IconEye />}
-                onClick={() => navigate(`/projects/${projectId}/pipelines/${pipelineId}/runs/${record.id}`)}
-                style={{ borderRadius: 4 }}
-              >
-                详情
-              </Button>
-            </Tooltip>
-            {(record.status === 'pending' || record.status === 'queued' || record.status === 'running') && (
-              <Popconfirm title="确定取消此运行？" onOk={() => handleCancel(record.id)}>
-                <Tooltip content="取消运行">
-                  <Button size="small" type="outline" status="danger" icon={<IconClose />} style={{ borderRadius: 4 }}>
-                    取消
-                  </Button>
-                </Tooltip>
-              </Popconfirm>
-            )}
-          </Space>
-        ),
-      },
-    ],
-    [projectId, pipelineId, navigate]
-  );
+  const totalPages = Math.ceil(data.total / 20);
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <Space wrap>
-          <Button type="text" icon={<IconArrowLeft />} onClick={() => navigate(`/projects/${projectId}/pipelines`)}>
-            返回
-          </Button>
-          <h3 className="page-title">
-            {pipeline?.name ?? '流水线'} - 运行历史
-          </h3>
-        </Space>
-        <Space>
+    <>
+      <PageHeader
+        crumb={`Pipelines · ${pipeline?.name ?? '...'}`}
+        title="运行历史"
+        sub={pipeline?.name ? `${pipeline.name} 的执行记录` : ''}
+        actions={
+          <>
+            <Btn size="sm" icon={<IArrL size={13} />} onClick={() => navigate(`/projects/${projectId}/pipelines`)}>返回</Btn>
+            <Btn size="sm" variant="primary" icon={<IPlay size={13} />} onClick={() => setRunModalVisible(true)}>触发运行</Btn>
+          </>
+        }
+      />
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <ListFilters
             filters={[
-              { key: 'commit', type: 'search', placeholder: '按 Commit SHA 搜索' },
-              { key: 'status', type: 'select', placeholder: '按状态筛选', options: runStatusFilterOptions },
-              { key: 'triggerType', type: 'select', placeholder: '按触发方式筛选', options: runTriggerFilterOptions },
+              { key: 'commit', type: 'search', placeholder: 'Commit SHA...' },
+              { key: 'status', type: 'select', placeholder: '全部状态', options: [
+                { label: '待执行', value: 'pending' },
+                { label: '排队中', value: 'queued' },
+                { label: '运行中', value: 'running' },
+                { label: '成功', value: 'succeeded' },
+                { label: '失败', value: 'failed' },
+                { label: '已取消', value: 'cancelled' },
+              ]},
+              { key: 'triggerType', type: 'select', placeholder: '全部触发方式', options: [
+                { label: '手动', value: 'manual' },
+                { label: 'Webhook', value: 'webhook' },
+                { label: '定时', value: 'scheduled' },
+              ]},
             ]}
             values={filters}
             onChange={setFilters}
           />
-          <Button type="primary" icon={<IconPlayArrow />} onClick={handleTrigger}>
-            触发运行
-          </Button>
-        </Space>
+          <span className="sub" style={{ fontSize: 11.5, marginLeft: 'auto' }}>{data.total} 条记录</span>
+        </div>
+
+        <Card padding={false}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--z-400)' }}>加载中...</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>#</th><th>状态</th><th>触发方式</th><th>触发人</th><th>分支</th><th>耗时</th><th>时间</th><th style={{ textAlign: 'right' }}>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map((run) => (
+                  <tr key={run.id}>
+                    <td><span className="mono sub" style={{ fontSize: 11.5 }}>#{run.runNumber}</span></td>
+                    <td><StatusBadge status={run.status} /></td>
+                    <td><span className="sub">{TRIGGER_LABELS[run.triggerType] || run.triggerType}</span></td>
+                    <td><span className="mono sub" style={{ fontSize: 11.5 }}>{run.triggeredBy ?? '-'}</span></td>
+                    <td><span className="code" style={{ fontSize: 11 }}>{run.gitBranch ?? '-'}</span></td>
+                    <td><span className="mono sub" style={{ fontSize: 11.5 }}>{formatDuration(run.startedAt, run.finishedAt)}</span></td>
+                    <td><span className="sub mono" style={{ fontSize: 11 }}>{new Date(run.createdAt).toLocaleString()}</span></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 4 }}>
+                        <Btn size="xs" variant="ghost" onClick={() => navigate(`/projects/${projectId}/pipelines/${pipelineId}/runs/${run.id}`)}>详情</Btn>
+                        {['pending', 'queued', 'running'].includes(run.status) && (
+                          <Btn size="xs" variant="ghost" onClick={() => handleCancel(run.id)}>取消</Btn>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredItems.length === 0 && !loading && (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>暂无运行记录</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </Card>
+
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--z-500)' }}>
+            <span>共 {data.total} 条 · 第 {page} / {totalPages} 页</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <Btn size="xs" variant="ghost" iconOnly icon={<IChevL size={12} />} disabled={page <= 1} onClick={() => setPage((p) => p - 1)} />
+              <Btn size="xs" variant="outline">{page}</Btn>
+              <Btn size="xs" variant="ghost" iconOnly icon={<IChevR size={12} />} disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} />
+            </div>
+          </div>
+        )}
       </div>
-      <Table
-        rowKey="id"
-        columns={columns}
-        data={filteredItems}
-        loading={loading}
-        border={false}
-        stripe
-        hover
-        style={{ borderRadius: 8 }}
-        pagination={{
-          current: page,
-          pageSize: 20,
-          total: data.total,
-          onChange: setPage,
-          showTotal: true,
-          style: { marginTop: 16 },
-        }}
-      />
+
       <RunPipelineModal
         visible={runModalVisible}
         pipeline={pipeline}
@@ -309,6 +186,6 @@ export default function PipelineRunListPage() {
         onClose={() => setRunModalVisible(false)}
         onSubmit={handleRunSubmit}
       />
-    </div>
+    </>
   );
 }

@@ -1,7 +1,9 @@
-import { Form, Input, Modal, Select, Message, Typography, Link } from '@arco-design/web-react';
-import { useState } from 'react';
-
-const { Text } = Typography;
+import { useEffect, useState } from 'react';
+import { Message } from '@arco-design/web-react';
+import { ZModal } from '../../../components/ui/ZModal';
+import { Btn } from '../../../components/ui/Btn';
+import { Field } from '../../../components/ui/Field';
+import { ZSelect } from '../../../components/ui/ZSelect';
 
 interface ConnectionFormModalProps {
   visible: boolean;
@@ -17,82 +19,109 @@ interface ConnectionFormModalProps {
   initialValues?: { name?: string; description?: string };
 }
 
-export function ConnectionFormModal({
-  visible,
-  onClose,
-  onSubmit,
-  editMode = false,
-  initialValues,
-}: ConnectionFormModalProps) {
-  const [form] = Form.useForm();
+const EMPTY = { name: '', providerType: 'gitlab', serverUrl: '', accessToken: '', description: '' };
+
+export function ConnectionFormModal({ visible, onClose, onSubmit, editMode = false, initialValues }: ConnectionFormModalProps) {
+  const [form, setForm] = useState(EMPTY);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (visible) {
+      setForm({ ...EMPTY, name: initialValues?.name ?? '', description: initialValues?.description ?? '' });
+    }
+  }, [visible, initialValues]);
+
   const handleOk = async () => {
+    if (!form.name.trim()) { Message.error('请输入连接名称'); return; }
+    if (!editMode) {
+      if (!form.serverUrl.trim()) { Message.error('请输入 Server URL'); return; }
+      if (!form.accessToken) { Message.error('请输入 Access Token'); return; }
+    }
+    setSubmitting(true);
     try {
-      const values = await form.validate();
-      setSubmitting(true);
-      await onSubmit(values);
+      await onSubmit({
+        name: form.name.trim(),
+        providerType: form.providerType,
+        serverUrl: form.serverUrl.trim(),
+        accessToken: form.accessToken,
+        description: form.description,
+      });
       Message.success(editMode ? '连接已更新' : '连接已创建');
-      form.resetFields();
       onClose();
     } catch {
-      if (!submitting) return;
       Message.error(editMode ? '更新失败' : '创建失败');
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (!visible) return null;
+
   return (
-    <Modal
+    <ZModal
       title={editMode ? '编辑 Git 连接' : '添加 Git 连接'}
-      visible={visible}
-      onOk={handleOk}
-      onCancel={onClose}
-      confirmLoading={submitting}
-      afterClose={() => form.resetFields()}
+      onClose={onClose}
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Btn onClick={onClose}>取消</Btn>
+          <Btn variant="primary" onClick={handleOk} disabled={submitting}>
+            {submitting ? '保存中...' : '保存'}
+          </Btn>
+        </div>
+      }
     >
-      <Form form={form} layout="vertical" initialValues={initialValues}>
-        <Form.Item label="连接名称" field="name" rules={[{ required: true, message: '请输入连接名称' }]}>
-          <Input placeholder="例如: my-gitlab" />
-        </Form.Item>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Field label="连接名称" required>
+          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="例如: my-gitlab" />
+        </Field>
         {!editMode && (
           <>
-            <Form.Item label="Provider 类型" field="providerType" rules={[{ required: true }]} initialValue="gitlab">
-              <Select>
-                <Select.Option value="gitlab">GitLab</Select.Option>
-                <Select.Option value="github">GitHub</Select.Option>
-              </Select>
-            </Form.Item>
-            <Form.Item
+            <Field label="Provider 类型" required>
+              <ZSelect
+                width={200}
+                value={form.providerType}
+                options={[{ value: 'gitlab', label: 'GitLab' }, { value: 'github', label: 'GitHub' }]}
+                onChange={(v) => setForm({ ...form, providerType: v })}
+              />
+            </Field>
+            <Field
               label="Server URL"
-              field="serverUrl"
-              rules={[{ required: true, message: '请输入 Server URL' }]}
-              extra={<span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>支持内网地址，如 http://192.168.1.100:8080 或 https://git.internal.company.com</span>}
+              required
+              help="支持内网地址，如 http://192.168.1.100:8080 或 https://git.internal.company.com"
             >
-              <Input placeholder="例如: https://gitlab.example.com 或 http://内网IP:端口" />
-            </Form.Item>
+              <input
+                className="input mono"
+                value={form.serverUrl}
+                onChange={(e) => setForm({ ...form, serverUrl: e.target.value })}
+                placeholder="https://gitlab.example.com"
+              />
+            </Field>
           </>
         )}
-        <Form.Item
+        <Field
           label="Access Token (PAT)"
-          field="accessToken"
-          rules={editMode ? [] : [{ required: true, message: '请输入 Access Token' }]}
-          extra={!editMode && (
-            <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 4, lineHeight: 1.6 }}>
-              <div style={{ fontWeight: 500, marginBottom: 2 }}>如何获取 PAT：</div>
-              <div>• <strong>GitHub</strong>：Settings → Developer settings → Personal access tokens → Generate new token，勾选 <code>repo</code> 权限</div>
-              <div>• <strong>GitLab</strong>：Settings → Access Tokens → 勾选 <code>api</code> + <code>read_repository</code> 权限</div>
-              <div>• 内网 GitLab 同样支持，只需填写内网 Server URL 即可（如 <code>http://192.168.1.100:8080</code>）</div>
+          required={!editMode}
+          help={editMode ? '留空则不更新' : undefined}
+        >
+          <input
+            className="input mono"
+            type="password"
+            value={form.accessToken}
+            onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
+            placeholder={editMode ? '留空则不更新' : 'Personal Access Token'}
+          />
+          {!editMode && (
+            <div style={{ fontSize: 11, color: 'var(--z-500)', marginTop: 6, lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 500, color: 'var(--z-700)', marginBottom: 2 }}>如何获取 PAT：</div>
+              <div>• <b>GitHub</b>：Settings → Developer settings → Personal access tokens，勾选 <code className="code">repo</code> 权限</div>
+              <div>• <b>GitLab</b>：Settings → Access Tokens，勾选 <code className="code">api</code> + <code className="code">read_repository</code></div>
             </div>
           )}
-        >
-          <Input.Password placeholder={editMode ? '留空则不更新' : '请输入 Personal Access Token'} />
-        </Form.Item>
-        <Form.Item label="描述" field="description">
-          <Input.TextArea placeholder="可选的描述信息" rows={2} />
-        </Form.Item>
-      </Form>
-    </Modal>
+        </Field>
+        <Field label="描述">
+          <textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="可选的描述信息" style={{ resize: 'vertical' }} />
+        </Field>
+      </div>
+    </ZModal>
   );
 }

@@ -1,5 +1,8 @@
-import { Form, Input, Modal, Radio, Message } from '@arco-design/web-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Message } from '@arco-design/web-react';
+import { ZModal } from '../../../components/ui/ZModal';
+import { Btn } from '../../../components/ui/Btn';
+import { Field } from '../../../components/ui/Field';
 
 interface VariableFormModalProps {
   visible: boolean;
@@ -11,66 +14,104 @@ interface VariableFormModalProps {
 }
 
 export function VariableFormModal({ visible, onClose, onSubmit, editMode, isSecret, initialValues }: VariableFormModalProps) {
-  const [form] = Form.useForm();
+  const [form, setForm] = useState({ key: '', value: '', varType: 'plain', description: '' });
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (visible) {
+      setForm({
+        key: initialValues?.key ?? '',
+        value: '',
+        varType: isSecret ? 'secret' : 'plain',
+        description: initialValues?.description ?? '',
+      });
+    }
+  }, [visible, initialValues, isSecret]);
+
   const handleOk = async () => {
+    if (!editMode && !form.key.trim()) { Message.error('请输入变量名'); return; }
+    if (!editMode && !form.value) { Message.error('请输入变量值'); return; }
+    setLoading(true);
     try {
-      const values = await form.validate();
-      setLoading(true);
       await onSubmit({
-        key: values.key,
-        value: values.value,
-        varType: values.varType || 'plain',
-        description: values.description || '',
+        key: form.key.trim(),
+        value: form.value,
+        varType: form.varType,
+        description: form.description,
       });
       Message.success(editMode ? '变量更新成功' : '变量创建成功');
-      form.resetFields();
       onClose();
     } catch {
-      // validation or submit error
+      /* surfaced by caller */
     } finally {
       setLoading(false);
     }
   };
 
+  if (!visible) return null;
+
   return (
-    <Modal
+    <ZModal
       title={editMode ? '编辑变量' : '新建变量'}
-      visible={visible}
-      onOk={handleOk}
-      onCancel={() => { form.resetFields(); onClose(); }}
-      confirmLoading={loading}
-      unmountOnExit
+      onClose={onClose}
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Btn onClick={onClose}>取消</Btn>
+          <Btn variant="primary" onClick={handleOk} disabled={loading}>
+            {loading ? '保存中...' : '保存'}
+          </Btn>
+        </div>
+      }
     >
-      <Form form={form} autoComplete="off" initialValues={initialValues}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {!editMode && (
-          <Form.Item label="变量名" field="key" rules={[{ required: true, message: '请输入变量名' }]}>
-            <Input placeholder="例如: DB_HOST" />
-          </Form.Item>
+          <Field label="变量名" required>
+            <input
+              className="input mono"
+              value={form.key}
+              onChange={(e) => setForm({ ...form, key: e.target.value })}
+              placeholder="例如: DB_HOST"
+            />
+          </Field>
         )}
-        <Form.Item
-          label="值"
-          field="value"
-          rules={[{ required: !editMode, message: '请输入变量值' }]}
-        >
-          <Input.Password
+        <Field label="值" required={!editMode}>
+          <input
+            className="input mono"
+            type={isSecret ? 'password' : 'text'}
+            value={form.value}
+            onChange={(e) => setForm({ ...form, value: e.target.value })}
             placeholder={isSecret ? '输入新的密钥值' : '变量值'}
-            visibilityToggle={!isSecret}
           />
-        </Form.Item>
+        </Field>
         {!editMode && (
-          <Form.Item label="类型" field="varType" initialValue="plain">
-            <Radio.Group>
-              <Radio value="plain">普通</Radio>
-              <Radio value="secret">密钥</Radio>
-            </Radio.Group>
-          </Form.Item>
+          <Field label="类型">
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[{ value: 'plain', label: '普通' }, { value: 'secret', label: '密钥' }].map((opt) => (
+                <label key={opt.value} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                  <input
+                    type="radio"
+                    name="varType"
+                    value={opt.value}
+                    checked={form.varType === opt.value}
+                    onChange={() => setForm({ ...form, varType: opt.value })}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </Field>
         )}
-        <Form.Item label="描述" field="description">
-          <Input.TextArea placeholder="变量描述（可选）" />
-        </Form.Item>
-      </Form>
-    </Modal>
+        <Field label="描述">
+          <textarea
+            className="input"
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="变量描述（可选）"
+            style={{ resize: 'vertical' }}
+          />
+        </Field>
+      </div>
+    </ZModal>
   );
 }

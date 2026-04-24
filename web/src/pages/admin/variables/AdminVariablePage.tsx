@@ -1,14 +1,16 @@
-import { Button, Message, Popconfirm, Table } from '@arco-design/web-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Message } from '@arco-design/web-react';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import {
-  fetchGlobalVariables,
-  createGlobalVariable,
-  updateGlobalVariable,
-  deleteGlobalVariable,
+  fetchGlobalVariables, createGlobalVariable, updateGlobalVariable, deleteGlobalVariable,
   type VariableItem,
 } from '../../../services/variable';
 import { VariableFormModal } from '../../projects/variables/VariableFormModal';
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { Card } from '../../../components/ui/Card';
+import { Btn } from '../../../components/ui/Btn';
+import { Badge } from '../../../components/ui/Badge';
+import { IPlus, IEdit, ITrash } from '../../../components/ui/icons';
 
 export function AdminVariablePage() {
   const [variables, setVariables] = useState<VariableItem[]>([]);
@@ -18,14 +20,9 @@ export function AdminVariablePage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    try {
-      const data = await fetchGlobalVariables();
-      setVariables(data.items || []);
-    } catch {
-      Message.error('加载全局变量失败');
-    } finally {
-      setLoading(false);
-    }
+    try { const data = await fetchGlobalVariables(); setVariables(data.items || []); }
+    catch { Message.error('加载全局变量失败'); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -37,99 +34,77 @@ export function AdminVariablePage() {
 
   const handleEdit = async (data: { value: string; description: string }) => {
     if (!editItem) return;
-    await updateGlobalVariable(editItem.id, {
-      value: data.value || undefined,
-      description: data.description,
-    });
+    await updateGlobalVariable(editItem.id, { value: data.value || undefined, description: data.description });
     setEditItem(null);
     await loadData();
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteGlobalVariable(id);
-      Message.success('全局变量已删除');
-      await loadData();
-    } catch {
-      Message.error('删除失败');
-    }
+    try { await deleteGlobalVariable(id); Message.success('全局变量已删除'); await loadData(); }
+    catch { Message.error('删除失败'); }
   };
-
-  const columns = [
-    { title: '变量名', dataIndex: 'key' },
-    {
-      title: '值',
-      dataIndex: 'value',
-      render: (val: string, record: VariableItem) =>
-        record.varType === 'secret' ? <span style={{ color: 'var(--color-text-3)' }}>******</span> : val,
-    },
-    {
-      title: '类型',
-      dataIndex: 'varType',
-      render: (val: string) => (
-        <span className={`pipeline-status-badge ${val === 'secret' ? 'pipeline-status-badge--failed' : 'pipeline-status-badge--running'}`}>
-          {val === 'secret' ? 'Secret' : 'Variable'}
-        </span>
-      ),
-    },
-    { title: '描述', dataIndex: 'description' },
-    { title: '创建时间', dataIndex: 'createdAt' },
-    {
-      title: '操作',
-      render: (_: unknown, record: VariableItem) => (
-        <>
-          <Button type="text" size="small" style={{ color: 'var(--zcid-primary)' }} onClick={() => setEditItem(record)}>
-            编辑
-          </Button>
-          <Popconfirm title="确认删除此全局变量？" onOk={() => handleDelete(record.id)}>
-            <Button type="text" size="small" status="danger">删除</Button>
-          </Popconfirm>
-        </>
-      ),
-    },
-  ];
 
   return (
     <AppLayout>
-      <div className="page-container">
-        <div className="page-header">
-          <div>
-            <div className="breadcrumb">System › Variables</div>
-            <h1 className="page-title">Global Variables</h1>
-            <p className="page-subtitle">
-              System-wide variable management. 管理跨项目共享的全局变量和密钥。
-            </p>
-          </div>
-          <Button type="primary" size="large" onClick={() => setCreateVisible(true)}>
-            + Add Variable
-          </Button>
-        </div>
-        <div className="table-card">
-          <Table
-            columns={columns}
-            data={variables}
-            rowKey="id"
-            loading={loading}
-            border={false}
-            pagination={false}
-          />
-        </div>
-        <VariableFormModal
-          visible={createVisible}
-          onClose={() => setCreateVisible(false)}
-          onSubmit={handleCreate}
-        />
-        {editItem && (
-          <VariableFormModal
-            visible={!!editItem}
-            onClose={() => setEditItem(null)}
-            onSubmit={handleEdit}
-            editMode
-            isSecret={editItem.varType === 'secret'}
-            initialValues={{ key: editItem.key, description: editItem.description }}
-          />
-        )}
+      <PageHeader
+        crumb="System › Variables"
+        title="Global Variables"
+        sub="System-wide variable management. 管理跨项目共享的全局变量和密钥。"
+        actions={
+          <Btn size="sm" variant="primary" icon={<IPlus size={13} />} onClick={() => setCreateVisible(true)}>
+            Add Variable
+          </Btn>
+        }
+      />
+      <div style={{ padding: 24 }}>
+        <Card padding={false}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--z-400)' }}>加载中...</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>变量名</th><th>值</th><th>类型</th><th>描述</th><th>创建时间</th>
+                  <th style={{ textAlign: 'right' }}>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {variables.map((v) => (
+                  <tr key={v.id}>
+                    <td><span className="code">{v.key}</span></td>
+                    <td>
+                      <span className="mono" style={{ color: v.varType === 'secret' ? 'var(--z-400)' : 'var(--z-800)' }}>
+                        {v.varType === 'secret' ? '••••••••' : v.value}
+                      </span>
+                    </td>
+                    <td><Badge tone={v.varType === 'secret' ? 'red' : 'blue'}>{v.varType === 'secret' ? 'Secret' : 'Variable'}</Badge></td>
+                    <td><span className="sub">{v.description}</span></td>
+                    <td><span className="sub mono" style={{ fontSize: 11.5 }}>{v.createdAt}</span></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 4 }}>
+                        <Btn size="xs" variant="ghost" iconOnly icon={<IEdit size={12} />} onClick={() => setEditItem(v)} />
+                        <Btn size="xs" variant="ghost" iconOnly icon={<ITrash size={12} />} onClick={() => handleDelete(v.id)} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {variables.length === 0 && !loading && (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>暂无全局变量</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </Card>
       </div>
+
+      <VariableFormModal visible={createVisible} onClose={() => setCreateVisible(false)} onSubmit={handleCreate} />
+      {editItem && (
+        <VariableFormModal
+          visible={!!editItem} onClose={() => setEditItem(null)} onSubmit={handleEdit}
+          editMode isSecret={editItem.varType === 'secret'}
+          initialValues={{ key: editItem.key, description: editItem.description }}
+        />
+      )}
     </AppLayout>
   );
 }

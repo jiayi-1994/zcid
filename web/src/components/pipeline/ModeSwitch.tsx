@@ -1,4 +1,4 @@
-import { Radio } from '@arco-design/web-react';
+import { Segmented } from '../ui/Segmented';
 
 export type EditorMode = 'visual' | 'json';
 
@@ -7,18 +7,12 @@ interface ModeSwitchProps {
   onChange: (mode: EditorMode) => void;
 }
 
-const options = [
-  { label: '可视化', value: 'visual' as EditorMode },
-  { label: 'JSON 模式', value: 'json' as EditorMode },
-];
-
 export function ModeSwitch({ mode, onChange }: ModeSwitchProps) {
   return (
-    <Radio.Group
-      type="button"
+    <Segmented
       value={mode}
+      options={[{ value: 'visual', label: '可视化' }, { value: 'json', label: 'JSON' }]}
       onChange={(v) => onChange(v as EditorMode)}
-      options={options}
     />
   );
 }
