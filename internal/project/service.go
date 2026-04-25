@@ -30,11 +30,21 @@ type Repository interface {
 }
 
 type Service struct {
-	repo Repository
+	repo    Repository
+	watcher NamespaceProjectWatcher
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+type NamespaceProjectWatcher interface {
+	RegisterNamespaceProject(namespace, projectID string)
+	DeregisterNamespaceProject(namespace string)
+}
+
+func NewService(repo Repository, watcher ...NamespaceProjectWatcher) *Service {
+	s := &Service{repo: repo}
+	if len(watcher) > 0 {
+		s.watcher = watcher[0]
+	}
+	return s
 }
 
 func (s *Service) CreateProject(ctx context.Context, name, description, ownerID string) (*Project, error) {
@@ -64,6 +74,9 @@ func (s *Service) CreateProject(ctx context.Context, name, description, ownerID 
 	}
 	if err := s.repo.AddMember(ctx, member); err != nil && !errors.Is(err, ErrMemberExists) {
 		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	if s.watcher != nil {
+		s.watcher.RegisterNamespaceProject(DefaultRunNamespace, p.ID)
 	}
 
 	return p, nil
@@ -207,6 +220,9 @@ func (s *Service) DeleteProject(ctx context.Context, id string) error {
 			return response.NewBizError(response.CodeNotFound, "项目不存在", "")
 		}
 		return response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	if s.watcher != nil {
+		s.watcher.DeregisterNamespaceProject(DefaultRunNamespace)
 	}
 	return nil
 }

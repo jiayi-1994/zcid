@@ -2,10 +2,11 @@ package ws
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
+	"sync"
 	"time"
 
+	"github.com/xjy/zcid/internal/stepexec"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,14 +21,22 @@ var pipelineRunGVR = schema.GroupVersionResource{
 }
 
 type RealK8sWatcher struct {
-	dynClient dynamic.Interface
+	dynClient     dynamic.Interface
+	recorder      *stepexec.Recorder
+	taskWatchMu   sync.Mutex
+	taskWatchByNS map[string]bool
 }
 
-func NewRealK8sWatcher(dynClient dynamic.Interface) *RealK8sWatcher {
-	return &RealK8sWatcher{dynClient: dynClient}
+func NewRealK8sWatcher(dynClient dynamic.Interface, recorder ...*stepexec.Recorder) *RealK8sWatcher {
+	w := &RealK8sWatcher{dynClient: dynClient, taskWatchByNS: make(map[string]bool)}
+	if len(recorder) > 0 {
+		w.recorder = recorder[0]
+	}
+	return w
 }
 
-func (w *RealK8sWatcher) WatchPipelineRuns(ctx context.Context, namespace string, handler func(runName, status string, stepStatuses []StepStatus)) {
+func (w *RealK8sWatcher) WatchPipelineRuns(ctx context.Context, namespace string, handler func(runName, projectID, status string, stepStatuses []StepStatus)) {
+	w.startTaskRunWatch(ctx, namespace)
 	for {
 		if err := w.doWatch(ctx, namespace, handler); err != nil {
 			if ctx.Err() != nil {
@@ -47,7 +56,21 @@ func (w *RealK8sWatcher) WatchPipelineRuns(ctx context.Context, namespace string
 	}
 }
 
-func (w *RealK8sWatcher) doWatch(ctx context.Context, namespace string, handler func(runName, status string, stepStatuses []StepStatus)) error {
+func (w *RealK8sWatcher) startTaskRunWatch(ctx context.Context, namespace string) {
+	if w.recorder == nil {
+		return
+	}
+	w.taskWatchMu.Lock()
+	if w.taskWatchByNS[namespace] {
+		w.taskWatchMu.Unlock()
+		return
+	}
+	w.taskWatchByNS[namespace] = true
+	w.taskWatchMu.Unlock()
+	go w.WatchTaskRuns(ctx, namespace)
+}
+
+func (w *RealK8sWatcher) doWatch(ctx context.Context, namespace string, handler func(runName, projectID, status string, stepStatuses []StepStatus)) error {
 	watcher, err := w.dynClient.Resource(pipelineRunGVR).Namespace(namespace).Watch(ctx, metav1.ListOptions{
 		LabelSelector: "zcid.io/managed-by=zcid",
 	})
@@ -72,8 +95,9 @@ func (w *RealK8sWatcher) doWatch(ctx context.Context, namespace string, handler 
 				continue
 			}
 			name := obj.GetName()
+			projectID := obj.GetLabels()["zcid.io/project-id"]
 			status, steps := extractStatus(obj)
-			handler(name, status, steps)
+			handler(name, projectID, status, steps)
 		}
 	}
 }
@@ -100,26 +124,20 @@ func extractStatus(obj *unstructured.Unstructured) (string, []StepStatus) {
 	}
 
 	var steps []StepStatus
-	taskRuns, found, _ := unstructured.NestedMap(obj.Object, "status", "childReferences")
-	if !found {
-		childRefs, found, _ := unstructured.NestedSlice(obj.Object, "status", "childReferences")
-		if found {
-			for _, ref := range childRefs {
-				refMap, ok := ref.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				pipelineTaskName, _ := refMap["pipelineTaskName"].(string)
-				steps = append(steps, StepStatus{
-					StepID: pipelineTaskName,
-					Status: status,
-				})
+	childRefs, found, _ := unstructured.NestedSlice(obj.Object, "status", "childReferences")
+	if found {
+		for _, ref := range childRefs {
+			refMap, ok := ref.(map[string]interface{})
+			if !ok {
+				continue
 			}
+			pipelineTaskName, _ := refMap["pipelineTaskName"].(string)
+			name, _ := refMap["name"].(string)
+			if pipelineTaskName == "" {
+				pipelineTaskName = name
+			}
+			steps = append(steps, StepStatus{StepID: pipelineTaskName, Name: name, Status: status})
 		}
-	} else {
-		raw, _ := json.Marshal(taskRuns)
-		_ = raw
 	}
-
 	return status, steps
 }

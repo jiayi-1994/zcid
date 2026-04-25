@@ -16,7 +16,7 @@ import (
 
 type testK8sWatcher struct {
 	mu      sync.Mutex
-	handler func(runName, status string, stepStatuses []StepStatus)
+	handler func(runName, projectID, status string, stepStatuses []StepStatus)
 	ready   chan struct{}
 }
 
@@ -24,7 +24,7 @@ func newTestK8sWatcher() *testK8sWatcher {
 	return &testK8sWatcher{ready: make(chan struct{})}
 }
 
-func (t *testK8sWatcher) WatchPipelineRuns(ctx context.Context, namespace string, handler func(runName, status string, stepStatuses []StepStatus)) {
+func (t *testK8sWatcher) WatchPipelineRuns(ctx context.Context, namespace string, handler func(runName, projectID, status string, stepStatuses []StepStatus)) {
 	t.mu.Lock()
 	t.handler = handler
 	t.mu.Unlock()
@@ -37,7 +37,7 @@ func (t *testK8sWatcher) emit(runName, status string, stepStatuses []StepStatus)
 	h := t.handler
 	t.mu.Unlock()
 	if h != nil {
-		h(runName, status, stepStatuses)
+		h(runName, "", status, stepStatuses)
 	}
 }
 

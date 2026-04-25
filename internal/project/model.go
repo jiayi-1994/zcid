@@ -7,6 +7,7 @@ type ProjectStatus string
 const (
 	ProjectStatusActive  ProjectStatus = "active"
 	ProjectStatusDeleted ProjectStatus = "deleted"
+	DefaultRunNamespace                = "zcid-run"
 )
 
 type ProjectRole string

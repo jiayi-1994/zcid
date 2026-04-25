@@ -16,6 +16,7 @@ var (
 type Repository interface {
 	Create(ctx context.Context, r *PipelineRun) error
 	GetByIDAndProject(ctx context.Context, id, projectID string) (*PipelineRun, error)
+	GetByIDProjectPipeline(ctx context.Context, id, projectID, pipelineID string) (*PipelineRun, error)
 	GetNextRunNumber(ctx context.Context, pipelineID string) (int, error)
 	ListByPipeline(ctx context.Context, pipelineID, projectID string, page, pageSize int) ([]*PipelineRun, int64, error)
 	ListRunning(ctx context.Context, pipelineID string) ([]*PipelineRun, error)
@@ -54,6 +55,20 @@ func (r *Repo) GetByIDAndProject(ctx context.Context, id, projectID string) (*Pi
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get pipeline run: %w", err)
+	}
+	return &run, nil
+}
+
+func (r *Repo) GetByIDProjectPipeline(ctx context.Context, id, projectID, pipelineID string) (*PipelineRun, error) {
+	var run PipelineRun
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND project_id = ? AND pipeline_id = ?", id, projectID, pipelineID).
+		First(&run).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get pipeline run by pipeline: %w", err)
 	}
 	return &run, nil
 }

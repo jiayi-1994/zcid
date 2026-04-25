@@ -10,14 +10,15 @@ import (
 )
 
 type Config struct {
-	Server     ServerConfig     `yaml:"server"`
-	Database   DatabaseConfig   `yaml:"database"`
-	Redis      RedisConfig      `yaml:"redis"`
-	MinIO      MinIOConfig      `yaml:"minio"`
-	Auth       AuthConfig       `yaml:"auth"`
-	Encryption EncryptionConfig `yaml:"-"`
-	K8s        K8sConfig        `yaml:"-"`
-	ArgoCD     ArgoCDConfig     `yaml:"-"`
+	Server         ServerConfig         `yaml:"server"`
+	Database       DatabaseConfig       `yaml:"database"`
+	Redis          RedisConfig          `yaml:"redis"`
+	MinIO          MinIOConfig          `yaml:"minio"`
+	Auth           AuthConfig           `yaml:"auth"`
+	StepExecutions StepExecutionsConfig `yaml:"step_executions"`
+	Encryption     EncryptionConfig     `yaml:"-"`
+	K8s            K8sConfig            `yaml:"-"`
+	ArgoCD         ArgoCDConfig         `yaml:"-"`
 }
 
 type K8sConfig struct {
@@ -64,6 +65,10 @@ type AuthConfig struct {
 	JWTSecret string `yaml:"jwt_secret"`
 }
 
+type StepExecutionsConfig struct {
+	RetentionDays int `yaml:"retention_days"`
+}
+
 type EncryptionConfig struct {
 	Key string `yaml:"-"` // only from env var, never from YAML
 }
@@ -93,7 +98,8 @@ func Load(path string) (*Config, error) {
 			Endpoint: "localhost:9000",
 			UseSSL:   false,
 		},
-		Auth: AuthConfig{},
+		Auth:           AuthConfig{},
+		StepExecutions: StepExecutionsConfig{RetentionDays: 90},
 	}
 
 	data, err := os.ReadFile(path)
@@ -182,6 +188,15 @@ func applyEnvOverrides(cfg *Config) {
 	// Auth
 	if v := os.Getenv("JWT_SECRET"); v != "" {
 		cfg.Auth.JWTSecret = v
+	}
+
+	if cfg.StepExecutions.RetentionDays <= 0 {
+		cfg.StepExecutions.RetentionDays = 90
+	}
+	if v := os.Getenv("ZCID_STEP_EXECUTIONS_RETENTION_DAYS"); v != "" {
+		if days, err := strconv.Atoi(v); err == nil && days > 0 {
+			cfg.StepExecutions.RetentionDays = days
+		}
 	}
 
 	// Encryption

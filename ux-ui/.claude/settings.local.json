@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"C:\\\\Users\\\\谢家意\\\\.claude\\\\projects\\\\F--other-code-zcid-ux-ui\\\\828a8516-26d7-44c7-8b01-e029f03002aa\\\\tool-results\\\\bdvl9foty.txt\" /tmp/pipeline.txt)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
