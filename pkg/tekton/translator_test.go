@@ -131,3 +131,39 @@ func TestTranslateMultiStageOrdering(t *testing.T) {
 	// Third task: RunAfter build, test
 	assert.Equal(t, []string{"build", "test"}, pr.Spec.PipelineSpec.Tasks[2].RunAfter)
 }
+
+func TestTranslateExpandsActionStepTypes(t *testing.T) {
+	tr := NewTranslator()
+	config := pipeline.PipelineConfig{
+		Stages: []pipeline.StageConfig{
+			{ID: "checkout", Name: "checkout", Steps: []pipeline.StepConfig{
+				{ID: "clone", Name: "clone", Type: "git-clone", Config: map[string]any{"repoUrl": "https://example.com/acme/app.git", "branch": "main", "depth": "1"}},
+			}},
+			{ID: "build", Name: "build", Steps: []pipeline.StepConfig{
+				{ID: "script", Name: "script", Type: "shell", Image: "alpine", Command: []string{"echo preparing", "go test ./..."}},
+			}},
+			{ID: "docker", Name: "docker", Steps: []pipeline.StepConfig{
+				{ID: "image", Name: "image", Type: "kaniko", Config: map[string]any{"imageName": "registry.example.com/app:latest", "dockerfile": "Dockerfile", "context": "."}},
+			}},
+		},
+	}
+
+	pr, err := tr.Translate("p1", "r1", "proj1", "ns1", config, nil, &GitInfo{CommitSHA: "abc123"})
+	require.NoError(t, err)
+
+	clone := pr.Spec.PipelineSpec.Tasks[0].TaskSpec.Steps[0]
+	assert.Equal(t, GitImage, clone.Image)
+	assert.Equal(t, []string{"git", "clone"}, clone.Command)
+	assert.Equal(t, []string{"--depth", "1", "--branch", "main", "--single-branch", "https://example.com/acme/app.git", "/workspace/source"}, clone.Args)
+
+	script := pr.Spec.PipelineSpec.Tasks[1].TaskSpec.Steps[0]
+	assert.Equal(t, []string{"/bin/sh", "-c"}, script.Command)
+	assert.Equal(t, []string{"echo preparing\ngo test ./..."}, script.Args)
+
+	kaniko := pr.Spec.PipelineSpec.Tasks[2].TaskSpec.Steps[0]
+	assert.Equal(t, KanikoImage, kaniko.Image)
+	assert.Equal(t, []string{"/kaniko/executor"}, kaniko.Command)
+	assert.Contains(t, kaniko.Args, "--dockerfile=Dockerfile")
+	assert.Contains(t, kaniko.Args, "--context=dir:///workspace/source")
+	assert.Contains(t, kaniko.Args, "--destination=registry.example.com/app:latest")
+}
