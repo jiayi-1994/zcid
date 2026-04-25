@@ -1,6 +1,6 @@
 module github.com/xjy/zcid
 
-go 1.25.0
+go 1.24.5
 
 require (
 	github.com/casbin/casbin/v3 v3.8.1
