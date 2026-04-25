@@ -52,6 +52,28 @@ export interface Artifact {
   size?: number;
 }
 
+export interface StepExecution {
+  id: string;
+  pipelineRunId: string;
+  taskRunName: string;
+  stepName: string;
+  stepIndex: number;
+  status: string;
+  imageRef?: string;
+  imageDigest?: string;
+  secretRefs?: unknown;
+  workspaceMounts?: unknown;
+  resources?: unknown;
+  outputDigests?: unknown;
+  traceId?: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  exitCode?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LogEntry {
   seq: number;
   stepId: string;
@@ -120,6 +142,17 @@ export async function fetchRunArtifacts(
     `/projects/${projectId}/pipelines/${pipelineId}/runs/${runId}/artifacts`
   );
   return res.data.data.artifacts ?? [];
+}
+
+export async function fetchStepExecutions(
+  projectId: string,
+  pipelineId: string,
+  runId: string
+): Promise<StepExecution[]> {
+  const res = await http.get<ApiResponse<{ items: StepExecution[] }>>(
+    `/projects/${projectId}/pipelines/${pipelineId}/runs/${runId}/step-executions`
+  );
+  return res.data.data.items ?? [];
 }
 
 export async function fetchArchivedLogs(

@@ -2,15 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Message } from '@arco-design/web-react';
 import {
-  fetchPipelineRun, cancelPipelineRun, fetchRunArtifacts, fetchArchivedLogs,
-  type PipelineRun, type Artifact, type LogEntry, type ArchivedLogsResponse,
+  fetchPipelineRun, cancelPipelineRun, fetchRunArtifacts, fetchArchivedLogs, fetchStepExecutions,
+  type PipelineRun, type Artifact, type LogEntry, type ArchivedLogsResponse, type StepExecution,
 } from '../../../services/pipelineRun';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Card } from '../../../components/ui/Card';
 import { Metric } from '../../../components/ui/Metric';
 import { Btn } from '../../../components/ui/Btn';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
-import { Badge } from '../../../components/ui/Badge';
+import { StepsWaterfall } from '../../../components/pipeline/StepsWaterfall';
 import { IArrL, IPlay, IClock, IUser, ICode } from '../../../components/ui/icons';
 
 function formatDuration(start?: string, end?: string): string {
@@ -21,11 +21,6 @@ function formatDuration(start?: string, end?: string): string {
   return min < 60 ? `${min}m ${diff % 60}s` : `${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
-const STAGE_TONE: Record<string, 'green' | 'amber' | 'blue' | 'red'> = {
-  completed: 'green',
-  active: 'blue',
-  pending: 'amber',
-};
 
 export default function PipelineRunDetailPage() {
   const { id: projectId, pipelineId, runId } = useParams<{ id: string; pipelineId: string; runId: string }>();
@@ -34,21 +29,29 @@ export default function PipelineRunDetailPage() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [logsTotal, setLogsTotal] = useState(0);
+  const [stepExecutions, setStepExecutions] = useState<StepExecution[]>([]);
+  const [stepError, setStepError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!projectId || !pipelineId || !runId) return;
     setLoading(true);
     try {
-      const [runData, artData, logsData] = await Promise.all([
+      const [runData, artData, stepData, logsData] = await Promise.all([
         fetchPipelineRun(projectId, pipelineId, runId),
         fetchRunArtifacts(projectId, pipelineId, runId).catch(() => []),
+        fetchStepExecutions(projectId, pipelineId, runId).catch(() => {
+          setStepError('Step execution data is temporarily unavailable.');
+          return [] as StepExecution[];
+        }),
         fetchArchivedLogs(projectId, runId, 1, 100).catch(
           (): ArchivedLogsResponse => ({ items: [], total: 0, page: 1, pageSize: 50 })
         ),
       ]);
       setRun(runData);
       setArtifacts(artData);
+      setStepExecutions(stepData);
+      setStepError(null);
       setLogs(logsData.items ?? []);
       setLogsTotal(logsData.total ?? 0);
     } catch {
@@ -59,6 +62,19 @@ export default function PipelineRunDetailPage() {
   }, [projectId, pipelineId, runId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (!projectId || !pipelineId || !runId || !run || !['pending', 'queued', 'running'].includes(run.status)) return;
+    const timer = window.setInterval(() => {
+      Promise.all([
+        fetchPipelineRun(projectId, pipelineId, runId),
+        fetchStepExecutions(projectId, pipelineId, runId),
+      ])
+        .then(([nextRun, items]) => { setRun(nextRun); setStepExecutions(items); setStepError(null); })
+        .catch(() => setStepError('Step execution data is temporarily unavailable.'));
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [projectId, pipelineId, runId, run?.status]);
 
   const handleCancel = async () => {
     if (!projectId || !pipelineId || !runId) return;
@@ -87,12 +103,6 @@ export default function PipelineRunDetailPage() {
   const canCancel = ['pending', 'queued', 'running'].includes(run.status);
   const duration = formatDuration(run.startedAt, run.finishedAt);
 
-  const mockStages = [
-    { name: 'Source Checkout', status: run.status === 'pending' ? 'pending' : 'completed' },
-    { name: 'Build Artifacts', status: run.status === 'succeeded' || run.status === 'failed' ? 'completed' : run.status === 'running' ? 'active' : 'pending' },
-    { name: 'Image Push', status: run.status === 'succeeded' ? 'completed' : 'pending' },
-    { name: 'K8s Deploy', status: run.status === 'succeeded' ? 'completed' : 'pending' },
-  ];
 
   return (
     <>
@@ -108,32 +118,6 @@ export default function PipelineRunDetailPage() {
         }
       />
       <div style={{ padding: '24px 24px 48px', display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 960 }}>
-        {/* Stage progress */}
-        <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            {mockStages.map((stage, i) => (
-              <div key={stage.name} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                {i > 0 && <div style={{ height: 2, flex: 1, background: stage.status === 'pending' ? 'var(--z-150)' : 'var(--green)' }} />}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 80 }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: stage.status === 'completed' ? 'var(--green-soft)' : stage.status === 'active' ? 'var(--blue-soft)' : 'var(--z-100)',
-                    border: `2px solid ${stage.status === 'completed' ? 'var(--green)' : stage.status === 'active' ? 'var(--blue-ink)' : 'var(--z-200)'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12,
-                  }}>
-                    {stage.status === 'completed' ? '✓' : stage.status === 'active' ? '●' : '○'}
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--z-500)', textAlign: 'center', lineHeight: 1.3 }}>{stage.name}</span>
-                  <Badge tone={STAGE_TONE[stage.status] ?? 'amber'}>
-                    {stage.status === 'completed' ? 'Done' : stage.status === 'active' ? 'Running' : 'Pending'}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
         {/* Info metrics */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
           <Metric label="TRIGGER" value={run.triggerType === 'manual' ? '手动' : run.triggerType} icon={<IPlay size={14} />} iconBg="var(--z-100)" iconColor="var(--z-700)" />
@@ -175,6 +159,26 @@ export default function PipelineRunDetailPage() {
           </div>
         </Card>
 
+        {/* Artifacts */}
+        {artifacts.length > 0 && (
+          <Card title="Build Artifacts">
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {artifacts.map((a) => (
+                <a key={a.name} href={a.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                  <span className="code" style={{ fontSize: 12, cursor: 'pointer' }}>
+                    {a.name}{a.size != null ? ` (${(a.size / 1024).toFixed(1)} KB)` : ''}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Step execution waterfall */}
+        <Card title="Step Execution Waterfall">
+          <StepsWaterfall items={stepExecutions} error={stepError} />
+        </Card>
+
         {/* Build log terminal */}
         <Card title="Build Output" padding={false}>
           <div style={{
@@ -198,20 +202,6 @@ export default function PipelineRunDetailPage() {
           </div>
         </Card>
 
-        {/* Artifacts */}
-        {artifacts.length > 0 && (
-          <Card title="Build Artifacts">
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {artifacts.map((a) => (
-                <a key={a.name} href={a.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                  <span className="code" style={{ fontSize: 12, cursor: 'pointer' }}>
-                    {a.name}{a.size != null ? ` (${(a.size / 1024).toFixed(1)} KB)` : ''}
-                  </span>
-                </a>
-              ))}
-            </div>
-          </Card>
-        )}
       </div>
     </>
   );

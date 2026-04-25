@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xjy/zcid/internal/pipeline"
+	"github.com/xjy/zcid/internal/stepexec"
 	"github.com/xjy/zcid/internal/variable"
 	"github.com/xjy/zcid/pkg/response"
 	"github.com/xjy/zcid/pkg/tekton"
@@ -26,10 +27,11 @@ type Service struct {
 	translator      *tekton.Translator
 	k8sClient       K8sClient
 	secretInjector  SecretInjector
+	stepRepo        stepexec.Repository
 }
 
-func NewService(repo Repository, pipelineRepo PipelineGetter, variableService *variable.Service, translator *tekton.Translator, k8sClient K8sClient, secretInjector SecretInjector) *Service {
-	return &Service{
+func NewService(repo Repository, pipelineRepo PipelineGetter, variableService *variable.Service, translator *tekton.Translator, k8sClient K8sClient, secretInjector SecretInjector, stepRepo ...stepexec.Repository) *Service {
+	s := &Service{
 		repo:            repo,
 		pipelineRepo:    pipelineRepo,
 		variableService: variableService,
@@ -37,6 +39,10 @@ func NewService(repo Repository, pipelineRepo PipelineGetter, variableService *v
 		k8sClient:       k8sClient,
 		secretInjector:  secretInjector,
 	}
+	if len(stepRepo) > 0 {
+		s.stepRepo = stepRepo[0]
+	}
+	return s
 }
 
 func (s *Service) TriggerRun(ctx context.Context, projectID, pipelineID, userID string, req TriggerRunRequest) (*PipelineRunResponse, error) {
@@ -199,6 +205,9 @@ func (s *Service) syncRunStatus(runID, projectID, namespace, tektonName string) 
 		select {
 		case <-timeout:
 			_ = s.repo.UpdateStatus(context.Background(), runID, projectID, StatusFailed, ptr("运行超时"))
+			if s.stepRepo != nil {
+				_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusFailed))
+			}
 			return
 		case <-ticker.C:
 			status, err := s.k8sClient.GetPipelineRunStatus(context.Background(), namespace, tektonName)
@@ -224,6 +233,9 @@ func (s *Service) syncRunStatus(runID, projectID, namespace, tektonName string) 
 					"finished_at": now,
 					"updated_at":  now,
 				})
+				if s.stepRepo != nil {
+					_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusSucceeded))
+				}
 				return
 			case "Failed":
 				now := time.Now()
@@ -233,6 +245,20 @@ func (s *Service) syncRunStatus(runID, projectID, namespace, tektonName string) 
 					"updated_at":    now,
 					"error_message": "Pipeline execution failed",
 				})
+				if s.stepRepo != nil {
+					_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusFailed))
+				}
+				return
+			case "Cancelled":
+				now := time.Now()
+				_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
+					"status":      StatusCancelled,
+					"finished_at": now,
+					"updated_at":  now,
+				})
+				if s.stepRepo != nil {
+					_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusCancelled))
+				}
 				return
 			}
 		}
@@ -259,11 +285,15 @@ func (s *Service) CancelRun(ctx context.Context, projectID, runID string) error 
 	}
 
 	now := time.Now()
-	return s.repo.Update(ctx, runID, projectID, map[string]interface{}{
+	err = s.repo.Update(ctx, runID, projectID, map[string]interface{}{
 		"status":      StatusCancelled,
 		"finished_at": now,
 		"updated_at":  now,
 	})
+	if err == nil && s.stepRepo != nil {
+		_ = s.stepRepo.FinalizeRun(ctx, runID, string(StatusCancelled))
+	}
+	return err
 }
 
 func (s *Service) GetRun(ctx context.Context, projectID, runID string) (*PipelineRunResponse, error) {
@@ -275,6 +305,27 @@ func (s *Service) GetRun(ctx context.Context, projectID, runID string) (*Pipelin
 		return nil, response.NewBizError(response.CodeInternalServerError, "查询运行记录失败", err.Error())
 	}
 	return toResponse(run), nil
+}
+
+func (s *Service) GetStepExecutions(ctx context.Context, projectID, pipelineID, runID string) (*StepExecutionListResponse, error) {
+	if s.stepRepo == nil {
+		return &StepExecutionListResponse{Items: []StepExecutionResponse{}}, nil
+	}
+	if _, err := s.repo.GetByIDProjectPipeline(ctx, runID, projectID, pipelineID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, response.NewBizError(response.CodeRunNotFound, "运行记录不存在", "")
+		}
+		return nil, response.NewBizError(response.CodeInternalServerError, "查询运行记录失败", err.Error())
+	}
+	rows, err := s.stepRepo.ListByPipelineRun(ctx, runID)
+	if err != nil {
+		return nil, response.NewBizError(response.CodeInternalServerError, "查询步骤执行记录失败", err.Error())
+	}
+	items := make([]StepExecutionResponse, 0, len(rows))
+	for i := range rows {
+		items = append(items, toStepExecutionResponse(rows[i]))
+	}
+	return &StepExecutionListResponse{Items: items}, nil
 }
 
 func (s *Service) ListRuns(ctx context.Context, projectID, pipelineID string, page, pageSize int) (*PipelineRunListResponse, error) {

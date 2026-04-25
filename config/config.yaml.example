@@ -24,3 +24,6 @@ minio:
 
 auth:
   jwt_secret: ""  # Use JWT_SECRET env var instead
+
+step_executions:
+  retention_days: 90

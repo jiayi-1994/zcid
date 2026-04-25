@@ -90,6 +90,7 @@ func (t *Translator) Translate(pipelineID, runID, projectID, namespace string, c
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
+				"zcid.io/managed-by":  "zcid",
 				"zcid.io/pipeline-id": pipelineID,
 				"zcid.io/run-id":      runID,
 				"zcid.io/project-id":  projectID,

@@ -21,6 +21,7 @@ func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 	router.POST("", h.TriggerRun)
 	router.GET("", h.ListRuns)
 	router.GET("/:runId", h.GetRun)
+	router.GET("/:runId/step-executions", h.GetStepExecutions)
 	router.POST("/:runId/cancel", h.CancelRun)
 	router.GET("/:runId/artifacts", h.GetArtifacts)
 	router.PUT("/:runId/artifacts", h.UpdateArtifacts)
@@ -143,6 +144,35 @@ func (h *Handler) GetRun(c *gin.Context) {
 	}
 
 	response.Success(c, run)
+}
+
+// GetStepExecutions godoc
+// @Summary Get run step executions
+// @Description Retrieve persisted per-step execution records for a pipeline run
+// @Tags pipeline-runs
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param pipelineId path string true "Pipeline ID"
+// @Param runId path string true "Run ID"
+// @Success 200 {object} response.Response{data=StepExecutionListResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/{pipelineId}/runs/{runId}/step-executions [get]
+func (h *Handler) GetStepExecutions(c *gin.Context) {
+	projectID := getProjectID(c)
+	pipelineID := getPipelineID(c)
+	runID := getRunID(c)
+	if projectID == "" || pipelineID == "" || runID == "" {
+		response.HandleError(c, response.NewBizError(response.CodeValidation, "请求参数错误", "project id, pipeline id and run id are required"))
+		return
+	}
+
+	result, err := h.service.GetStepExecutions(c.Request.Context(), projectID, pipelineID, runID)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 // CancelRun godoc

@@ -15,6 +15,7 @@ import (
 type mockRepo struct {
 	create           func(ctx context.Context, r *PipelineRun) error
 	getByID          func(ctx context.Context, id, projectID string) (*PipelineRun, error)
+	getByIDPipeline  func(ctx context.Context, id, projectID, pipelineID string) (*PipelineRun, error)
 	getNextRunNumber func(ctx context.Context, pipelineID string) (int, error)
 	listByPipeline   func(ctx context.Context, pipelineID, projectID string, page, pageSize int) ([]*PipelineRun, int64, error)
 	listRunning      func(ctx context.Context, pipelineID string) ([]*PipelineRun, error)
@@ -34,6 +35,13 @@ func (m *mockRepo) Create(ctx context.Context, r *PipelineRun) error {
 func (m *mockRepo) GetByIDAndProject(ctx context.Context, id, projectID string) (*PipelineRun, error) {
 	if m.getByID != nil {
 		return m.getByID(ctx, id, projectID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *mockRepo) GetByIDProjectPipeline(ctx context.Context, id, projectID, pipelineID string) (*PipelineRun, error) {
+	if m.getByIDPipeline != nil {
+		return m.getByIDPipeline(ctx, id, projectID, pipelineID)
 	}
 	return nil, ErrNotFound
 }

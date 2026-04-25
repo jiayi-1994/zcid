@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/xjy/zcid/config"
 	"github.com/xjy/zcid/internal/admin"
@@ -29,6 +30,7 @@ import (
 	"github.com/xjy/zcid/internal/project"
 	"github.com/xjy/zcid/internal/rbac"
 	"github.com/xjy/zcid/internal/registry"
+	"github.com/xjy/zcid/internal/stepexec"
 	"github.com/xjy/zcid/internal/svcdef"
 	"github.com/xjy/zcid/internal/variable"
 	"github.com/xjy/zcid/internal/ws"
@@ -42,13 +44,15 @@ import (
 	"github.com/xjy/zcid/pkg/response"
 	"github.com/xjy/zcid/pkg/storage"
 	"github.com/xjy/zcid/pkg/tekton"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gorm.io/gorm"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
 func main() {
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+
 	cfg, err := config.Load("config/config.yaml")
 	if err != nil {
 		slog.Error("failed to load config", slog.Any("error", err))
@@ -114,7 +118,7 @@ func main() {
 		crdK8s = &crdclean.MockK8sClient{}
 	}
 	cleaner := crdclean.NewCRDCleaner(crdK8s, 7)
-	go cleaner.StartScheduler(context.Background(), 24*time.Hour)
+	go cleaner.StartScheduler(appCtx, 24*time.Hour)
 
 	r := gin.New()
 	r.Use(middleware.RequestID())
@@ -139,14 +143,32 @@ func main() {
 
 	auditRepo := audit.NewRepo(db)
 	auditSvc := audit.NewService(auditRepo)
+	var stepRepo stepexec.Repository
+	if db.Migrator().HasTable("step_executions") {
+		stepRepo = stepexec.NewRepo(db)
+		stepRetention := stepexec.NewRetentionWorker(stepRepo, cfg.StepExecutions.RetentionDays)
+		go stepRetention.Run(appCtx)
+	} else {
+		slog.Warn("step execution persistence disabled; migration 000019 has not created step_executions")
+	}
+	var stepRecorder *stepexec.Recorder
+	if cfg.K8s.Enabled && dynClient != nil && stepRepo != nil {
+		stepRecorder = stepexec.NewRecorder(stepRepo, 1000)
+		go stepRecorder.Run(appCtx)
+		slog.Info("step execution recorder enabled")
+	} else if cfg.K8s.Enabled && dynClient != nil {
+		slog.Info("step execution recorder disabled until step_executions migration is applied")
+	} else {
+		slog.Info("step execution recorder disabled in mock mode")
+	}
 
 	registerHealthRoutes(r, db, rdb)
 	registerExampleRoutes(r)
-	registerWebSocketRoutes(r, cfg.Auth.JWTSecret, cfg.K8s.Enabled, coreClient, dynClient)
+	pipelineWatcher := registerWebSocketRoutes(appCtx, r, cfg.Auth.JWTSecret, cfg.K8s.Enabled, coreClient, dynClient, stepRecorder)
 	registerAuthRoutes(r, db, rdb, cfg.Auth.JWTSecret)
-	registerAdminRoutes(context.Background(), r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc)
-	registerProjectRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, minioClient, auditSvc, cfg, coreClient, dynClient)
-	registerIntegrationRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc, cfg, coreClient, dynClient)
+	registerAdminRoutes(appCtx, r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc)
+	registerProjectRoutes(appCtx, r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, minioClient, auditSvc, cfg, coreClient, dynClient, stepRepo, pipelineWatcher)
+	registerIntegrationRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc, cfg, coreClient, dynClient, stepRepo)
 	registerFrontendRoutes(r)
 
 	_ = minioClient // used during init; retained for future use
@@ -169,6 +191,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
 	slog.Info("shutdown signal received", slog.String("signal", sig.String()))
+	appCancel()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -179,7 +202,7 @@ func main() {
 	slog.Info("server exited gracefully")
 }
 
-func registerWebSocketRoutes(r *gin.Engine, jwtSecret string, k8sEnabled bool, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
+func registerWebSocketRoutes(ctx context.Context, r *gin.Engine, jwtSecret string, k8sEnabled bool, coreClient kubernetes.Interface, dynClient dynamic.Interface, stepRecorder *stepexec.Recorder) *ws.PipelineWatcher {
 	hub := ws.NewHub()
 	go hub.Run()
 
@@ -187,7 +210,7 @@ func registerWebSocketRoutes(r *gin.Engine, jwtSecret string, k8sEnabled bool, c
 	var k8sWatcher ws.K8sWatcher
 	if k8sEnabled && coreClient != nil {
 		logCollector = ws.NewRealLogCollector(coreClient)
-		k8sWatcher = ws.NewRealK8sWatcher(dynClient)
+		k8sWatcher = ws.NewRealK8sWatcher(dynClient, stepRecorder)
 		slog.Info("WebSocket: 使用真实 K8s 日志收集器和状态监听器")
 	} else {
 		logCollector = &ws.MockLogCollector{}
@@ -198,10 +221,11 @@ func registerWebSocketRoutes(r *gin.Engine, jwtSecret string, k8sEnabled bool, c
 	logStream := ws.NewLogStreamManager(hub, logCollector, &ws.PlaceholderSecretMasker{})
 
 	pipelineWatcher := ws.NewPipelineWatcher(hub, k8sWatcher)
-	go pipelineWatcher.Start(context.Background())
+	go pipelineWatcher.Start(ctx)
 
 	r.GET("/ws/v1/logs/:runId", ws.ServeWsLogs(hub, jwtSecret, logStream.ReplayFn(), nil))
 	r.GET("/ws/v1/pipeline-status/:projectId", ws.ServeWsStatus(hub, jwtSecret, nil))
+	return pipelineWatcher
 }
 
 func registerExampleRoutes(r *gin.Engine) {
@@ -291,9 +315,10 @@ func registerAdminRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *r
 	})
 }
 
-func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, minioClient *minio.Client, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
+func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, minioClient *minio.Client, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface, stepRepo stepexec.Repository, pipelineWatcher *ws.PipelineWatcher) {
 	projRepo := project.NewRepo(db)
-	projService := project.NewService(projRepo)
+	projService := project.NewService(projRepo, pipelineWatcher)
+	registerExistingProjectNamespaces(ctx, projRepo, pipelineWatcher)
 	projHandler := project.NewHandler(projService)
 
 	envRepo := environment.NewRepo(db)
@@ -351,7 +376,7 @@ func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSec
 		runK8s = &pipelinerun.MockK8sClient{}
 		runSecretInjector = &pipelinerun.MockSecretInjector{}
 	}
-	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector)
+	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector, stepRepo)
 	runHandler := pipelinerun.NewHandler(runService)
 	runsGroup := pipelineGroup.Group("/:pipelineId/runs")
 	runHandler.RegisterRoutes(runsGroup)
@@ -391,7 +416,23 @@ func registerProjectRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSec
 	pipelineHandler.RegisterTemplateRoutes(templateGroup)
 }
 
-func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface) {
+func registerExistingProjectNamespaces(ctx context.Context, repo *project.Repo, pipelineWatcher *ws.PipelineWatcher) {
+	if pipelineWatcher == nil {
+		return
+	}
+	projects, total, err := repo.List(ctx, 1, 10000)
+	if err != nil {
+		slog.Warn("failed to list projects for PipelineWatcher namespace registration", slog.Any("error", err))
+		return
+	}
+	for _, p := range projects {
+		pipelineWatcher.RegisterNamespaceProject(project.DefaultRunNamespace, p.ID)
+	}
+	slog.Info("registered project namespaces for PipelineWatcher", slog.Int64("projects", total), slog.String("namespace", project.DefaultRunNamespace))
+	_ = ctx
+}
+
+func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface, stepRepo stepexec.Repository) {
 	gitRepo := gitmod.NewRepo(db)
 	gitService := gitmod.NewService(gitRepo, aesCrypto)
 
@@ -437,7 +478,7 @@ func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jw
 		runK8s = &pipelinerun.MockK8sClient{}
 		runSecretInjector = &pipelinerun.MockSecretInjector{}
 	}
-	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector)
+	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector, stepRepo)
 	webhookLimiter := middleware.NewRateLimiter(rdb, 60, time.Minute)
 	webhookHandler := gitmod.NewWebhookHandler(gitService, idempotentCache, matcher, runService)
 	webhooks := v1.Group("/webhooks")
