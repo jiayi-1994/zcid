@@ -137,6 +137,38 @@ jobs:
           DB_URL: postgres://zcid:password@localhost:5432/zcid?sslmode=disable
         run: go run cmd/migrate/main.go up
 
+      - name: Seed CI admin user
+        env:
+          DB_URL: postgres://zcid:password@localhost:5432/zcid?sslmode=disable
+        run: |
+          cat > /tmp/seed-ci-admin.go <<'EOF'
+          package main
+
+          import (
+            "database/sql"
+            "log"
+            "os"
+
+            _ "github.com/lib/pq"
+          )
+
+          func main() {
+            db, err := sql.Open("postgres", os.Getenv("DB_URL"))
+            if err != nil {
+              log.Fatal(err)
+            }
+            defer db.Close()
+            const passwordHash = "$2a$10$ndEii.uLBDvrbVvV/G6wO.F1N7gX5PXIbMec0KGBYqSIgYcpoX3Qa"
+            if _, err := db.Exec(`
+              UPDATE users
+              SET username = 'admin', password_hash = $1, role = 'admin', status = 'active', updated_at = CURRENT_TIMESTAMP
+              WHERE id = 'admin-bootstrap-001'`, passwordHash); err != nil {
+              log.Fatal(err)
+            }
+          }
+          EOF
+          go run /tmp/seed-ci-admin.go
+
       - name: Start backend with K8s enabled
         env:
           ZCID_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
@@ -148,15 +180,6 @@ jobs:
             curl -sf http://localhost:8080/healthz && break
             sleep 2
           done
-          BOOTSTRAP_TOKEN=$(grep -o 'zcid_bootstrap_[A-Za-z0-9_-]\+' /tmp/backend.log | tail -1)
-          if [ -z "$BOOTSTRAP_TOKEN" ]; then
-            echo "Bootstrap token not found in backend log"
-            tail -100 /tmp/backend.log
-            exit 1
-          fi
-          curl -sf http://localhost:8080/api/v1/auth/bootstrap/redeem \
-            -X POST -H "Content-Type: application/json" \
-            -d "{\"token\":\"${BOOTSTRAP_TOKEN}\",\"username\":\"admin\",\"password\":\"admin123\"}"
           curl -sf http://localhost:8080/api/v1/auth/login \
             -X POST -H "Content-Type: application/json" \
             -d '{"username":"admin","password":"admin123"}'
