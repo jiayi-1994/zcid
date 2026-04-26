@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS access_tokens (
     token_hash VARCHAR(64) UNIQUE NOT NULL,
     scopes TEXT NOT NULL,
     user_id VARCHAR(255) REFERENCES users(id),
-    project_id UUID REFERENCES projects(id),
+    project_id VARCHAR(255) REFERENCES projects(id),
     created_by VARCHAR(255) REFERENCES users(id),
     expires_at TIMESTAMPTZ NOT NULL,
     last_used_at TIMESTAMPTZ,

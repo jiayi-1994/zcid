@@ -115,9 +115,14 @@ func TestService_LogAuthSecurityEvent(t *testing.T) {
 
 func TestService_LogAuthSecurityEventDefaults(t *testing.T) {
 	ctx := context.Background()
-	var created *AuditLog
+	var (
+		mu      sync.Mutex
+		created *AuditLog
+	)
 	repo := &mockAuditRepo{
 		create: func(ctx context.Context, log *AuditLog) error {
+			mu.Lock()
+			defer mu.Unlock()
 			created = log
 			return nil
 		},
@@ -126,10 +131,14 @@ func TestService_LogAuthSecurityEventDefaults(t *testing.T) {
 	svc.LogAuthSecurityEvent(ctx, AuthSecurityEvent{Detail: AuthSecurityDetail{EventType: "auth.logout"}})
 	time.Sleep(100 * time.Millisecond)
 
-	require.NotNil(t, created)
-	assert.Equal(t, "auth.logout", created.Action)
-	assert.Equal(t, ResourceTypeAuthSecurity, created.ResourceType)
-	assert.Equal(t, ResultSuccess, created.Result)
+	mu.Lock()
+	c := created
+	mu.Unlock()
+
+	require.NotNil(t, c)
+	assert.Equal(t, "auth.logout", c.Action)
+	assert.Equal(t, ResourceTypeAuthSecurity, c.ResourceType)
+	assert.Equal(t, ResultSuccess, c.Result)
 }
 
 func TestService_List(t *testing.T) {

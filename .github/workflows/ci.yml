@@ -126,13 +126,23 @@ jobs:
         env:
           ZCID_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
         run: |
-          go run cmd/server/main.go &
+          go run cmd/server/main.go > /tmp/backend.log 2>&1 &
           for i in $(seq 1 30); do
-            curl -sf http://localhost:8080/api/v1/auth/login \
-              -X POST -H "Content-Type: application/json" \
-              -d '{"username":"admin","password":"admin123"}' && break
+            curl -sf http://localhost:8080/healthz && break
             sleep 2
           done
+          BOOTSTRAP_TOKEN=$(grep -o 'zcid_bootstrap_[A-Za-z0-9_-]\+' /tmp/backend.log | tail -1)
+          if [ -z "$BOOTSTRAP_TOKEN" ]; then
+            echo "Bootstrap token not found in backend log"
+            tail -100 /tmp/backend.log
+            exit 1
+          fi
+          curl -sf http://localhost:8080/api/v1/auth/bootstrap/redeem \
+            -X POST -H "Content-Type: application/json" \
+            -d "{\"token\":\"${BOOTSTRAP_TOKEN}\",\"username\":\"admin\",\"password\":\"admin123\"}"
+          curl -sf http://localhost:8080/api/v1/auth/login \
+            -X POST -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"admin123"}'
 
       - name: Run integration tests
         env:
