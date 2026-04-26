@@ -101,7 +101,11 @@ go run cmd/server/main.go
 cd web && npm install && npm run dev
 ```
 
-Frontend: `http://localhost:5173` · API: `http://localhost:8080` · Login: `admin` / `admin123`
+Frontend: `http://localhost:5173` · API: `http://localhost:8080`
+
+On first startup with an empty user store, zcid logs a one-time bootstrap token with prefix `zcid_bootstrap_`. Open the frontend, use the bootstrap flow to create the first admin, and copy the token from the backend log immediately; it expires after 15 minutes and cannot be reused. The historical `admin` placeholder is disabled and must not be used as a default credential.
+
+Programmatic automation can use expiring access tokens created from **System → 访问令牌**. Tokens use `zcid_pat_` for personal tokens and `zcid_proj_` for project-scoped tokens, are shown only once, and must be stored in a secret manager or CI secret store.
 
 > Without K8s/Tekton/ArgoCD, zcid runs in **mock mode** — pipeline runs simulate a realistic lifecycle (queued→running→succeeded in ~10s) and deployments simulate ArgoCD sync.
 

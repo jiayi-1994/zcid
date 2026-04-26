@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -66,20 +67,20 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 				{
 					ID: "checkout", Name: "代码检出",
 					Steps: []StepConfig{
-						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "{{.repoUrl}}", "branch": "{{.branch}}"}},
+						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "$(params.repoUrl)", "branch": "$(params.branch)"}},
 					},
 				},
 				{
 					ID: "build", Name: "编译测试",
 					Steps: []StepConfig{
-						{ID: "go-test", Name: "单元测试", Type: "shell", Image: "golang:{{.goVersion}}", Command: []string{"go", "test", "./..."}},
-						{ID: "go-build", Name: "编译", Type: "shell", Image: "golang:{{.goVersion}}", Command: []string{"go", "build", "-o", "app", "./cmd/server"}},
+						{ID: "go-test", Name: "单元测试", Type: "shell", Image: "golang:$(params.goVersion)", Command: []string{"go", "test", "./..."}},
+						{ID: "go-build", Name: "编译", Type: "shell", Image: "golang:$(params.goVersion)", Command: []string{"go", "build", "-o", "app", "./cmd/server"}},
 					},
 				},
 				{
 					ID: "docker", Name: "镜像构建推送",
 					Steps: []StepConfig{
-						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "{{.imageName}}", "dockerfile": "Dockerfile"}},
+						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "$(params.imageName)", "dockerfile": "Dockerfile"}},
 					},
 				},
 			},
@@ -103,19 +104,19 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 				{
 					ID: "checkout", Name: "代码检出",
 					Steps: []StepConfig{
-						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "{{.repoUrl}}", "branch": "{{.branch}}"}},
+						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "$(params.repoUrl)", "branch": "$(params.branch)"}},
 					},
 				},
 				{
 					ID: "build", Name: "Maven 构建",
 					Steps: []StepConfig{
-						{ID: "mvn-package", Name: "Maven Package", Type: "shell", Image: "maven:3.9-eclipse-temurin-{{.javaVersion}}", Command: []string{"mvn", "clean", "package", "-DskipTests=false"}},
+						{ID: "mvn-package", Name: "Maven Package", Type: "shell", Image: "maven:3.9-eclipse-temurin-$(params.javaVersion)", Command: []string{"mvn", "clean", "package", "-DskipTests=false"}},
 					},
 				},
 				{
 					ID: "docker", Name: "镜像构建推送",
 					Steps: []StepConfig{
-						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "{{.imageName}}", "dockerfile": "Dockerfile"}},
+						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "$(params.imageName)", "dockerfile": "Dockerfile"}},
 					},
 				},
 			},
@@ -131,7 +132,7 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 			{Name: "repoUrl", Type: "string", Description: "Git 仓库地址", Required: true},
 			{Name: "branch", Type: "string", Description: "分支名称", DefaultValue: "main", Required: true},
 			{Name: "imageName", Type: "string", Description: "镜像名称（含仓库前缀）", Required: true},
-			{Name: "nodeVersion", Type: "string", Description: "Node.js 版本", DefaultValue: "20"},
+			{Name: "nodeVersion", Type: "enum", Options: []string{"18", "20", "22"}, Description: "Node.js 版本", DefaultValue: "20"},
 			{Name: "buildCommand", Type: "string", Description: "构建命令", DefaultValue: "npm run build"},
 		},
 		Config: PipelineConfig{
@@ -140,20 +141,20 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 				{
 					ID: "checkout", Name: "代码检出",
 					Steps: []StepConfig{
-						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "{{.repoUrl}}", "branch": "{{.branch}}"}},
+						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "$(params.repoUrl)", "branch": "$(params.branch)"}},
 					},
 				},
 				{
 					ID: "build", Name: "依赖安装与构建",
 					Steps: []StepConfig{
-						{ID: "npm-install", Name: "安装依赖", Type: "shell", Image: "node:{{.nodeVersion}}", Command: []string{"npm", "ci"}},
-						{ID: "npm-build", Name: "构建", Type: "shell", Image: "node:{{.nodeVersion}}", Command: []string{"sh", "-c", "{{.buildCommand}}"}},
+						{ID: "npm-install", Name: "安装依赖", Type: "shell", Image: "node:$(params.nodeVersion)", Command: []string{"npm", "ci"}},
+						{ID: "npm-build", Name: "构建", Type: "shell", Image: "node:$(params.nodeVersion)", Command: []string{"sh", "-c", "$(params.buildCommand)"}},
 					},
 				},
 				{
 					ID: "docker", Name: "镜像构建推送",
 					Steps: []StepConfig{
-						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "{{.imageName}}", "dockerfile": "Dockerfile"}},
+						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "$(params.imageName)", "dockerfile": "Dockerfile"}},
 					},
 				},
 			},
@@ -168,7 +169,7 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 		Params: []ParamConfig{
 			{Name: "repoUrl", Type: "string", Description: "Git 仓库地址", Required: true},
 			{Name: "branch", Type: "string", Description: "分支名称", DefaultValue: "main", Required: true},
-			{Name: "javaVersion", Type: "string", Description: "Java 版本", DefaultValue: "17"},
+			{Name: "javaVersion", Type: "enum", Options: []string{"11", "17", "21"}, Description: "Java 版本", DefaultValue: "17"},
 			{Name: "buildCommand", Type: "string", Description: "Maven 构建命令", DefaultValue: "mvn clean package -DskipTests"},
 			{Name: "artifactPath", Type: "string", Description: "产物路径", DefaultValue: "target/*.jar"},
 			{Name: "minioEndpoint", Type: "string", Description: "MinIO 端点", Required: true},
@@ -181,19 +182,19 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 				{
 					ID: "checkout", Name: "代码检出",
 					Steps: []StepConfig{
-						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "{{.repoUrl}}", "branch": "{{.branch}}"}},
+						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "$(params.repoUrl)", "branch": "$(params.branch)"}},
 					},
 				},
 				{
 					ID: "build", Name: "Maven 构建",
 					Steps: []StepConfig{
-						{ID: "mvn-build", Name: "Maven Package", Type: "shell", Image: "maven:3.9-eclipse-temurin-{{.javaVersion}}", Command: []string{"sh", "-c", "cd /workspace/source && {{.buildCommand}}"}},
+						{ID: "mvn-build", Name: "Maven Package", Type: "shell", Image: "maven:3.9-eclipse-temurin-$(params.javaVersion)", Command: []string{"sh", "-c", "cd /workspace/source && $(params.buildCommand)"}},
 					},
 				},
 				{
 					ID: "upload", Name: "上传 MinIO",
 					Steps: []StepConfig{
-						{ID: "minio-upload", Name: "Upload to MinIO", Type: "shell", Image: "minio/mc:latest", Command: []string{"sh", "-c", "mc alias set minio http://{{.minioEndpoint}} $MINIO_ACCESS_KEY $MINIO_SECRET_KEY && mc cp -r {{.artifactPath}} minio/{{.minioBucket}}/"}},
+						{ID: "minio-upload", Name: "Upload to MinIO", Type: "shell", Image: "minio/mc:latest", Command: []string{"sh", "-c", "mc alias set minio http://$(params.minioEndpoint) $MINIO_ACCESS_KEY $MINIO_SECRET_KEY && mc cp -r $(params.artifactPath) minio/$(params.minioBucket)/"}},
 					},
 				},
 			},
@@ -217,13 +218,13 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 				{
 					ID: "checkout", Name: "代码检出",
 					Steps: []StepConfig{
-						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "{{.repoUrl}}", "branch": "{{.branch}}"}},
+						{ID: "git-clone", Name: "Git Clone", Type: "git-clone", Config: map[string]any{"repoUrl": "$(params.repoUrl)", "branch": "$(params.branch)"}},
 					},
 				},
 				{
 					ID: "docker", Name: "镜像构建推送",
 					Steps: []StepConfig{
-						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "{{.imageName}}", "dockerfile": "{{.dockerfile}}"}},
+						{ID: "docker-build", Name: "Docker Build & Push", Type: "kaniko", Config: map[string]any{"imageName": "$(params.imageName)", "dockerfile": "$(params.dockerfile)"}},
 					},
 				},
 			},
@@ -233,13 +234,18 @@ func (r *TemplateRegistry) registerBuiltinTemplates() {
 
 func validateTemplateParams(tmpl *PipelineTemplate, params map[string]string) (map[string]string, error) {
 	merged := make(map[string]string)
+	defs := make(map[string]ParamConfig, len(tmpl.Params))
 
 	for _, p := range tmpl.Params {
+		defs[p.Name] = p
 		if p.DefaultValue != "" {
 			merged[p.Name] = p.DefaultValue
 		}
 	}
 	for k, v := range params {
+		if _, ok := defs[k]; !ok {
+			return nil, fmt.Errorf("未知模板参数: %s", k)
+		}
 		merged[k] = v
 	}
 
@@ -257,7 +263,20 @@ func validateTemplateParams(tmpl *PipelineTemplate, params map[string]string) (m
 	}
 
 	for k, v := range merged {
-		if strings.ContainsAny(v, "\"\\\n\r\t") {
+		param := defs[k]
+		if param.Type == "enum" && len(param.Options) > 0 {
+			valid := false
+			for _, option := range param.Options {
+				if v == option {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return nil, fmt.Errorf("参数 '%s' 必须是以下值之一: %s", k, strings.Join(param.Options, ", "))
+			}
+		}
+		if strings.ContainsAny(v, "\"\\\n\r\t\x00") {
 			return nil, fmt.Errorf("参数 '%s' 包含非法字符", k)
 		}
 	}
@@ -266,8 +285,23 @@ func validateTemplateParams(tmpl *PipelineTemplate, params map[string]string) (m
 }
 
 func applyTemplateParams(config PipelineConfig, params map[string]string) PipelineConfig {
+	raw, err := json.Marshal(config)
+	if err != nil {
+		return config
+	}
+	result := string(raw)
+	for key, value := range params {
+		result = strings.ReplaceAll(result, "$(params."+key+")", value)
+		result = strings.ReplaceAll(result, "{{."+key+"}}", value)
+	}
+	var out PipelineConfig
+	if err := json.Unmarshal([]byte(result), &out); err == nil {
+		return out
+	}
+
 	replaceInString := func(s string) string {
 		for key, value := range params {
+			s = strings.ReplaceAll(s, "$(params."+key+")", value)
 			s = strings.ReplaceAll(s, "{{."+key+"}}", value)
 		}
 		return s

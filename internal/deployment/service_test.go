@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/xjy/zcid/internal/environment"
+	"github.com/xjy/zcid/internal/notification"
 	"github.com/xjy/zcid/pkg/argocd"
 	"github.com/xjy/zcid/pkg/response"
 )
@@ -60,6 +62,19 @@ type mockEnvGetter struct {
 	err error
 }
 
+type captureNotificationDispatcher struct {
+	projectID string
+	event     notification.EventType
+	payload   map[string]any
+}
+
+func (d *captureNotificationDispatcher) SendWebhook(ctx context.Context, projectID string, event notification.EventType, payload map[string]any) error {
+	d.projectID = projectID
+	d.event = event
+	d.payload = payload
+	return nil
+}
+
 func (m *mockEnvGetter) Get(ctx context.Context, id, projectID string) (*environment.Environment, error) {
 	if m.err != nil {
 		return nil, m.err
@@ -103,6 +118,47 @@ func TestGetDeployStatus(t *testing.T) {
 	}
 	if d == nil {
 		t.Fatal("expected deployment")
+	}
+}
+
+func TestNotifyDeploymentDispatchesDeployEventPayload(t *testing.T) {
+	started := time.Now().Add(-3 * time.Minute)
+	finished := time.Now()
+	syncStatus := "Synced"
+	healthStatus := "Healthy"
+	pipelineRunID := "run-1"
+	dispatcher := &captureNotificationDispatcher{}
+	svc := &Service{}
+	svc.SetNotificationDispatcher(dispatcher)
+
+	svc.notifyDeployment(context.Background(), &Deployment{
+		ID:            "dep-1",
+		ProjectID:     "proj-1",
+		EnvironmentID: "env-1",
+		PipelineRunID: &pipelineRunID,
+		Image:         "nginx:latest",
+		Status:        StatusHealthy,
+		SyncStatus:    &syncStatus,
+		HealthStatus:  &healthStatus,
+		DeployedBy:    "user-1",
+		StartedAt:     &started,
+		FinishedAt:    &finished,
+	}, notification.EventDeploySuccess)
+
+	if dispatcher.projectID != "proj-1" {
+		t.Fatalf("projectID = %q", dispatcher.projectID)
+	}
+	if dispatcher.event != notification.EventDeploySuccess {
+		t.Fatalf("event = %q", dispatcher.event)
+	}
+	if dispatcher.payload["deploymentId"] != "dep-1" || dispatcher.payload["environmentId"] != "env-1" {
+		t.Fatalf("unexpected payload: %#v", dispatcher.payload)
+	}
+	if dispatcher.payload["status"] != "healthy" || dispatcher.payload["pipelineRunId"] != "run-1" {
+		t.Fatalf("unexpected status payload: %#v", dispatcher.payload)
+	}
+	if dispatcher.payload["duration"] == "" {
+		t.Fatalf("expected duration in payload: %#v", dispatcher.payload)
 	}
 }
 

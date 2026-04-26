@@ -75,6 +75,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const canViewAdminVariables   = useAuthStore((s) => s.hasPermission('route:admin-variables:view'));
   const canViewAdminIntegrations = useAuthStore((s) => s.hasPermission('route:admin-integrations:view'));
   const canViewAuditLogs        = useAuthStore((s) => s.hasPermission('route:admin-audit:view'));
+  const canViewAccessTokens     = useAuthStore((s) => s.hasPermission('route:access-tokens:view'));
   const canViewSystemSettings   = useAuthStore((s) => s.hasPermission('route:admin-settings:view'));
   const user = useAuthStore((s) => s.user);
   const refreshToken = useAuthStore((s) => s.refreshToken);
@@ -84,7 +85,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const roleLabel = user ? ROLE_LABELS[user.role] : '';
 
-  const hasAdminSection = canViewAdminUsers || canViewAdminVariables || canViewAdminIntegrations || canViewAuditLogs || canViewSystemSettings;
+  const hasAdminSection = canViewAdminUsers || canViewAdminVariables || canViewAdminIntegrations || canViewAuditLogs || canViewAccessTokens || canViewSystemSettings;
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + '/');
@@ -138,6 +139,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               {canViewAuditLogs && (
                 <NavItem icon={<IShield size={14} />} label="审计日志" path="/admin/audit-logs" active={isActive('/admin/audit-logs')} onClick={navigate} />
               )}
+              {canViewAccessTokens && (
+                <NavItem icon={<IKey size={14} />} label="访问令牌" path="/admin/access-tokens" active={isActive('/admin/access-tokens')} onClick={navigate} />
+              )}
               {canViewSystemSettings && (
                 <NavItem icon={<ISettings size={14} />} label="系统设置" path="/admin/settings" active={isActive('/admin/settings')} onClick={navigate} />
               )}
@@ -147,7 +151,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         <div className="nav-ft">
           <div style={{ position: 'relative' }}>
-            <button type="button" className="nav-user" onClick={() => setUserMenuOpen(!userMenuOpen)}>
+            <button type="button" className="nav-user user-entry" onClick={() => setUserMenuOpen(!userMenuOpen)}>
               <Avatar name={user?.username ?? 'U'} size="sm" round />
               <div className="who">
                 <b>{user?.username}</b>
@@ -164,6 +168,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <button
                   type="button"
                   className="nav-item"
+                  role="menuitem"
                   style={{ color: 'var(--red)' }}
                   onClick={() => { setUserMenuOpen(false); void handleLogout(); }}
                 >
@@ -190,6 +195,7 @@ function getBreadcrumbs(pathname: string): string[] {
   if (pathname.startsWith('/admin/variables')) return ['全局变量'];
   if (pathname.startsWith('/admin/integrations')) return ['集成管理'];
   if (pathname.startsWith('/admin/audit-logs')) return ['审计日志'];
+  if (pathname.startsWith('/admin/access-tokens')) return ['访问令牌'];
   if (pathname.startsWith('/admin/settings')) return ['系统设置'];
   return [];
 }

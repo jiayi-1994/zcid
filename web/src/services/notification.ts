@@ -5,7 +5,10 @@ export interface NotificationRule {
   projectId: string;
   name: string;
   eventType: string;
+  channelType: 'webhook' | 'slack';
   webhookUrl: string;
+  slackChannel: string;
+  hasSlackToken: boolean;
   enabled: boolean;
   createdBy: string;
   createdAt: string;
@@ -22,14 +25,20 @@ export interface NotificationRuleList {
 export interface CreateRuleRequest {
   name: string;
   eventType: string;
+  channelType?: 'webhook' | 'slack';
   webhookUrl: string;
+  slackToken?: string;
+  slackChannel?: string;
   enabled?: boolean;
 }
 
 export interface UpdateRuleRequest {
   name?: string;
   eventType?: string;
+  channelType?: 'webhook' | 'slack';
   webhookUrl?: string;
+  slackToken?: string;
+  slackChannel?: string;
   enabled?: boolean;
 }
 
@@ -59,4 +68,8 @@ export async function updateNotificationRule(projectId: string, ruleId: string, 
 
 export async function deleteNotificationRule(projectId: string, ruleId: string) {
   await http.delete(`/projects/${projectId}/notification-rules/${ruleId}`);
+}
+
+export async function testNotificationRule(projectId: string, ruleId: string) {
+  await http.post(`/projects/${projectId}/notification-rules/${ruleId}/test`);
 }

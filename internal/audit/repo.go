@@ -19,6 +19,7 @@ type ListOpts struct {
 	Action       *string
 	ResourceType *string
 	ResourceID   *string
+	Category     *string
 	StartTime    *time.Time
 	EndTime      *time.Time
 	Page         int
@@ -53,6 +54,12 @@ func (r *Repo) List(ctx context.Context, opts ListOpts) ([]*AuditLog, int64, err
 	}
 	if opts.ResourceID != nil && *opts.ResourceID != "" {
 		query = query.Where("resource_id = ?", *opts.ResourceID)
+	}
+	if opts.Category != nil && *opts.Category != "" {
+		switch *opts.Category {
+		case ResourceTypeAuthSecurity:
+			query = query.Where("resource_type = ?", ResourceTypeAuthSecurity)
+		}
 	}
 	if opts.StartTime != nil {
 		query = query.Where("created_at >= ?", *opts.StartTime)

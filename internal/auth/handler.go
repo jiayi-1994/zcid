@@ -16,9 +16,36 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(router gin.IRoutes) {
+	router.GET("/bootstrap/status", h.BootstrapStatus)
+	router.POST("/bootstrap/redeem", h.RedeemBootstrap)
 	router.POST("/login", h.Login)
 	router.POST("/refresh", h.Refresh)
 	router.POST("/logout", h.Logout)
+}
+
+func (h *Handler) BootstrapStatus(c *gin.Context) {
+	required, err := h.service.BootstrapRequired(c.Request.Context())
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.Success(c, BootstrapStatusResponse{Required: required})
+}
+
+func (h *Handler) RedeemBootstrap(c *gin.Context) {
+	var req BootstrapRedeemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleError(c, response.NewBizError(response.CodeValidation, "invalid request", err.Error()))
+		return
+	}
+
+	user, err := h.service.RedeemBootstrapToken(ContextWithRequestIP(c.Request.Context(), c.ClientIP()), req.Token, req.Username, req.Password)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	response.Success(c, UserResponse{ID: user.ID, Username: user.Username, Status: string(user.Status), Role: string(user.Role)})
 }
 
 func (h *Handler) RegisterAdminUserRoutes(router gin.IRoutes) {
@@ -46,7 +73,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	pair, err := h.service.Login(c.Request.Context(), req.Username, req.Password)
+	pair, err := h.service.Login(ContextWithRequestIP(c.Request.Context(), c.ClientIP()), req.Username, req.Password)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -73,7 +100,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := h.service.Refresh(c.Request.Context(), req.RefreshToken)
+	accessToken, err := h.service.Refresh(ContextWithRequestIP(c.Request.Context(), c.ClientIP()), req.RefreshToken)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -99,7 +126,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.Logout(c.Request.Context(), req.RefreshToken); err != nil {
+	if err := h.service.Logout(ContextWithRequestIP(c.Request.Context(), c.ClientIP()), req.RefreshToken); err != nil {
 		response.HandleError(c, err)
 		return
 	}

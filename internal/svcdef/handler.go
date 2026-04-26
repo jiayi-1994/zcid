@@ -21,6 +21,7 @@ func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 	router.POST("", h.Create)
 	router.GET("", h.List)
 	router.GET("/:sid", h.Get)
+	router.GET("/:sid/vitals", h.GetVitals)
 	router.PUT("/:sid", h.Update)
 	router.DELETE("/:sid", h.Delete)
 }
@@ -67,7 +68,17 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	svc, err := h.service.Create(c.Request.Context(), projectID, req.Name, req.Description, req.RepoURL)
+	svc, err := h.service.CreateWithInput(c.Request.Context(), projectID, CreateInput{
+		Name:           req.Name,
+		Description:    req.Description,
+		RepoURL:        req.RepoURL,
+		ServiceType:    req.ServiceType,
+		Language:       req.Language,
+		Owner:          req.Owner,
+		Tags:           req.Tags,
+		PipelineIDs:    req.PipelineIDs,
+		EnvironmentIDs: req.EnvironmentIDs,
+	})
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -102,6 +113,34 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 
 	response.Success(c, ToServiceResponse(svc))
+}
+
+// GetVitals godoc
+// @Summary Get service vitals
+// @Description Aggregate service metadata, delivery evidence, deployments, and health signals
+// @Tags services
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param sid path string true "Service ID"
+// @Success 200 {object} response.Response{data=ServiceVitalsResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/projects/{id}/services/{sid}/vitals [get]
+func (h *Handler) GetVitals(c *gin.Context) {
+	projectID := strings.TrimSpace(c.Param("id"))
+	svcID := strings.TrimSpace(c.Param("sid"))
+	if projectID == "" || svcID == "" {
+		response.HandleError(c, response.NewBizError(response.CodeValidation, "请求参数错误", "project id and service id are required"))
+		return
+	}
+
+	vitals, err := h.service.GetVitals(c.Request.Context(), projectID, svcID)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	response.Success(c, vitals)
 }
 
 // List godoc
@@ -171,7 +210,20 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	svc, err := h.service.Update(c.Request.Context(), svcID, projectID, req.Name, req.Description, req.RepoURL)
+	svc, err := h.service.UpdateWithInput(c.Request.Context(), svcID, projectID, UpdateInput{
+		Name:               req.Name,
+		Description:        req.Description,
+		RepoURL:            req.RepoURL,
+		ServiceType:        req.ServiceType,
+		Language:           req.Language,
+		Owner:              req.Owner,
+		Tags:               req.Tags,
+		PipelineIDs:        req.PipelineIDs,
+		EnvironmentIDs:     req.EnvironmentIDs,
+		UpdateTags:         req.Tags != nil,
+		UpdatePipelines:    req.PipelineIDs != nil,
+		UpdateEnvironments: req.EnvironmentIDs != nil,
+	})
 	if err != nil {
 		response.HandleError(c, err)
 		return

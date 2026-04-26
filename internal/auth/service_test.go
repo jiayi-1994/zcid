@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xjy/zcid/internal/audit"
 	"github.com/xjy/zcid/pkg/response"
 )
 
@@ -13,6 +14,7 @@ type mockRepo struct {
 	usersByName  map[string]*User
 	usersByID    map[string]*User
 	sessions     map[string]string
+	bootstrap    map[string]*BootstrapToken
 	findErr      error
 	storeErr     error
 	getErr       error
@@ -30,13 +32,24 @@ type mockRepo struct {
 	lastUpdateKV map[string]any
 	lastPolicyID string
 	lastPolicy   SystemRole
+	accessTokens map[string]*AccessToken
+}
+
+type mockAuthAuditRecorder struct {
+	events []audit.AuthSecurityEvent
+}
+
+func (m *mockAuthAuditRecorder) LogAuthSecurityEvent(_ context.Context, event audit.AuthSecurityEvent) {
+	m.events = append(m.events, event)
 }
 
 func newMockRepo() *mockRepo {
 	return &mockRepo{
-		usersByName: map[string]*User{},
-		usersByID:   map[string]*User{},
-		sessions:    map[string]string{},
+		usersByName:  map[string]*User{},
+		usersByID:    map[string]*User{},
+		sessions:     map[string]string{},
+		bootstrap:    map[string]*BootstrapToken{},
+		accessTokens: map[string]*AccessToken{},
 	}
 }
 
@@ -185,6 +198,124 @@ func (m *mockRepo) ListUsers(_ context.Context) ([]*User, error) {
 	return users, nil
 }
 
+func (m *mockRepo) CountConfiguredUsers(_ context.Context) (int64, error) {
+	var count int64
+	for _, user := range m.usersByID {
+		if user.ID == legacyBootstrapAdminID && user.Status == UserStatusDisabled {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (m *mockRepo) DisableLegacyBootstrapAdmin(_ context.Context) error {
+	user, ok := m.usersByID[legacyBootstrapAdminID]
+	if !ok || user.Username != "admin" {
+		return nil
+	}
+	user.Status = UserStatusDisabled
+	if byName, ok := m.usersByName["admin"]; ok && byName.ID == legacyBootstrapAdminID {
+		byName.Status = UserStatusDisabled
+	}
+	return nil
+}
+
+func (m *mockRepo) FindActiveBootstrapToken(_ context.Context, now time.Time) (*BootstrapToken, error) {
+	for _, token := range m.bootstrap {
+		if token.UsedAt == nil && token.ExpiresAt.After(now) {
+			copy := *token
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockRepo) StoreBootstrapToken(_ context.Context, token *BootstrapToken) error {
+	if token.ID == "" {
+		token.ID = "bootstrap-id"
+	}
+	copy := *token
+	m.bootstrap[token.TokenHash] = &copy
+	return nil
+}
+
+func (m *mockRepo) FindBootstrapTokenByHash(_ context.Context, tokenHash string) (*BootstrapToken, error) {
+	if token, ok := m.bootstrap[tokenHash]; ok {
+		copy := *token
+		return &copy, nil
+	}
+	return nil, nil
+}
+
+func (m *mockRepo) MarkBootstrapTokenUsed(_ context.Context, tokenID string, usedAt time.Time) error {
+	for _, token := range m.bootstrap {
+		if token.ID == tokenID && token.UsedAt == nil {
+			t := usedAt
+			token.UsedAt = &t
+			return nil
+		}
+	}
+	return errors.New("bootstrap token not found or already used")
+}
+
+func (m *mockRepo) CreateAccessToken(_ context.Context, token *AccessToken) error {
+	if token.ID == "" {
+		token.ID = "token-id-" + string(rune('1'+len(m.accessTokens)))
+	}
+	copy := *token
+	m.accessTokens[token.ID] = &copy
+	return nil
+}
+
+func (m *mockRepo) ListAccessTokens(_ context.Context, ownerUserID string, includeProject bool) ([]*AccessToken, error) {
+	var out []*AccessToken
+	for _, token := range m.accessTokens {
+		if ownerUserID == "" || includeProject || (token.UserID != nil && *token.UserID == ownerUserID) {
+			copy := *token
+			out = append(out, &copy)
+		}
+	}
+	return out, nil
+}
+
+func (m *mockRepo) FindAccessTokenByID(_ context.Context, tokenID string) (*AccessToken, error) {
+	if token, ok := m.accessTokens[tokenID]; ok {
+		copy := *token
+		return &copy, nil
+	}
+	return nil, ErrAccessTokenNotFound
+}
+
+func (m *mockRepo) FindAccessTokenByHash(_ context.Context, tokenHash string) (*AccessToken, error) {
+	for _, token := range m.accessTokens {
+		if token.TokenHash == tokenHash {
+			copy := *token
+			return &copy, nil
+		}
+	}
+	return nil, ErrAccessTokenNotFound
+}
+
+func (m *mockRepo) RevokeAccessToken(_ context.Context, tokenID string, actorID string, revokedAt time.Time) error {
+	if token, ok := m.accessTokens[tokenID]; ok && token.RevokedAt == nil {
+		t := revokedAt
+		token.RevokedAt = &t
+		token.RevokedBy = &actorID
+		return nil
+	}
+	return ErrAccessTokenNotFound
+}
+
+func (m *mockRepo) UpdateAccessTokenLastUsed(_ context.Context, tokenID string, usedAt time.Time) error {
+	if token, ok := m.accessTokens[tokenID]; ok {
+		t := usedAt
+		token.LastUsedAt = &t
+		return nil
+	}
+	return ErrAccessTokenNotFound
+}
+
 func TestHashPasswordAndCompare(t *testing.T) {
 	hash, err := HashPassword("pass123")
 	if err != nil {
@@ -219,6 +350,27 @@ func TestLoginSuccessStoresRefreshSession(t *testing.T) {
 	}
 	if repo.storedTTL != RefreshTokenTTL {
 		t.Fatalf("expected refresh ttl %v, got %v", RefreshTokenTTL, repo.storedTTL)
+	}
+}
+
+func TestLoginFailureAuditUsesRequestIPFromContext(t *testing.T) {
+	repo := newMockRepo()
+	recorder := &mockAuthAuditRecorder{}
+	svc := NewService(repo, "test-secret")
+	svc.SetAuditRecorder(recorder)
+
+	_, err := svc.Login(ContextWithRequestIP(context.Background(), "203.0.113.10"), "missing", "wrong")
+	if err == nil {
+		t.Fatal("expected login failure")
+	}
+	if len(recorder.events) != 1 {
+		t.Fatalf("expected one audit event, got %d", len(recorder.events))
+	}
+	if recorder.events[0].Action != "auth.login_failed" {
+		t.Fatalf("expected auth.login_failed event, got %s", recorder.events[0].Action)
+	}
+	if recorder.events[0].IP != "203.0.113.10" {
+		t.Fatalf("expected request IP in audit event, got %q", recorder.events[0].IP)
 	}
 }
 
@@ -270,7 +422,9 @@ func TestLoginFailDisabledAccount(t *testing.T) {
 
 func TestCreateUserHashesPassword(t *testing.T) {
 	repo := newMockRepo()
+	recorder := &mockAuthAuditRecorder{}
 	svc := NewService(repo, "test-secret")
+	svc.SetAuditRecorder(recorder)
 
 	user, err := svc.CreateUser(context.Background(), "alice", "pass123", "", "")
 	if err != nil {
@@ -287,6 +441,63 @@ func TestCreateUserHashesPassword(t *testing.T) {
 	}
 	if !ComparePasswordHash(user.PasswordHash, "pass123") {
 		t.Fatal("expected stored hash to match original password")
+	}
+	if len(recorder.events) != 1 {
+		t.Fatalf("expected one audit event, got %d", len(recorder.events))
+	}
+	event := recorder.events[0]
+	if event.Action != "auth.user_created" {
+		t.Fatalf("expected auth.user_created event, got %s", event.Action)
+	}
+	if event.Result != audit.ResultSuccess {
+		t.Fatalf("expected success result, got %s", event.Result)
+	}
+	if event.Detail.EventType != "auth.user_created" {
+		t.Fatalf("expected auth.user_created event type, got %s", event.Detail.EventType)
+	}
+	if event.Detail.PrincipalType != "user" {
+		t.Fatalf("expected user principal type, got %s", event.Detail.PrincipalType)
+	}
+	if event.UserID != user.ID || event.Detail.TargetUserID != user.ID {
+		t.Fatalf("expected created user id in audit event, got user=%q target=%q", event.UserID, event.Detail.TargetUserID)
+	}
+	if _, ok := event.Detail.Fields["password"]; ok {
+		t.Fatal("audit event must not include plaintext password")
+	}
+	if _, ok := event.Detail.Fields["passwordHash"]; ok {
+		t.Fatal("audit event must not include password hash")
+	}
+}
+
+func TestCreateUserDoesNotAuditWhenPolicyUpdateFails(t *testing.T) {
+	repo := newMockRepo()
+	repo.upsertErr = errors.New("casbin down")
+	recorder := &mockAuthAuditRecorder{}
+	svc := NewService(repo, "test-secret")
+	svc.SetAuditRecorder(recorder)
+
+	_, err := svc.CreateUser(context.Background(), "alice", "pass123", "", "")
+	if err == nil {
+		t.Fatal("expected create user to fail when policy update fails")
+	}
+	if len(recorder.events) != 0 {
+		t.Fatalf("expected no success audit event on policy failure, got %d", len(recorder.events))
+	}
+}
+
+func TestCreateUserDoesNotAuditWhenPolicyPublishFails(t *testing.T) {
+	repo := newMockRepo()
+	repo.publishErr = errors.New("redis down")
+	recorder := &mockAuthAuditRecorder{}
+	svc := NewService(repo, "test-secret")
+	svc.SetAuditRecorder(recorder)
+
+	_, err := svc.CreateUser(context.Background(), "alice", "pass123", "", "")
+	if err == nil {
+		t.Fatal("expected create user to fail when policy publish fails")
+	}
+	if len(recorder.events) != 0 {
+		t.Fatalf("expected no success audit event on policy publish failure, got %d", len(recorder.events))
 	}
 }
 

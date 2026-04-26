@@ -77,7 +77,7 @@ export function LoginPage() {
               <input
                 className="input"
                 style={{ height: 40 }}
-                placeholder="admin"
+                placeholder="请输入用户名"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
@@ -92,7 +92,7 @@ export function LoginPage() {
                 className="input"
                 style={{ height: 40 }}
                 type="password"
-                placeholder="••••••••"
+                placeholder="请输入密码"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"

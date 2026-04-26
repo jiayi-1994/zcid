@@ -12,9 +12,10 @@ func TestAuthLogin(t *testing.T) {
 	c := NewAPIClient()
 
 	t.Run("successful login", func(t *testing.T) {
+		username, password := adminCredentials(t)
 		resp := c.PostJSON(t, "/api/v1/auth/login", map[string]string{
-			"username": "admin",
-			"password": "admin123",
+			"username": username,
+			"password": password,
 		})
 		requireCode(t, resp, 0)
 
@@ -56,10 +57,11 @@ func TestAuthTokenRefresh(t *testing.T) {
 	waitForServer(t)
 	resetRateLimit(t)
 	c := NewAPIClient()
+	username, password := adminCredentials(t)
 
 	loginResp := c.PostJSON(t, "/api/v1/auth/login", map[string]string{
-		"username": "admin",
-		"password": "admin123",
+		"username": username,
+		"password": password,
 	})
 	requireCode(t, loginResp, 0)
 

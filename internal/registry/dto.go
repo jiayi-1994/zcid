@@ -38,9 +38,10 @@ type RegistryListResponse struct {
 }
 
 type TestConnectionRequest struct {
-	URL      string `json:"url" binding:"required"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	URL       string `json:"url" binding:"required"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	ProjectID string `json:"projectId"`
 }
 
 type TestConnectionResponse struct {

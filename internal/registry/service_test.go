@@ -2,6 +2,8 @@ package registry
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -141,9 +143,16 @@ func TestCreateRegistry(t *testing.T) {
 func TestTestConnection(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, testCrypto())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 
 	res, err := svc.TestConnection(TestConnectionRequest{
-		URL:      "https://harbor.example.com",
+		URL:      server.URL,
 		Username: "admin",
 		Password: "secret",
 	})
@@ -151,7 +160,7 @@ func TestTestConnection(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !res.Success {
-		t.Fatal("expected success (mock)")
+		t.Fatal("expected success")
 	}
 }
 

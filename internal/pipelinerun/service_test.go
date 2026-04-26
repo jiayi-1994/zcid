@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xjy/zcid/internal/notification"
 	"github.com/xjy/zcid/internal/pipeline"
+	"github.com/xjy/zcid/internal/signal"
 	"github.com/xjy/zcid/pkg/response"
 	"github.com/xjy/zcid/pkg/tekton"
 )
@@ -99,6 +102,32 @@ type mockPipelineGetter struct {
 	get func(ctx context.Context, id, projectID string) (*pipeline.Pipeline, error)
 }
 
+type captureSignalRepo struct {
+	rows []signal.HealthSignal
+}
+
+type captureNotificationDispatcher struct {
+	projectID string
+	event     notification.EventType
+	payload   map[string]any
+}
+
+func (d *captureNotificationDispatcher) SendWebhook(ctx context.Context, projectID string, event notification.EventType, payload map[string]any) error {
+	d.projectID = projectID
+	d.event = event
+	d.payload = payload
+	return nil
+}
+
+func (r *captureSignalRepo) Create(_ context.Context, row *signal.HealthSignal) error {
+	r.rows = append(r.rows, *row)
+	return nil
+}
+
+func (r *captureSignalRepo) ListLatestByTarget(_ context.Context, _ string, _ signal.TargetType, _ string, _ int) ([]signal.HealthSignal, error) {
+	return nil, nil
+}
+
 func (m *mockPipelineGetter) GetByIDAndProject(ctx context.Context, id, projectID string) (*pipeline.Pipeline, error) {
 	if m.get != nil {
 		return m.get(ctx, id, projectID)
@@ -168,6 +197,41 @@ func TestTriggerRun_Success(t *testing.T) {
 	assert.Equal(t, 1, resp.RunNumber)
 	assert.Equal(t, "queued", resp.Status)
 	assert.NotNil(t, createdRun)
+}
+
+func TestNotifyPipelineRunDispatchesBuildEventPayload(t *testing.T) {
+	started := time.Now().Add(-2 * time.Minute)
+	finished := time.Now()
+	branch := "main"
+	commit := "abcdef123456"
+	triggeredBy := "user-1"
+	dispatcher := &captureNotificationDispatcher{}
+	svc := &Service{}
+	svc.SetNotificationDispatcher(dispatcher)
+
+	svc.notifyPipelineRun(context.Background(), &PipelineRun{
+		ID:          "run-1",
+		ProjectID:   "proj-1",
+		PipelineID:  "pipe-1",
+		RunNumber:   7,
+		Status:      StatusSucceeded,
+		GitBranch:   &branch,
+		GitCommit:   &commit,
+		TriggeredBy: &triggeredBy,
+		StartedAt:   &started,
+		FinishedAt:  &finished,
+	}, "Build", notification.EventBuildSuccess)
+
+	assert.Equal(t, "proj-1", dispatcher.projectID)
+	assert.Equal(t, notification.EventBuildSuccess, dispatcher.event)
+	require.NotNil(t, dispatcher.payload)
+	assert.Equal(t, "pipe-1", dispatcher.payload["pipelineId"])
+	assert.Equal(t, "Build", dispatcher.payload["pipelineName"])
+	assert.Equal(t, "run-1", dispatcher.payload["runId"])
+	assert.Equal(t, "succeeded", dispatcher.payload["status"])
+	assert.Equal(t, "abcdef123456", dispatcher.payload["commitSha"])
+	assert.Equal(t, "user-1", dispatcher.payload["triggeredBy"])
+	assert.NotEmpty(t, dispatcher.payload["duration"])
 }
 
 func TestTriggerRun_ConcurrencyReject(t *testing.T) {
@@ -248,6 +312,26 @@ func TestCancelRun_Success(t *testing.T) {
 	svc := NewService(repo, &mockPipelineGetter{}, nil, tekton.NewTranslator(), k8s, &MockSecretInjector{})
 	err := svc.CancelRun(ctx, "proj-1", "run-1")
 	require.NoError(t, err)
+}
+
+func TestRecordPipelineSignal_MapsFailedRunToDegradedSignal(t *testing.T) {
+	ctx := context.Background()
+	signalRepo := &captureSignalRepo{}
+	svc := NewService(&mockRepo{}, &mockPipelineGetter{}, nil, tekton.NewTranslator(), &MockK8sClient{}, &MockSecretInjector{})
+	svc.SetSignalService(signal.NewService(signalRepo))
+
+	svc.recordPipelineSignal(ctx, "run-1", "pipe-1", "proj-1", StatusFailed, "pipeline.failed", "Pipeline run failed", "unit failed")
+
+	require.Len(t, signalRepo.rows, 1)
+	row := signalRepo.rows[0]
+	assert.Equal(t, "proj-1", row.ProjectID)
+	assert.Equal(t, signal.TargetPipeline, row.TargetType)
+	assert.Equal(t, "pipe-1", row.TargetID)
+	assert.Equal(t, "pipeline-run", row.Source)
+	assert.Equal(t, signal.StatusDegraded, row.Status)
+	assert.Equal(t, signal.SeverityCritical, row.Severity)
+	assert.Equal(t, "pipeline.failed", row.Reason)
+	assert.NotNil(t, row.StaleAfter)
 }
 
 func TestCancelRun_NotRunning(t *testing.T) {

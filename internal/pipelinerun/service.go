@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xjy/zcid/internal/notification"
 	"github.com/xjy/zcid/internal/pipeline"
+	"github.com/xjy/zcid/internal/signal"
 	"github.com/xjy/zcid/internal/stepexec"
 	"github.com/xjy/zcid/internal/variable"
 	"github.com/xjy/zcid/pkg/response"
@@ -20,6 +23,10 @@ type PipelineGetter interface {
 	GetByIDAndProject(ctx context.Context, id, projectID string) (*pipeline.Pipeline, error)
 }
 
+type NotificationDispatcher interface {
+	SendWebhook(ctx context.Context, projectID string, event notification.EventType, payload map[string]any) error
+}
+
 type Service struct {
 	repo            Repository
 	pipelineRepo    PipelineGetter
@@ -28,6 +35,8 @@ type Service struct {
 	k8sClient       K8sClient
 	secretInjector  SecretInjector
 	stepRepo        stepexec.Repository
+	signals         *signal.Service
+	notifications   NotificationDispatcher
 }
 
 func NewService(repo Repository, pipelineRepo PipelineGetter, variableService *variable.Service, translator *tekton.Translator, k8sClient K8sClient, secretInjector SecretInjector, stepRepo ...stepexec.Repository) *Service {
@@ -43,6 +52,18 @@ func NewService(repo Repository, pipelineRepo PipelineGetter, variableService *v
 		s.stepRepo = stepRepo[0]
 	}
 	return s
+}
+
+func (s *Service) SetSignalService(signals *signal.Service) {
+	s.signals = signals
+}
+
+func (s *Service) SetNotificationService(service *notification.Service) {
+	s.notifications = service
+}
+
+func (s *Service) SetNotificationDispatcher(dispatcher NotificationDispatcher) {
+	s.notifications = dispatcher
 }
 
 func (s *Service) TriggerRun(ctx context.Context, projectID, pipelineID, userID string, req TriggerRunRequest) (*PipelineRunResponse, error) {
@@ -184,6 +205,10 @@ func (s *Service) TriggerRun(ctx context.Context, projectID, pipelineID, userID 
 
 	if err := s.k8sClient.SubmitPipelineRun(ctx, namespace, pr); err != nil {
 		_ = s.repo.UpdateStatus(ctx, run.ID, projectID, StatusFailed, ptr("提交到集群失败"))
+		run.Status = StatusFailed
+		run.ErrorMessage = ptr("提交到集群失败: " + err.Error())
+		s.recordPipelineSignal(ctx, run.ID, pipelineID, projectID, StatusFailed, "pipeline.submit_failed", "Pipeline submit failed", err.Error())
+		s.notifyPipelineRun(ctx, run, p.Name, notification.EventBuildFailed)
 		return nil, response.NewBizError(response.CodeRunSubmitFailed, "提交流水线运行失败", err.Error())
 	}
 
@@ -204,7 +229,21 @@ func (s *Service) syncRunStatus(runID, projectID, namespace, tektonName string) 
 	for {
 		select {
 		case <-timeout:
-			_ = s.repo.UpdateStatus(context.Background(), runID, projectID, StatusFailed, ptr("运行超时"))
+			now := time.Now()
+			_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
+				"status":        StatusFailed,
+				"finished_at":   now,
+				"updated_at":    now,
+				"error_message": "运行超时",
+			})
+			run, _ := s.repo.GetByIDAndProject(context.Background(), runID, projectID)
+			if run != nil {
+				run.Status = StatusFailed
+				run.FinishedAt = &now
+				run.ErrorMessage = ptr("运行超时")
+				s.recordPipelineSignal(context.Background(), runID, run.PipelineID, projectID, StatusFailed, "pipeline.timeout", "Pipeline run timed out", "")
+				s.notifyPipelineRun(context.Background(), run, s.pipelineNameForNotification(context.Background(), run.PipelineID, projectID), notification.EventBuildFailed)
+			}
 			if s.stepRepo != nil {
 				_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusFailed))
 			}
@@ -228,34 +267,53 @@ func (s *Service) syncRunStatus(runID, projectID, namespace, tektonName string) 
 				}
 			case "Succeeded":
 				now := time.Now()
+				run, _ := s.repo.GetByIDAndProject(context.Background(), runID, projectID)
 				_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
 					"status":      StatusSucceeded,
 					"finished_at": now,
 					"updated_at":  now,
 				})
+				if run != nil {
+					run.Status = StatusSucceeded
+					run.FinishedAt = &now
+					s.recordPipelineSignal(context.Background(), runID, run.PipelineID, projectID, StatusSucceeded, "pipeline.succeeded", "Pipeline run succeeded", "")
+					s.notifyPipelineRun(context.Background(), run, s.pipelineNameForNotification(context.Background(), run.PipelineID, projectID), notification.EventBuildSuccess)
+				}
 				if s.stepRepo != nil {
 					_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusSucceeded))
 				}
 				return
 			case "Failed":
 				now := time.Now()
+				run, _ := s.repo.GetByIDAndProject(context.Background(), runID, projectID)
 				_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
 					"status":        StatusFailed,
 					"finished_at":   now,
 					"updated_at":    now,
 					"error_message": "Pipeline execution failed",
 				})
+				if run != nil {
+					run.Status = StatusFailed
+					run.FinishedAt = &now
+					run.ErrorMessage = ptr("Pipeline execution failed")
+					s.recordPipelineSignal(context.Background(), runID, run.PipelineID, projectID, StatusFailed, "pipeline.failed", "Pipeline run failed", "Pipeline execution failed")
+					s.notifyPipelineRun(context.Background(), run, s.pipelineNameForNotification(context.Background(), run.PipelineID, projectID), notification.EventBuildFailed)
+				}
 				if s.stepRepo != nil {
 					_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusFailed))
 				}
 				return
 			case "Cancelled":
 				now := time.Now()
+				run, _ := s.repo.GetByIDAndProject(context.Background(), runID, projectID)
 				_ = s.repo.Update(context.Background(), runID, projectID, map[string]interface{}{
 					"status":      StatusCancelled,
 					"finished_at": now,
 					"updated_at":  now,
 				})
+				if run != nil {
+					s.recordPipelineSignal(context.Background(), runID, run.PipelineID, projectID, StatusCancelled, "pipeline.cancelled", "Pipeline run was cancelled", "")
+				}
 				if s.stepRepo != nil {
 					_ = s.stepRepo.FinalizeRun(context.Background(), runID, string(StatusCancelled))
 				}
@@ -293,7 +351,93 @@ func (s *Service) CancelRun(ctx context.Context, projectID, runID string) error 
 	if err == nil && s.stepRepo != nil {
 		_ = s.stepRepo.FinalizeRun(ctx, runID, string(StatusCancelled))
 	}
+	if err == nil {
+		s.recordPipelineSignal(ctx, runID, run.PipelineID, projectID, StatusCancelled, "pipeline.cancelled", "Pipeline run was cancelled", "")
+	}
 	return err
+}
+
+func (s *Service) notifyPipelineRun(ctx context.Context, run *PipelineRun, pipelineName string, event notification.EventType) {
+	if s.notifications == nil || run == nil {
+		return
+	}
+	payload := map[string]any{
+		"pipelineId":   run.PipelineID,
+		"pipelineName": pipelineName,
+		"runId":        run.ID,
+		"runNumber":    run.RunNumber,
+		"status":       string(run.Status),
+	}
+	if run.GitBranch != nil {
+		payload["branch"] = *run.GitBranch
+	}
+	if run.GitCommit != nil {
+		payload["commitSha"] = *run.GitCommit
+	}
+	if run.TriggeredBy != nil {
+		payload["triggeredBy"] = *run.TriggeredBy
+	}
+	if run.ErrorMessage != nil {
+		payload["errorMessage"] = *run.ErrorMessage
+	}
+	if run.StartedAt != nil && run.FinishedAt != nil && run.FinishedAt.After(*run.StartedAt) {
+		payload["duration"] = run.FinishedAt.Sub(*run.StartedAt).Round(time.Second).String()
+	}
+	if err := s.notifications.SendWebhook(ctx, run.ProjectID, event, payload); err != nil {
+		slog.Warn("failed to send pipeline notification", slog.Any("error", err), slog.String("runID", run.ID), slog.String("event", string(event)))
+	}
+}
+
+func (s *Service) pipelineNameForNotification(ctx context.Context, pipelineID, projectID string) string {
+	if s.pipelineRepo == nil {
+		return pipelineID
+	}
+	p, err := s.pipelineRepo.GetByIDAndProject(ctx, pipelineID, projectID)
+	if err != nil || p == nil || p.Name == "" {
+		return pipelineID
+	}
+	return p.Name
+}
+
+func (s *Service) recordPipelineSignal(ctx context.Context, runID, pipelineID, projectID string, status RunStatus, reason, message, errorMessage string) {
+	if s.signals == nil || pipelineID == "" || projectID == "" {
+		return
+	}
+	sigStatus, severity := pipelineSignalStatus(status)
+	staleAfter := time.Now().Add(30 * time.Minute)
+	value := map[string]any{
+		"runId":        runID,
+		"pipelineId":   pipelineID,
+		"runStatus":    string(status),
+		"errorMessage": errorMessage,
+	}
+	if _, err := s.signals.Record(ctx, signal.RecordInput{
+		ProjectID:     projectID,
+		TargetType:    signal.TargetPipeline,
+		TargetID:      pipelineID,
+		Source:        "pipeline-run",
+		Status:        sigStatus,
+		Severity:      severity,
+		Reason:        reason,
+		Message:       message,
+		ObservedValue: value,
+		StaleAfter:    &staleAfter,
+	}); err != nil {
+		slog.Warn("failed to record pipeline health signal", slog.Any("error", err), slog.String("runID", runID), slog.String("pipelineID", pipelineID))
+	}
+}
+
+func pipelineSignalStatus(status RunStatus) (signal.Status, signal.Severity) {
+	switch status {
+	case StatusSucceeded:
+		return signal.StatusHealthy, signal.SeverityInfo
+	case StatusFailed:
+		return signal.StatusDegraded, signal.SeverityCritical
+	case StatusCancelled:
+		return signal.StatusWarning, signal.SeverityWarning
+	default:
+		return signal.StatusUnknown, signal.SeverityInfo
+	}
 }
 
 func (s *Service) GetRun(ctx context.Context, projectID, runID string) (*PipelineRunResponse, error) {

@@ -189,3 +189,95 @@ func (r *Repo) ListUsers(ctx context.Context) ([]*User, error) {
 	}
 	return users, nil
 }
+
+func (r *Repo) CountConfiguredUsers(ctx context.Context) (int64, error) {
+	if r.db == nil {
+		return 0, fmt.Errorf("db is nil")
+	}
+	var count int64
+	err := r.db.WithContext(ctx).Model(&User{}).
+		Where("NOT (id = ? AND status = ?)", legacyBootstrapAdminID, UserStatusDisabled).
+		Count(&count).Error
+	if err != nil {
+		return 0, fmt.Errorf("count configured users: %w", err)
+	}
+	return count, nil
+}
+
+func (r *Repo) DisableLegacyBootstrapAdmin(ctx context.Context) error {
+	if r.db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	res := r.db.WithContext(ctx).Model(&User{}).
+		Where("id = ? AND username = ?", legacyBootstrapAdminID, "admin").
+		Updates(map[string]any{"status": UserStatusDisabled})
+	if res.Error != nil {
+		return fmt.Errorf("disable legacy bootstrap admin: %w", res.Error)
+	}
+	return nil
+}
+
+func (r *Repo) FindActiveBootstrapToken(ctx context.Context, now time.Time) (*BootstrapToken, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("db is nil")
+	}
+	var token BootstrapToken
+	err := r.db.WithContext(ctx).
+		Where("used_at IS NULL AND expires_at > ?", now).
+		Order("created_at DESC").
+		First(&token).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find active bootstrap token: %w", err)
+	}
+	return &token, nil
+}
+
+func (r *Repo) StoreBootstrapToken(ctx context.Context, token *BootstrapToken) error {
+	if r.db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	if token == nil {
+		return fmt.Errorf("bootstrap token is nil")
+	}
+	if strings.TrimSpace(token.ID) == "" {
+		token.ID = uuid.NewString()
+	}
+	if err := r.db.WithContext(ctx).Create(token).Error; err != nil {
+		return fmt.Errorf("store bootstrap token: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) FindBootstrapTokenByHash(ctx context.Context, tokenHash string) (*BootstrapToken, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("db is nil")
+	}
+	var token BootstrapToken
+	err := r.db.WithContext(ctx).Where("token_hash = ?", tokenHash).First(&token).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find bootstrap token by hash: %w", err)
+	}
+	return &token, nil
+}
+
+func (r *Repo) MarkBootstrapTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error {
+	if r.db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	res := r.db.WithContext(ctx).Model(&BootstrapToken{}).
+		Where("id = ? AND used_at IS NULL", tokenID).
+		Update("used_at", usedAt)
+	if res.Error != nil {
+		return fmt.Errorf("mark bootstrap token used: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("bootstrap token not found or already used")
+	}
+	return nil
+}

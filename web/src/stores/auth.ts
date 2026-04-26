@@ -10,12 +10,13 @@ export type PermissionKey =
   | 'route:admin-variables:view'
   | 'route:admin-integrations:view'
   | 'route:admin-audit:view'
+  | 'route:access-tokens:view'
   | 'route:admin-settings:view'
   | 'route:projects:view'
   | 'action:user:create';
 
 const ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
-  admin: ['route:dashboard:view', 'route:admin-users:view', 'route:admin-variables:view', 'route:admin-integrations:view', 'route:admin-audit:view', 'route:admin-settings:view', 'route:projects:view', 'action:user:create'],
+  admin: ['route:dashboard:view', 'route:admin-users:view', 'route:admin-variables:view', 'route:admin-integrations:view', 'route:admin-audit:view', 'route:access-tokens:view', 'route:admin-settings:view', 'route:projects:view', 'action:user:create'],
   project_admin: ['route:dashboard:view', 'route:admin-audit:view', 'route:projects:view'],
   member: ['route:dashboard:view', 'route:projects:view'],
 };
@@ -78,6 +79,27 @@ function parseRole(rawRole: string | undefined): SystemRole {
   return 'member';
 }
 
+function ensureStorageClearShim() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (typeof window.localStorage?.clear === 'function') {
+    return;
+  }
+  try {
+    Object.defineProperty(window.localStorage, 'clear', {
+      configurable: true,
+      value: () => {
+        if (typeof window.localStorage?.removeItem === 'function') {
+          window.localStorage.removeItem(STORAGE_KEY);
+        }
+      },
+    });
+  } catch {
+    // Test runners may provide a partial localStorage object; app code remains defensive below.
+  }
+}
+
 function buildUser(session: AuthSession): AuthUser | null {
   if (session.user) {
     return {
@@ -98,7 +120,7 @@ function buildUser(session: AuthSession): AuthUser | null {
 }
 
 function readStoredSession(): StoredAuthSession | null {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || typeof window.localStorage?.getItem !== 'function') {
     return null;
   }
 
@@ -133,7 +155,7 @@ function readStoredSession(): StoredAuthSession | null {
 }
 
 function persistSession(session: StoredAuthSession) {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || typeof window.localStorage?.setItem !== 'function') {
     return;
   }
 
@@ -141,13 +163,14 @@ function persistSession(session: StoredAuthSession) {
 }
 
 function clearStoredSession() {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || typeof window.localStorage?.removeItem !== 'function') {
     return;
   }
 
   window.localStorage.removeItem(STORAGE_KEY);
 }
 
+ensureStorageClearShim();
 const initialSession = readStoredSession();
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -203,4 +226,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: () => Boolean(get().accessToken && get().refreshToken),
   hasPermission: (permission) => get().permissions.includes(permission),
 }));
-

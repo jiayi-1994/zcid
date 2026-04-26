@@ -20,10 +20,46 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 	router.POST("", h.CreatePipeline)
 	router.GET("", h.ListPipelines)
+	router.POST("/from-template", h.CreateFromTemplate)
 	router.GET("/:pipelineId", h.GetPipeline)
 	router.PUT("/:pipelineId", h.UpdatePipeline)
 	router.DELETE("/:pipelineId", h.DeletePipeline)
 	router.POST("/:pipelineId/copy", h.CopyPipeline)
+}
+
+// CreateFromTemplate godoc
+// @Summary Create a pipeline from template
+// @Description Instantiate a pipeline template with user-provided parameter values
+// @Tags pipelines
+// @Accept json
+// @Produce json
+// @Param id path string true "Project ID"
+// @Param request body FromTemplateRequest true "Template instantiation payload"
+// @Success 200 {object} response.Response{data=PipelineResponse}
+// @Failure 400 {object} response.Response
+// @Router /api/v1/projects/{id}/pipelines/from-template [post]
+func (h *Handler) CreateFromTemplate(c *gin.Context) {
+	projectID := getProjectID(c)
+	if projectID == "" {
+		response.HandleError(c, response.NewBizError(response.CodeValidation, "请求参数错误", "project id is required"))
+		return
+	}
+	uid := getUserID(c)
+	if uid == "" {
+		response.HandleError(c, response.NewBizError(response.CodeUnauthorized, "用户未认证", ""))
+		return
+	}
+	var req FromTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleError(c, response.NewBizError(response.CodeValidation, "请求参数错误", err.Error()))
+		return
+	}
+	p, err := h.service.CreateFromTemplate(c.Request.Context(), projectID, req, uid)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.Success(c, ToPipelineResponse(p))
 }
 
 func (h *Handler) RegisterTemplateRoutes(router gin.IRoutes) {

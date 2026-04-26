@@ -1,10 +1,14 @@
 package admin
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"github.com/xjy/zcid/internal/signal"
 	"github.com/xjy/zcid/pkg/database"
 	"github.com/xjy/zcid/pkg/response"
 	"gorm.io/gorm"
@@ -14,6 +18,7 @@ type Handler struct {
 	db        *gorm.DB
 	rdb       *redis.Client
 	k8sStatus string
+	signals   *signal.Service
 }
 
 func NewAdminHandler(db *gorm.DB, rdb *redis.Client) *Handler {
@@ -22,6 +27,10 @@ func NewAdminHandler(db *gorm.DB, rdb *redis.Client) *Handler {
 		rdb:       rdb,
 		k8sStatus: "ok",
 	}
+}
+
+func (h *Handler) SetSignalService(signals *signal.Service) {
+	h.signals = signals
 }
 
 // GetSettings godoc
@@ -100,5 +109,52 @@ func (h *Handler) GetIntegrationsStatus(c *gin.Context) {
 		items[0].Status = "fail"
 		items[0].Detail = err.Error()
 	}
+	h.recordIntegrationSignals(c.Request.Context(), items)
 	response.Success(c, gin.H{"integrations": items})
+}
+
+func (h *Handler) recordIntegrationSignals(ctx context.Context, items []IntegrationStatus) {
+	if h.signals == nil || h.db == nil {
+		return
+	}
+	var projectIDs []string
+	if err := h.db.WithContext(ctx).Table("projects").Where("status != ?", "deleted").Pluck("id", &projectIDs).Error; err != nil {
+		slog.Warn("failed to list projects for integration health signals", slog.Any("error", err))
+		return
+	}
+	staleAfter := time.Now().Add(10 * time.Minute)
+	for _, projectID := range projectIDs {
+		for _, item := range items {
+			status, severity := integrationSignalStatus(item.Status)
+			if _, err := h.signals.Record(ctx, signal.RecordInput{
+				ProjectID:  projectID,
+				TargetType: signal.TargetIntegration,
+				TargetID:   item.Name,
+				Source:     "admin-health",
+				Status:     status,
+				Severity:   severity,
+				Reason:     "integration." + item.Status,
+				Message:    item.Detail,
+				ObservedValue: map[string]any{
+					"name":   item.Name,
+					"status": item.Status,
+					"detail": item.Detail,
+				},
+				StaleAfter: &staleAfter,
+			}); err != nil {
+				slog.Warn("failed to record integration health signal", slog.Any("error", err), slog.String("projectID", projectID), slog.String("integration", item.Name))
+			}
+		}
+	}
+}
+
+func integrationSignalStatus(status string) (signal.Status, signal.Severity) {
+	switch status {
+	case "ok":
+		return signal.StatusHealthy, signal.SeverityInfo
+	case "fail":
+		return signal.StatusDegraded, signal.SeverityCritical
+	default:
+		return signal.StatusUnknown, signal.SeverityWarning
+	}
 }

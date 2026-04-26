@@ -10,6 +10,12 @@ type CreatePipelineRequest struct {
 	TemplateParams    map[string]string `json:"templateParams,omitempty"`
 }
 
+type FromTemplateRequest struct {
+	TemplateID string            `json:"templateId" binding:"required"`
+	Name       string            `json:"name" binding:"required,max=200"`
+	Params     map[string]string `json:"params"`
+}
+
 type UpdatePipelineRequest struct {
 	Name              *string         `json:"name"`
 	Description       *string         `json:"description"`

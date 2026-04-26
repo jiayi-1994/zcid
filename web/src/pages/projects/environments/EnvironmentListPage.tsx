@@ -13,24 +13,22 @@ import { ZModal } from '../../../components/ui/ZModal';
 import { Field } from '../../../components/ui/Field';
 import { IPlus, IServer } from '../../../components/ui/icons';
 
-type HealthState = 'healthy' | 'syncing' | 'degraded';
+type HealthState = 'healthy' | 'warning' | 'degraded' | 'unknown' | 'stale';
 
-function deriveHealth(env: EnvironmentItem): HealthState {
-  const name = (env.name || '').toLowerCase();
-  if (name.includes('staging') || name.includes('stag')) return 'syncing';
-  return 'healthy';
-}
-
-const HEALTH_TONE: Record<HealthState, 'green' | 'amber' | 'red'> = {
+const HEALTH_TONE: Record<HealthState, 'green' | 'amber' | 'red' | 'grey'> = {
   healthy: 'green',
-  syncing: 'amber',
+  warning: 'amber',
   degraded: 'red',
+  unknown: 'grey',
+  stale: 'amber',
 };
 
 const HEALTH_LABEL: Record<HealthState, string> = {
   healthy: 'Healthy',
-  syncing: 'Syncing',
+  warning: 'Warning',
   degraded: 'Degraded',
+  unknown: 'Unknown',
+  stale: 'Stale',
 };
 
 export function EnvironmentListPage() {
@@ -85,7 +83,8 @@ export function EnvironmentListPage() {
     }
   };
 
-  const healthyCount = envs.filter((e) => deriveHealth(e) === 'healthy').length;
+  const envHealth = (env: EnvironmentItem): HealthState => env.health?.status ?? 'unknown';
+  const healthyCount = envs.filter((e) => envHealth(e) === 'healthy').length;
 
   return (
     <>
@@ -125,14 +124,17 @@ export function EnvironmentListPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
             {envs.map((env) => {
-              const health = deriveHealth(env);
+              const health = envHealth(env);
               return (
                 <Card key={env.id} padding={false}>
                   <div style={{ padding: '14px 16px 12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600 }}>{env.name}</div>
-                      <Badge tone={HEALTH_TONE[health]} dot>{HEALTH_LABEL[health]}</Badge>
-                    </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{env.name}</div>
+                        <Badge tone={HEALTH_TONE[health]} dot>{HEALTH_LABEL[health]}</Badge>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--z-500)', marginBottom: 8 }}>
+                        {env.health?.reason || 'No environment health signals yet'}
+                      </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: 'var(--z-500)' }}>Namespace</span>

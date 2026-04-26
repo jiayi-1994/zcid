@@ -1,21 +1,34 @@
 package registry
 
 import (
+	"context"
 	"errors"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
+	"github.com/xjy/zcid/internal/signal"
 	"github.com/xjy/zcid/pkg/crypto"
 	"github.com/xjy/zcid/pkg/response"
 )
 
 // Service implements registry business logic
 type Service struct {
-	repo   Repository
-	crypto *crypto.AESCrypto
+	repo       Repository
+	crypto     *crypto.AESCrypto
+	signals    *signal.Service
+	httpClient *http.Client
 }
 
 // NewService creates a new Service
 func NewService(repo Repository, aesCrypto *crypto.AESCrypto) *Service {
-	return &Service{repo: repo, crypto: aesCrypto}
+	return &Service{repo: repo, crypto: aesCrypto, httpClient: &http.Client{Timeout: 10 * time.Second}}
+}
+
+func (s *Service) SetSignalService(signals *signal.Service) {
+	s.signals = signals
 }
 
 // Create creates a new registry with encrypted password
@@ -144,16 +157,94 @@ func (s *Service) Delete(id string) error {
 	return nil
 }
 
-// TestConnection tests connectivity to a registry.
-// TODO: Integrate with Harbor/Docker Hub/GHCR API when external dependencies are available.
 func (s *Service) TestConnection(req TestConnectionRequest) (*TestConnectionResponse, error) {
-	// Mock implementation - always succeeds for now
-	// TODO: Implement actual HTTP ping to registry URL with auth
-	_ = req
-	return &TestConnectionResponse{
-		Success: true,
-		Message: "Connection test not implemented (mock)",
-	}, nil
+	endpoint, err := registryPingURL(req.URL)
+	if err != nil {
+		s.recordRegistrySignal(req.ProjectID, false, "registry.invalid_url", err.Error())
+		return nil, response.NewBizError(response.CodeValidation, "invalid registry url", err.Error())
+	}
+	httpReq, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		s.recordRegistrySignal(req.ProjectID, false, "registry.invalid_url", err.Error())
+		return nil, response.NewBizError(response.CodeValidation, "invalid registry url", err.Error())
+	}
+	if strings.TrimSpace(req.Username) != "" || strings.TrimSpace(req.Password) != "" {
+		httpReq.SetBasicAuth(strings.TrimSpace(req.Username), req.Password)
+	}
+
+	client := s.httpClient
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second}
+	}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		s.recordRegistrySignal(req.ProjectID, false, "registry.unreachable", err.Error())
+		return &TestConnectionResponse{Success: false, Message: "Registry unreachable: " + err.Error()}, nil
+	}
+	defer resp.Body.Close()
+
+	success := resp.StatusCode >= 200 && resp.StatusCode < 300
+	if success {
+		s.recordRegistrySignal(req.ProjectID, true, "registry.reachable", "Registry API is reachable")
+		return &TestConnectionResponse{Success: true, Message: "Registry API is reachable"}, nil
+	}
+	message := "Registry API returned " + resp.Status
+	s.recordRegistrySignal(req.ProjectID, false, "registry.http_error", message)
+	return &TestConnectionResponse{Success: false, Message: message}, nil
+}
+
+func registryPingURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", errors.New("url is required")
+	}
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errors.New("url scheme must be http or https")
+	}
+	if parsed.Host == "" {
+		return "", errors.New("url host is required")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/v2/"
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String(), nil
+}
+
+func (s *Service) recordRegistrySignal(projectID string, ok bool, reason, message string) {
+	if s.signals == nil || strings.TrimSpace(projectID) == "" {
+		return
+	}
+	status := signal.StatusDegraded
+	severity := signal.SeverityCritical
+	if ok {
+		status = signal.StatusHealthy
+		severity = signal.SeverityInfo
+	}
+	staleAfter := time.Now().Add(10 * time.Minute)
+	if _, err := s.signals.Record(context.Background(), signal.RecordInput{
+		ProjectID:  strings.TrimSpace(projectID),
+		TargetType: signal.TargetIntegration,
+		TargetID:   "registry",
+		Source:     "registry-test",
+		Status:     status,
+		Severity:   severity,
+		Reason:     reason,
+		Message:    message,
+		ObservedValue: map[string]any{
+			"ok":      ok,
+			"message": message,
+		},
+		StaleAfter: &staleAfter,
+	}); err != nil {
+		slog.Warn("failed to record registry health signal", slog.Any("error", err), slog.String("projectID", projectID))
+	}
 }
 
 // GetDefault returns the default registry for build chains

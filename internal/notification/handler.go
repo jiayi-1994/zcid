@@ -22,7 +22,22 @@ func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 	router.GET("", h.List)
 	router.GET("/:ruleId", h.Get)
 	router.PUT("/:ruleId", h.Update)
+	router.POST("/:ruleId/test", h.Test)
 	router.DELETE("/:ruleId", h.Delete)
+}
+
+func (h *Handler) Test(c *gin.Context) {
+	projectID := getProjectID(c)
+	ruleID := strings.TrimSpace(c.Param("ruleId"))
+	if projectID == "" || ruleID == "" {
+		response.HandleError(c, response.NewBizError(response.CodeValidation, "project id and rule id are required", ""))
+		return
+	}
+	if err := h.service.Test(c.Request.Context(), projectID, ruleID); err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.Success(c, gin.H{"sent": true})
 }
 
 func getProjectID(c *gin.Context) string {

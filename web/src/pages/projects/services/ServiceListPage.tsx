@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Message } from '@arco-design/web-react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/auth';
 import { fetchServices, createService, deleteService, type ServiceItem } from '../../../services/project';
 import { extractErrorMessage } from '../../../services/http';
@@ -13,6 +13,7 @@ import { IPlus, IChevL, IChevR } from '../../../components/ui/icons';
 
 export function ServiceListPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [svcs, setSvcs] = useState<ServiceItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -86,15 +87,30 @@ export function ServiceListPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>服务名称</th><th>描述</th><th>仓库地址</th><th>创建时间</th>
+                  <th>服务名称</th><th>描述</th><th>元数据</th><th>仓库地址</th><th>创建时间</th>
                   {isAdmin && <th style={{ textAlign: 'right' }}>操作</th>}
                 </tr>
               </thead>
               <tbody>
                 {svcs.map((svc) => (
                   <tr key={svc.id}>
-                    <td><span style={{ fontWeight: 500 }}>{svc.name}</span></td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/projects/${projectId}/services/${svc.id}`)}
+                        style={{ border: 0, background: 'transparent', padding: 0, fontWeight: 600, color: 'var(--blue)', cursor: 'pointer' }}
+                      >
+                        {svc.name}
+                      </button>
+                    </td>
                     <td><span className="sub">{svc.description || '-'}</span></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 11.5 }}>
+                        {svc.serviceType && <span className="badge">{svc.serviceType}</span>}
+                        {svc.owner && <span className="sub">owner: {svc.owner}</span>}
+                        {!svc.serviceType && !svc.owner && <span className="sub">-</span>}
+                      </div>
+                    </td>
                     <td>
                       {svc.repoUrl
                         ? <span className="code" style={{ fontSize: 11.5 }}>{svc.repoUrl}</span>
@@ -110,7 +126,7 @@ export function ServiceListPage() {
                 ))}
                 {svcs.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={isAdmin ? 5 : 4} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>
+                    <td colSpan={isAdmin ? 6 : 5} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>
                       暂无服务
                     </td>
                   </tr>

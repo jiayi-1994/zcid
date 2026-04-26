@@ -30,7 +30,7 @@ Copy `config/config.yaml.example` to `config/config.yaml` and set credentials. K
 - `ZCID_ENCRYPTION_KEY` — 32-byte hex key for AES-256-GCM (e.g. `0123456789abcdef0123456789abcdef`)
 - `DB_URL` — only needed for the migrate CLI (`postgres://zcid:password@localhost:5432/zcid?sslmode=disable`)
 
-Default admin login: `admin` / `admin123` (seeded by migration 000002).
+First-admin setup uses a one-time bootstrap token. On first startup with no configured users, the backend logs a `zcid_bootstrap_...` token that expires after 15 minutes; redeem it in the frontend bootstrap flow to create the first admin. The historical `admin` placeholder is disabled and `admin/admin123` must not be treated as a usable default login.
 
 ### Running the application
 

@@ -25,6 +25,7 @@ export interface AuditLogFilters {
   userId?: string;
   action?: string;
   resourceType?: string;
+  category?: string;
   startTime?: string;
   endTime?: string;
 }

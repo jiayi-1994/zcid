@@ -15,6 +15,7 @@ type Config struct {
 	Redis          RedisConfig          `yaml:"redis"`
 	MinIO          MinIOConfig          `yaml:"minio"`
 	Auth           AuthConfig           `yaml:"auth"`
+	Notification   NotificationConfig   `yaml:"notification"`
 	StepExecutions StepExecutionsConfig `yaml:"step_executions"`
 	Encryption     EncryptionConfig     `yaml:"-"`
 	K8s            K8sConfig            `yaml:"-"`
@@ -65,6 +66,10 @@ type AuthConfig struct {
 	JWTSecret string `yaml:"jwt_secret"`
 }
 
+type NotificationConfig struct {
+	SlackBaseURL string `yaml:"slack_base_url"`
+}
+
 type StepExecutionsConfig struct {
 	RetentionDays int `yaml:"retention_days"`
 }
@@ -99,6 +104,7 @@ func Load(path string) (*Config, error) {
 			UseSSL:   false,
 		},
 		Auth:           AuthConfig{},
+		Notification:   NotificationConfig{SlackBaseURL: "http://localhost:5173"},
 		StepExecutions: StepExecutionsConfig{RetentionDays: 90},
 	}
 
@@ -188,6 +194,9 @@ func applyEnvOverrides(cfg *Config) {
 	// Auth
 	if v := os.Getenv("JWT_SECRET"); v != "" {
 		cfg.Auth.JWTSecret = v
+	}
+	if v := os.Getenv("ZCID_SLACK_BASE_URL"); v != "" {
+		cfg.Notification.SlackBaseURL = v
 	}
 
 	if cfg.StepExecutions.RetentionDays <= 0 {

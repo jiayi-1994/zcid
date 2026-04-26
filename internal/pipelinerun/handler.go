@@ -42,6 +42,13 @@ func getRunID(c *gin.Context) string {
 func getUserID(c *gin.Context) string {
 	userID, _ := c.Get(middleware.ContextKeyUserID)
 	uid, _ := userID.(string)
+	if uid == "" {
+		if tokenID, ok := c.Get(middleware.ContextKeyTokenID); ok {
+			if tid, ok := tokenID.(string); ok && tid != "" {
+				return "token:" + tid
+			}
+		}
+	}
 	return uid
 }
 

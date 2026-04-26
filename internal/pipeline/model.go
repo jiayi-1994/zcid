@@ -75,11 +75,12 @@ type StepConfig struct {
 }
 
 type ParamConfig struct {
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	DefaultValue string `json:"defaultValue,omitempty"`
-	Description  string `json:"description,omitempty"`
-	Required     bool   `json:"required"`
+	Name         string   `json:"name"`
+	Type         string   `json:"type"`
+	Options      []string `json:"options,omitempty"`
+	DefaultValue string   `json:"defaultValue,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Required     bool     `json:"required"`
 }
 
 func (c PipelineConfig) Value() (driver.Value, error) {

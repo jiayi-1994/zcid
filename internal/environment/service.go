@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/xjy/zcid/internal/signal"
 	"github.com/xjy/zcid/pkg/response"
 )
 
@@ -17,11 +18,16 @@ type Repository interface {
 }
 
 type Service struct {
-	repo Repository
+	repo      Repository
+	signalSvc *signal.Service
 }
 
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+func (s *Service) SetSignalService(signalSvc *signal.Service) {
+	s.signalSvc = signalSvc
 }
 
 func (s *Service) Create(ctx context.Context, projectID, name, namespace, description string) (*Environment, error) {
@@ -79,6 +85,33 @@ func (s *Service) List(ctx context.Context, projectID string, page, pageSize int
 		return nil, 0, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
 	return envs, total, nil
+}
+
+func (s *Service) Health(ctx context.Context, projectID, envID string) EnvironmentHealthResponse {
+	if s.signalSvc == nil {
+		return EnvironmentHealthResponse{Status: "unknown", Reason: "No health signal service configured"}
+	}
+	signals, err := s.signalSvc.ListLatestByTarget(ctx, projectID, signal.TargetEnvironment, envID, 1)
+	if err != nil || len(signals) == 0 {
+		return EnvironmentHealthResponse{Status: "unknown", Reason: "No environment health signals yet"}
+	}
+	item := signals[0]
+	resp := EnvironmentHealthResponse{
+		Status:       item.EffectiveStatus,
+		Reason:       firstNonEmpty(item.Message, item.Reason, "Latest environment signal"),
+		LastSignalAt: item.ObservedAt.UTC().Format("2006-01-02T15:04:05Z"),
+		Stale:        item.EffectiveStatus == string(signal.StatusStale),
+	}
+	return resp
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (s *Service) Update(ctx context.Context, id, projectID string, name, namespace, description *string) (*Environment, error) {

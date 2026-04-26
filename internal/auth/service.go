@@ -2,13 +2,18 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/xjy/zcid/internal/audit"
 	"github.com/xjy/zcid/pkg/response"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -24,6 +29,24 @@ type Repository interface {
 	DeleteRefreshToken(ctx context.Context, userID string) error
 	UpsertUserRolePolicy(ctx context.Context, userID string, role SystemRole) error
 	PublishPolicyUpdate(ctx context.Context) error
+	CountConfiguredUsers(ctx context.Context) (int64, error)
+	FindActiveBootstrapToken(ctx context.Context, now time.Time) (*BootstrapToken, error)
+	StoreBootstrapToken(ctx context.Context, token *BootstrapToken) error
+	FindBootstrapTokenByHash(ctx context.Context, tokenHash string) (*BootstrapToken, error)
+	MarkBootstrapTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error
+	DisableLegacyBootstrapAdmin(ctx context.Context) error
+}
+
+const (
+	BootstrapTokenTTL       = 15 * time.Minute
+	legacyBootstrapAdminID  = "admin-bootstrap-001"
+	bootstrapTokenByteCount = 32
+)
+
+type requestIPContextKey struct{}
+
+func ContextWithRequestIP(ctx context.Context, ip string) context.Context {
+	return context.WithValue(ctx, requestIPContextKey{}, strings.TrimSpace(ip))
 }
 
 func NewService(repo Repository, jwtSecret string) *Service {
@@ -38,6 +61,15 @@ type Service struct {
 	repo      Repository
 	jwtSecret []byte
 	now       func() time.Time
+	audit     AuthAuditRecorder
+}
+
+type AuthAuditRecorder interface {
+	LogAuthSecurityEvent(ctx context.Context, event audit.AuthSecurityEvent)
+}
+
+func (s *Service) SetAuditRecorder(recorder AuthAuditRecorder) {
+	s.audit = recorder
 }
 
 type tokenClaims struct {
@@ -70,10 +102,12 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 	}
 
 	if user == nil || !ComparePasswordHash(user.PasswordHash, password) {
+		s.logAuthEvent(ctx, "auth.login_failed", audit.ResultFailure, "", audit.AuthSecurityDetail{PrincipalType: "user", Reason: "invalid_credentials", Fields: map[string]any{"username": username}}, "")
 		return nil, response.NewBizError(response.CodeUnauthorized, "invalid username or password", "")
 	}
 
 	if user.Status == UserStatusDisabled {
+		s.logAuthEvent(ctx, "auth.login_failed", audit.ResultFailure, user.ID, audit.AuthSecurityDetail{PrincipalType: "user", Reason: "account_disabled", Fields: map[string]any{"username": username}}, "")
 		return nil, response.NewBizError(response.CodeAccountDisabled, "account disabled", "")
 	}
 
@@ -91,7 +125,125 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
 
+	s.logAuthEvent(ctx, "auth.login", audit.ResultSuccess, user.ID, audit.AuthSecurityDetail{PrincipalType: "user", Fields: map[string]any{"username": user.Username, "role": user.Role}}, "")
 	return &TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+}
+
+func (s *Service) BootstrapRequired(ctx context.Context) (bool, error) {
+	count, err := s.repo.CountConfiguredUsers(ctx)
+	if err != nil {
+		return false, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	return count == 0, nil
+}
+
+func (s *Service) EnsureBootstrapToken(ctx context.Context) (string, bool, error) {
+	if err := s.repo.DisableLegacyBootstrapAdmin(ctx); err != nil {
+		return "", false, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+
+	required, err := s.BootstrapRequired(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	if !required {
+		return "", false, nil
+	}
+
+	now := s.now()
+	existing, err := s.repo.FindActiveBootstrapToken(ctx, now)
+	if err != nil {
+		return "", false, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	if existing != nil {
+		return "", false, nil
+	}
+
+	plain, err := generateBootstrapToken()
+	if err != nil {
+		return "", false, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	if err := s.repo.StoreBootstrapToken(ctx, &BootstrapToken{
+		TokenHash: hashBootstrapToken(plain),
+		ExpiresAt: now.Add(BootstrapTokenTTL),
+	}); err != nil {
+		return "", false, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+
+	return plain, true, nil
+}
+
+func (s *Service) RedeemBootstrapToken(ctx context.Context, token string, username string, password string) (*User, error) {
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+	if strings.TrimSpace(token) == "" || username == "" || password == "" {
+		return nil, response.NewBizError(response.CodeValidation, "invalid request", "token, username and password are required")
+	}
+
+	required, err := s.BootstrapRequired(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !required {
+		return nil, response.NewBizError(response.CodeConflict, "bootstrap already completed", "")
+	}
+
+	stored, err := s.repo.FindBootstrapTokenByHash(ctx, hashBootstrapToken(token))
+	if err != nil {
+		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	if stored == nil || stored.UsedAt != nil {
+		s.logAuthEvent(ctx, "auth.bootstrap_redeemed", audit.ResultFailure, "", audit.AuthSecurityDetail{Reason: "invalid_or_used", Fields: map[string]any{"username": username}}, "")
+		return nil, response.NewBizError(response.CodeUnauthorized, "invalid bootstrap token", "")
+	}
+	if !s.now().Before(stored.ExpiresAt) {
+		s.logAuthEvent(ctx, "auth.bootstrap_redeemed", audit.ResultFailure, "", audit.AuthSecurityDetail{Reason: "expired", Fields: map[string]any{"username": username}}, "")
+		return nil, response.NewBizError(response.CodeTokenExpired, "bootstrap token expired", "")
+	}
+
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+
+	updates := map[string]any{
+		"username":      username,
+		"password_hash": hash,
+		"role":          SystemRoleAdmin,
+		"status":        UserStatusActive,
+	}
+	if err := s.repo.UpdateUser(ctx, legacyBootstrapAdminID, updates); err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			user := &User{ID: legacyBootstrapAdminID, Username: username, PasswordHash: hash, Role: SystemRoleAdmin, Status: UserStatusActive}
+			if err := s.repo.CreateUser(ctx, user); err != nil {
+				if errors.Is(err, ErrUsernameTaken) {
+					return nil, response.NewBizError(response.CodeConflict, "username already exists", "")
+				}
+				return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+			}
+		} else if errors.Is(err, ErrUsernameTaken) {
+			return nil, response.NewBizError(response.CodeConflict, "username already exists", "")
+		} else {
+			return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+		}
+	}
+
+	if err := s.repo.UpsertUserRolePolicy(ctx, legacyBootstrapAdminID, SystemRoleAdmin); err != nil {
+		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	if err := s.repo.PublishPolicyUpdate(ctx); err != nil {
+		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	if err := s.repo.MarkBootstrapTokenUsed(ctx, stored.ID, s.now()); err != nil {
+		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+
+	user, err := s.repo.FindUserByID(ctx, legacyBootstrapAdminID)
+	if err != nil {
+		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
+	}
+	s.logAuthEvent(ctx, "auth.bootstrap_redeemed", audit.ResultSuccess, user.ID, audit.AuthSecurityDetail{PrincipalType: "user", TargetUserID: user.ID, Fields: map[string]any{"username": user.Username, "role": user.Role}}, "")
+	return user, nil
 }
 
 func (s *Service) CreateUser(ctx context.Context, username string, password string, status string, role string) (*User, error) {
@@ -136,12 +288,18 @@ func (s *Service) CreateUser(ctx context.Context, username string, password stri
 	if err := s.repo.PublishPolicyUpdate(ctx); err != nil {
 		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
+	s.logAuthEvent(ctx, "auth.user_created", audit.ResultSuccess, user.ID, audit.AuthSecurityDetail{
+		PrincipalType: "user",
+		TargetUserID:  user.ID,
+		Fields:        map[string]any{"username": user.Username, "role": user.Role, "status": user.Status},
+	}, "")
 
 	return user, nil
 }
 
 func (s *Service) UpdateUser(ctx context.Context, userID string, username *string, password *string, status *string, role *string) (*User, error) {
 	updates := map[string]any{}
+	before, _ := s.repo.FindUserByID(ctx, userID)
 
 	if username != nil {
 		trimmed := strings.TrimSpace(*username)
@@ -220,6 +378,7 @@ func (s *Service) UpdateUser(ctx context.Context, userID string, username *strin
 		}
 		return nil, response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
+	s.logUserChange(ctx, before, user, updates)
 
 	return user, nil
 }
@@ -249,6 +408,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 
 	storedToken, err := s.repo.GetRefreshToken(ctx, claims.Subject)
 	if errors.Is(err, ErrRefreshSessionNotFound) {
+		s.logAuthEvent(ctx, "auth.refresh", audit.ResultFailure, claims.Subject, audit.AuthSecurityDetail{PrincipalType: "user", Reason: "missing_session"}, "")
 		return "", response.NewBizError(response.CodeUnauthorized, "unauthorized", "")
 	}
 	if err != nil {
@@ -256,17 +416,20 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 	}
 
 	if subtle.ConstantTimeCompare([]byte(storedToken), []byte(refreshToken)) != 1 {
+		s.logAuthEvent(ctx, "auth.refresh", audit.ResultFailure, claims.Subject, audit.AuthSecurityDetail{PrincipalType: "user", Reason: "token_mismatch"}, "")
 		return "", response.NewBizError(response.CodeUnauthorized, "unauthorized", "")
 	}
 
 	user, err := s.repo.FindUserByID(ctx, claims.Subject)
 	if errors.Is(err, ErrUserNotFound) {
+		s.logAuthEvent(ctx, "auth.refresh", audit.ResultFailure, claims.Subject, audit.AuthSecurityDetail{PrincipalType: "user", Reason: "user_not_found"}, "")
 		return "", response.NewBizError(response.CodeUnauthorized, "unauthorized", "")
 	}
 	if err != nil {
 		return "", response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
 	if user.Status == UserStatusDisabled {
+		s.logAuthEvent(ctx, "auth.refresh", audit.ResultFailure, user.ID, audit.AuthSecurityDetail{PrincipalType: "user", Reason: "account_disabled"}, "")
 		return "", response.NewBizError(response.CodeUnauthorized, "unauthorized", "")
 	}
 
@@ -275,6 +438,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 		return "", response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
 
+	s.logAuthEvent(ctx, "auth.refresh", audit.ResultSuccess, user.ID, audit.AuthSecurityDetail{PrincipalType: "user", Fields: map[string]any{"username": user.Username, "role": user.Role}}, "")
 	return accessToken, nil
 }
 
@@ -292,6 +456,7 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 		return response.NewBizError(response.CodeInternalServerError, "internal server error", "")
 	}
 
+	s.logAuthEvent(ctx, "auth.logout", audit.ResultSuccess, claims.Subject, audit.AuthSecurityDetail{PrincipalType: "user", Fields: map[string]any{"username": claims.Username}}, "")
 	return nil
 }
 
@@ -376,6 +541,59 @@ func parseSystemRole(raw string) (SystemRole, error) {
 	}
 }
 
+func generateBootstrapToken() (string, error) {
+	raw := make([]byte, bootstrapTokenByteCount)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return "zcid_bootstrap_" + base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+func hashBootstrapToken(token string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(token)))
+	return hex.EncodeToString(sum[:])
+}
+
 func (s *Service) ListUsers(ctx context.Context) ([]*User, error) {
 	return s.repo.ListUsers(ctx)
+}
+
+func (s *Service) logAuthEvent(ctx context.Context, action string, result string, userID string, detail audit.AuthSecurityDetail, ip string) {
+	if s.audit == nil {
+		return
+	}
+	if strings.TrimSpace(ip) == "" {
+		if ctxIP, ok := ctx.Value(requestIPContextKey{}).(string); ok {
+			ip = ctxIP
+		}
+	}
+	detail.EventType = action
+	s.audit.LogAuthSecurityEvent(ctx, audit.AuthSecurityEvent{UserID: userID, Action: action, ResourceID: userID, Result: result, IP: ip, Detail: detail})
+}
+
+func (s *Service) logUserChange(ctx context.Context, before *User, after *User, updates map[string]any) {
+	if s.audit == nil || after == nil {
+		return
+	}
+	fields := map[string]any{"username": after.Username}
+	action := "auth.user_updated"
+	if _, ok := updates["password_hash"]; ok {
+		action = "auth.password_changed"
+		fields["passwordChanged"] = true
+	}
+	if before != nil {
+		if before.Role != after.Role {
+			action = "auth.role_changed"
+			fields["oldRole"] = before.Role
+			fields["newRole"] = after.Role
+		}
+		if before.Status != after.Status {
+			fields["oldStatus"] = before.Status
+			fields["newStatus"] = after.Status
+			if after.Status == UserStatusDisabled {
+				action = "auth.user_disabled"
+			}
+		}
+	}
+	s.logAuthEvent(ctx, action, audit.ResultSuccess, after.ID, audit.AuthSecurityDetail{PrincipalType: "user", TargetUserID: after.ID, Fields: fields}, "")
 }

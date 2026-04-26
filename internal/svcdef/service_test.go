@@ -41,6 +41,31 @@ func (m *mockRepo) SoftDelete(ctx context.Context, id, projectID string) error {
 	return args.Error(0)
 }
 
+func (m *mockRepo) ListLinkedPipelines(ctx context.Context, svc *ServiceDef) ([]VitalsPipeline, error) {
+	args := m.Called(ctx, svc)
+	return args.Get(0).([]VitalsPipeline), args.Error(1)
+}
+
+func (m *mockRepo) ListRecentRuns(ctx context.Context, projectID string, pipelineIDs []string, limit int) ([]VitalsRun, error) {
+	args := m.Called(ctx, projectID, pipelineIDs, limit)
+	return args.Get(0).([]VitalsRun), args.Error(1)
+}
+
+func (m *mockRepo) ListLatestDeployments(ctx context.Context, projectID string, environmentIDs []string, limit int) ([]VitalsDeployment, error) {
+	args := m.Called(ctx, projectID, environmentIDs, limit)
+	return args.Get(0).([]VitalsDeployment), args.Error(1)
+}
+
+func (m *mockRepo) ListFailedSteps(ctx context.Context, projectID string, runIDs []string, limit int) ([]VitalsStepWarning, error) {
+	args := m.Called(ctx, projectID, runIDs, limit)
+	return args.Get(0).([]VitalsStepWarning), args.Error(1)
+}
+
+func (m *mockRepo) ListLatestSignals(ctx context.Context, projectID string, targets []VitalsSignalTarget, limit int) ([]VitalsSignal, error) {
+	args := m.Called(ctx, projectID, targets, limit)
+	return args.Get(0).([]VitalsSignal), args.Error(1)
+}
+
 func TestCreate_Success(t *testing.T) {
 	repo := new(mockRepo)
 	svc := NewService(repo)
@@ -58,6 +83,41 @@ func TestCreate_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "api-gateway", s.Name)
 	assert.Equal(t, "proj-1", s.ProjectID)
+	repo.AssertExpectations(t)
+}
+
+func TestCreateWithInput_Metadata(t *testing.T) {
+	repo := new(mockRepo)
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	repo.On("Create", ctx, mock.AnythingOfType("*svcdef.ServiceDef")).
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			s := args.Get(1).(*ServiceDef)
+			assert.Equal(t, "api", s.ServiceType)
+			assert.Equal(t, "go", s.Language)
+			assert.Equal(t, "platform", s.Owner)
+			assert.Equal(t, StringList{"critical", "payments"}, s.Tags)
+			assert.Equal(t, StringList{"pipe-1"}, s.PipelineIDs)
+			assert.Equal(t, StringList{"env-1"}, s.EnvironmentIDs)
+			s.ID = "svc-123"
+		})
+
+	created, err := svc.CreateWithInput(ctx, "proj-1", CreateInput{
+		Name:           " api-gateway ",
+		Description:    " API Gateway service ",
+		RepoURL:        " https://github.com/org/api ",
+		ServiceType:    " api ",
+		Language:       " go ",
+		Owner:          " platform ",
+		Tags:           []string{"critical", "", "payments", "critical"},
+		PipelineIDs:    []string{"pipe-1", "pipe-1"},
+		EnvironmentIDs: []string{"env-1"},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "api-gateway", created.Name)
 	repo.AssertExpectations(t)
 }
 
@@ -144,4 +204,30 @@ func TestDelete_NotFound(t *testing.T) {
 	bizErr, ok := err.(*response.BizError)
 	assert.True(t, ok)
 	assert.Equal(t, response.CodeNotFound, bizErr.Code)
+}
+
+func TestUpdateWithInput_Metadata(t *testing.T) {
+	repo := new(mockRepo)
+	svc := NewService(repo)
+	ctx := context.Background()
+	owner := " team-a "
+	serviceType := "worker"
+
+	repo.On("Update", ctx, "s1", "proj-1", mock.MatchedBy(func(updates map[string]any) bool {
+		return updates["owner"] == "team-a" &&
+			updates["service_type"] == "worker" &&
+			assert.ObjectsAreEqual(StringList{"batch"}, updates["tags"])
+	})).Return(nil)
+	repo.On("FindByID", ctx, "s1", "proj-1").Return(&ServiceDef{ID: "s1", ProjectID: "proj-1", Name: "svc", Owner: "team-a", ServiceType: "worker", Tags: StringList{"batch"}}, nil)
+
+	updated, err := svc.UpdateWithInput(ctx, "s1", "proj-1", UpdateInput{
+		Owner:       &owner,
+		ServiceType: &serviceType,
+		Tags:        []string{"batch"},
+		UpdateTags:  true,
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "team-a", updated.Owner)
+	repo.AssertExpectations(t)
 }

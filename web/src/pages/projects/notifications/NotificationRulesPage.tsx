@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Message } from '@arco-design/web-react';
 import { useParams } from 'react-router-dom';
 import {
-  createNotificationRule, deleteNotificationRule, fetchNotificationRules, updateNotificationRule,
+  createNotificationRule, deleteNotificationRule, fetchNotificationRules, testNotificationRule, updateNotificationRule,
   type NotificationRule,
 } from '../../../services/notification';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -29,11 +29,16 @@ const EVENT_TONE: Record<string, 'green' | 'red' | 'blue' | 'amber'> = {
   deploy_failed: 'amber',
 };
 
+const CHANNEL_OPTIONS = [
+  { value: 'webhook', label: 'Webhook' },
+  { value: 'slack', label: 'Slack' },
+];
+
 function eventLabel(val: string) {
   return EVENT_OPTIONS.find((o) => o.value === val)?.label ?? val;
 }
 
-const EMPTY_FORM = { name: '', eventType: 'build_failed', webhookUrl: '', enabled: true };
+const EMPTY_FORM = { name: '', eventType: 'build_failed', channelType: 'webhook' as 'webhook' | 'slack', webhookUrl: '', slackToken: '', slackChannel: '', enabled: true };
 
 export function NotificationRulesPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -67,12 +72,14 @@ export function NotificationRulesPage() {
 
   const openEdit = (rule: NotificationRule) => {
     setEditRule(rule);
-    setForm({ name: rule.name, eventType: rule.eventType, webhookUrl: rule.webhookUrl, enabled: rule.enabled });
+    setForm({ name: rule.name, eventType: rule.eventType, channelType: rule.channelType || 'webhook', webhookUrl: rule.webhookUrl || '', slackToken: '', slackChannel: rule.slackChannel || '', enabled: rule.enabled });
     setModalVisible(true);
   };
 
   const handleSubmit = async () => {
-    if (!form.name || !form.webhookUrl) { Message.error('请填写名称和 Webhook URL'); return; }
+    if (!form.name) { Message.error('请填写名称'); return; }
+    if (form.channelType === 'webhook' && !form.webhookUrl) { Message.error('请填写 Webhook URL'); return; }
+    if (form.channelType === 'slack' && (!form.slackChannel || (!editRule && !form.slackToken))) { Message.error('请填写 Slack Channel 和 Bot Token'); return; }
     if (!projectId) return;
     setSubmitting(true);
     try {
@@ -89,6 +96,16 @@ export function NotificationRulesPage() {
       Message.error('操作失败');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleTest = async (rule: NotificationRule) => {
+    if (!projectId) return;
+    try {
+      await testNotificationRule(projectId, rule.id);
+      Message.success('测试消息已发送');
+    } catch {
+      Message.error('测试发送失败');
     }
   };
 
@@ -118,7 +135,7 @@ export function NotificationRulesPage() {
       <PageHeader
         crumb="Project · Signals"
         title="通知规则"
-        sub="配置构建与部署事件的 Webhook 推送。"
+        sub="配置构建与部署事件的 Webhook 或 Slack 推送。"
         actions={
           <Btn size="sm" variant="primary" icon={<IPlus size={13} />} onClick={openCreate}>
             创建规则
@@ -133,7 +150,7 @@ export function NotificationRulesPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>名称</th><th>事件类型</th><th>Webhook URL</th><th>状态</th><th>创建时间</th>
+                  <th>名称</th><th>事件类型</th><th>渠道</th><th>目标</th><th>状态</th><th>创建时间</th>
                   <th style={{ textAlign: 'right' }}>操作</th>
                 </tr>
               </thead>
@@ -146,9 +163,10 @@ export function NotificationRulesPage() {
                         {eventLabel(rule.eventType)}
                       </Badge>
                     </td>
+                    <td><Badge tone={rule.channelType === 'slack' ? 'cyan' : 'grey'}>{rule.channelType === 'slack' ? 'Slack' : 'Webhook'}</Badge></td>
                     <td>
                       <span className="code" style={{ fontSize: 11, maxWidth: 260, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                        {rule.webhookUrl}
+                        {rule.channelType === 'slack' ? rule.slackChannel : rule.webhookUrl}
                       </span>
                     </td>
                     <td>
@@ -158,6 +176,7 @@ export function NotificationRulesPage() {
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 4 }}>
                         <Btn size="xs" variant="ghost" iconOnly icon={<IEdit size={12} />} onClick={() => openEdit(rule)} />
+                        <Btn size="xs" variant="ghost" onClick={() => handleTest(rule)}>测试</Btn>
                         <Btn size="xs" variant="ghost" iconOnly icon={<ITrash size={12} />} onClick={() => handleDelete(rule.id)} />
                       </div>
                     </td>
@@ -165,7 +184,7 @@ export function NotificationRulesPage() {
                 ))}
                 {rules.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--z-400)' }}>
                       暂无通知规则
                     </td>
                   </tr>
@@ -201,9 +220,28 @@ export function NotificationRulesPage() {
                 onChange={(v) => setForm({ ...form, eventType: v })}
               />
             </Field>
-            <Field label="Webhook URL" required>
-              <input className="input" value={form.webhookUrl} onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })} placeholder="https://hooks.example.com/callback" />
+            <Field label="通知渠道" required>
+              <ZSelect
+                width={220}
+                value={form.channelType}
+                options={CHANNEL_OPTIONS}
+                onChange={(v) => setForm({ ...form, channelType: v as 'webhook' | 'slack' })}
+              />
             </Field>
+            {form.channelType === 'webhook' ? (
+              <Field label="Webhook URL" required>
+                <input className="input" value={form.webhookUrl} onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })} placeholder="https://hooks.example.com/callback" />
+              </Field>
+            ) : (
+              <>
+                <Field label="Slack Bot Token" required={!editRule} help={editRule ? '留空表示继续使用已保存的加密 Token。' : '需要 xoxb- 开头的 Slack Bot Token。'}>
+                  <input className="input" type="password" value={form.slackToken} onChange={(e) => setForm({ ...form, slackToken: e.target.value })} placeholder={editRule ? '保留现有 Token' : 'xoxb-...'} />
+                </Field>
+                <Field label="Slack Channel" required>
+                  <input className="input" value={form.slackChannel} onChange={(e) => setForm({ ...form, slackChannel: e.target.value })} placeholder="#ci-alerts 或 C0123456789" />
+                </Field>
+              </>
+            )}
             <Field label="启用">
               <ZSwitch on={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />
             </Field>

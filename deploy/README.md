@@ -359,7 +359,8 @@ kubectl port-forward svc/zcid -n zcid 8080:8080
 
 # 浏览器打开
 open http://localhost:8080
-# 登录: admin / admin123
+# 首次启动时查看 zcid 后端日志中的 zcid_bootstrap_... 一次性 token，
+# 在前端 bootstrap 流程中创建首个管理员；token 15 分钟后过期且不可复用。
 ```
 
 **验证 CI 功能：**

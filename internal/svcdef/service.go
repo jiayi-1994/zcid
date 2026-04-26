@@ -14,6 +14,11 @@ type Repository interface {
 	ListByProject(ctx context.Context, projectID string, page, pageSize int) ([]*ServiceDef, int64, error)
 	Update(ctx context.Context, id, projectID string, updates map[string]any) error
 	SoftDelete(ctx context.Context, id, projectID string) error
+	ListLinkedPipelines(ctx context.Context, svc *ServiceDef) ([]VitalsPipeline, error)
+	ListRecentRuns(ctx context.Context, projectID string, pipelineIDs []string, limit int) ([]VitalsRun, error)
+	ListLatestDeployments(ctx context.Context, projectID string, environmentIDs []string, limit int) ([]VitalsDeployment, error)
+	ListFailedSteps(ctx context.Context, projectID string, runIDs []string, limit int) ([]VitalsStepWarning, error)
+	ListLatestSignals(ctx context.Context, projectID string, targets []VitalsSignalTarget, limit int) ([]VitalsSignal, error)
 }
 
 type Service struct {
@@ -24,18 +29,55 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
+type CreateInput struct {
+	Name           string
+	Description    string
+	RepoURL        string
+	ServiceType    string
+	Language       string
+	Owner          string
+	Tags           []string
+	PipelineIDs    []string
+	EnvironmentIDs []string
+}
+
+type UpdateInput struct {
+	Name               *string
+	Description        *string
+	RepoURL            *string
+	ServiceType        *string
+	Language           *string
+	Owner              *string
+	Tags               []string
+	PipelineIDs        []string
+	EnvironmentIDs     []string
+	UpdateTags         bool
+	UpdatePipelines    bool
+	UpdateEnvironments bool
+}
+
 func (s *Service) Create(ctx context.Context, projectID, name, description, repoURL string) (*ServiceDef, error) {
-	name = strings.TrimSpace(name)
+	return s.CreateWithInput(ctx, projectID, CreateInput{Name: name, Description: description, RepoURL: repoURL})
+}
+
+func (s *Service) CreateWithInput(ctx context.Context, projectID string, input CreateInput) (*ServiceDef, error) {
+	name := strings.TrimSpace(input.Name)
 	if name == "" {
 		return nil, response.NewBizError(response.CodeValidation, "服务名称不能为空", "")
 	}
 
 	svc := &ServiceDef{
-		ProjectID:   projectID,
-		Name:        name,
-		Description: strings.TrimSpace(description),
-		RepoURL:     strings.TrimSpace(repoURL),
-		Status:      StatusActive,
+		ProjectID:      projectID,
+		Name:           name,
+		Description:    strings.TrimSpace(input.Description),
+		RepoURL:        strings.TrimSpace(input.RepoURL),
+		ServiceType:    strings.TrimSpace(input.ServiceType),
+		Language:       strings.TrimSpace(input.Language),
+		Owner:          strings.TrimSpace(input.Owner),
+		Tags:           normalizeList(input.Tags),
+		PipelineIDs:    normalizeList(input.PipelineIDs),
+		EnvironmentIDs: normalizeList(input.EnvironmentIDs),
+		Status:         StatusActive,
 	}
 
 	if err := s.repo.Create(ctx, svc); err != nil {
@@ -74,20 +116,42 @@ func (s *Service) List(ctx context.Context, projectID string, page, pageSize int
 }
 
 func (s *Service) Update(ctx context.Context, id, projectID string, name, description, repoURL *string) (*ServiceDef, error) {
+	return s.UpdateWithInput(ctx, id, projectID, UpdateInput{Name: name, Description: description, RepoURL: repoURL})
+}
+
+func (s *Service) UpdateWithInput(ctx context.Context, id, projectID string, input UpdateInput) (*ServiceDef, error) {
 	updates := map[string]any{}
 
-	if name != nil {
-		trimmed := strings.TrimSpace(*name)
+	if input.Name != nil {
+		trimmed := strings.TrimSpace(*input.Name)
 		if trimmed == "" {
 			return nil, response.NewBizError(response.CodeValidation, "服务名称不能为空", "")
 		}
 		updates["name"] = trimmed
 	}
-	if description != nil {
-		updates["description"] = strings.TrimSpace(*description)
+	if input.Description != nil {
+		updates["description"] = strings.TrimSpace(*input.Description)
 	}
-	if repoURL != nil {
-		updates["repo_url"] = strings.TrimSpace(*repoURL)
+	if input.RepoURL != nil {
+		updates["repo_url"] = strings.TrimSpace(*input.RepoURL)
+	}
+	if input.ServiceType != nil {
+		updates["service_type"] = strings.TrimSpace(*input.ServiceType)
+	}
+	if input.Language != nil {
+		updates["language"] = strings.TrimSpace(*input.Language)
+	}
+	if input.Owner != nil {
+		updates["owner"] = strings.TrimSpace(*input.Owner)
+	}
+	if input.UpdateTags {
+		updates["tags"] = normalizeList(input.Tags)
+	}
+	if input.UpdatePipelines {
+		updates["pipeline_ids"] = normalizeList(input.PipelineIDs)
+	}
+	if input.UpdateEnvironments {
+		updates["environment_ids"] = normalizeList(input.EnvironmentIDs)
 	}
 
 	if len(updates) == 0 {
@@ -106,6 +170,17 @@ func (s *Service) Update(ctx context.Context, id, projectID string, name, descri
 	}
 
 	return s.repo.FindByID(ctx, id, projectID)
+}
+
+func normalizeList(values []string) StringList {
+	trimmed := make([]string, 0, len(values))
+	for _, value := range values {
+		item := strings.TrimSpace(value)
+		if item != "" {
+			trimmed = append(trimmed, item)
+		}
+	}
+	return NewStringList(trimmed)
 }
 
 func (s *Service) Delete(ctx context.Context, id, projectID string) error {

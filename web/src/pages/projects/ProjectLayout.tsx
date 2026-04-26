@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth';
 import { fetchProject, type Project } from '../../services/project';
 import {
-  IZap, ILayers, IRocket, IServer, IUsers, IKey, IBell, IChevD, IChevR, IHome, ISearch, IGrid, IFolder, IPlug, IShield, ISettings,
+  IZap, ILayers, IRocket, IServer, IUsers, IKey, IBell, IChevD, IChevR, IHome, ISearch, IGrid, IFolder, IPlug, IShield, ISettings, ITarget,
 } from '../../components/ui/icons';
 import { Avatar } from '../../components/ui/Avatar';
 import { logout } from '../../services/auth';
@@ -17,6 +17,7 @@ const ROLE_LABELS: Record<SystemRole, string> = {
 
 const PROJECT_NAV = [
   { id: 'pipelines',    label: '流水线', icon: <IZap size={14} /> },
+  { id: 'analytics',    label: '分析',   icon: <ITarget size={14} /> },
   { id: 'environments', label: '环境',   icon: <ILayers size={14} /> },
   { id: 'deployments',  label: '部署',   icon: <IRocket size={14} /> },
   { id: 'services',     label: '服务',   icon: <IServer size={14} /> },

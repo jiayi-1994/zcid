@@ -25,5 +25,8 @@ minio:
 auth:
   jwt_secret: ""  # Use JWT_SECRET env var instead
 
+notification:
+  slack_base_url: "http://localhost:5173"  # Public frontend base URL for Slack "View Run" links
+
 step_executions:
   retention_days: 90

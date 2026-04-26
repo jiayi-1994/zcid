@@ -25,8 +25,16 @@ export interface EnvironmentItem {
   namespace: string;
   description: string;
   status: string;
+  health?: EnvironmentHealth;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface EnvironmentHealth {
+  status: 'healthy' | 'warning' | 'degraded' | 'unknown' | 'stale';
+  reason: string;
+  lastSignalAt?: string;
+  stale: boolean;
 }
 
 export interface EnvironmentList {
@@ -42,9 +50,34 @@ export interface ServiceItem {
   name: string;
   description: string;
   repoUrl: string;
+  serviceType?: string;
+  language?: string;
+  owner?: string;
+  tags?: string[];
+  pipelineIds?: string[];
+  environmentIds?: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ServiceVitals {
+  service: ServiceItem;
+  summary: {
+    status: 'healthy' | 'warning' | 'degraded' | 'unknown' | 'stale';
+    reason: string;
+    lastSignalAt?: string;
+    hasDeliveryData: boolean;
+    hasDeploymentData: boolean;
+    activeWarningCount: number;
+  };
+  linkedPipelines: Array<{ id: string; name: string; status: string; repoUrl: string; createdAt: string; updatedAt: string }>;
+  recentRuns: Array<{ id: string; pipelineId: string; pipelineName: string; runNumber: number; status: string; startedAt?: string; finishedAt?: string; errorMessage?: string; createdAt: string }>;
+  latestDeployments: Array<{ id: string; environmentId: string; environmentName: string; pipelineRunId?: string; image: string; status: string; syncStatus?: string; healthStatus?: string; errorMessage?: string; startedAt?: string; finishedAt?: string; createdAt: string }>;
+  activeSignals: Array<{ id: string; targetType: string; targetId: string; source: string; status: string; rawStatus: string; severity: string; reason: string; message: string; observedAt: string; staleAfter?: string }>;
+  warnings: Array<{ stepName: string; taskRunName: string; status: string; durationMs?: number; exitCode?: number; runId: string; pipelineId: string; pipelineName: string; runNumber: number; runPath: string; createdAt: string }>;
+  emptyStates: string[];
+  refreshedAt: string;
 }
 
 export interface ServiceList {
@@ -106,6 +139,11 @@ export async function deleteEnvironment(projectId: string, envId: string): Promi
 
 export async function fetchServices(projectId: string, page = 1, pageSize = 20): Promise<ServiceList> {
   const res = await http.get<ApiResponse<ServiceList>>(`/projects/${projectId}/services`, { params: { page, pageSize } });
+  return res.data.data;
+}
+
+export async function fetchServiceVitals(projectId: string, serviceId: string): Promise<ServiceVitals> {
+  const res = await http.get<ApiResponse<ServiceVitals>>(`/projects/${projectId}/services/${serviceId}/vitals`);
   return res.data.data;
 }
 

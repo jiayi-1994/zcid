@@ -31,6 +31,7 @@ func (h *Handler) RegisterRoutes(router gin.IRoutes) {
 // @Param action query string false "Filter by action"
 // @Param resourceType query string false "Filter by resource type"
 // @Param resourceId query string false "Filter by resource ID"
+// @Param category query string false "Filter by category (auth_security)"
 // @Param startTime query string false "Filter by start time (RFC3339)"
 // @Param endTime query string false "Filter by end time (RFC3339)"
 // @Success 200 {object} response.Response{data=object{items=[]object,total=int,page=int,pageSize=int}}
@@ -62,6 +63,9 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	if rid := c.Query("resourceId"); rid != "" {
 		opts.ResourceID = &rid
+	}
+	if category := c.Query("category"); category != "" {
+		opts.Category = &category
 	}
 	if start := c.Query("startTime"); start != "" {
 		if t, err := time.Parse(time.RFC3339, start); err == nil {

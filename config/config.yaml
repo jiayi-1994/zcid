@@ -25,5 +25,8 @@ minio:
 auth:
   jwt_secret: "dev-jwt-secret-key-for-local"
 
+notification:
+  slack_base_url: "http://localhost:5173"
+
 step_executions:
   retention_days: 90

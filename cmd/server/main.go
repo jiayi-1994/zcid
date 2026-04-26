@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
+	osSignal "os/signal"
 	"strings"
 	"syscall"
 	"time"
@@ -17,6 +17,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/xjy/zcid/config"
 	"github.com/xjy/zcid/internal/admin"
+	"github.com/xjy/zcid/internal/analytics"
 	"github.com/xjy/zcid/internal/audit"
 	"github.com/xjy/zcid/internal/auth"
 	"github.com/xjy/zcid/internal/crdclean"
@@ -30,6 +31,7 @@ import (
 	"github.com/xjy/zcid/internal/project"
 	"github.com/xjy/zcid/internal/rbac"
 	"github.com/xjy/zcid/internal/registry"
+	healthsignal "github.com/xjy/zcid/internal/signal"
 	"github.com/xjy/zcid/internal/stepexec"
 	"github.com/xjy/zcid/internal/svcdef"
 	"github.com/xjy/zcid/internal/variable"
@@ -165,10 +167,15 @@ func main() {
 	registerHealthRoutes(r, db, rdb)
 	registerExampleRoutes(r)
 	pipelineWatcher := registerWebSocketRoutes(appCtx, r, cfg.Auth.JWTSecret, cfg.K8s.Enabled, coreClient, dynClient, stepRecorder)
-	registerAuthRoutes(r, db, rdb, cfg.Auth.JWTSecret)
-	registerAdminRoutes(appCtx, r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc)
-	registerProjectRoutes(appCtx, r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, minioClient, auditSvc, cfg, coreClient, dynClient, stepRepo, pipelineWatcher)
-	registerIntegrationRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc, cfg, coreClient, dynClient, stepRepo)
+	authRepo := auth.NewRepo(db, rdb)
+	authService := auth.NewService(authRepo, cfg.Auth.JWTSecret)
+	authService.SetAuditRecorder(auditSvc)
+	tokenService := auth.NewTokenService(authRepo, auditSvc)
+	registerAuthRoutes(r, rdb, authService)
+	signalSvc := healthsignal.NewService(healthsignal.NewRepo(db))
+	registerAdminRoutes(appCtx, r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc, authService, tokenService, signalSvc)
+	registerProjectRoutes(appCtx, r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, minioClient, auditSvc, cfg, coreClient, dynClient, stepRepo, pipelineWatcher, tokenService, signalSvc)
+	registerIntegrationRoutes(r, db, rdb, cfg.Auth.JWTSecret, aesCrypto, auditSvc, cfg, coreClient, dynClient, stepRepo, tokenService, signalSvc)
 	registerFrontendRoutes(r)
 
 	_ = minioClient // used during init; retained for future use
@@ -188,7 +195,7 @@ func main() {
 	}()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	osSignal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
 	slog.Info("shutdown signal received", slog.String("signal", sig.String()))
 	appCancel()
@@ -243,10 +250,13 @@ func registerExampleRoutes(r *gin.Engine) {
 	})
 }
 
-func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string) {
-	repo := auth.NewRepo(db, rdb)
-	service := auth.NewService(repo, jwtSecret)
+func registerAuthRoutes(r *gin.Engine, rdb *redis.Client, service *auth.Service) {
 	handler := auth.NewHandler(service)
+	if token, generated, err := service.EnsureBootstrapToken(context.Background()); err != nil {
+		slog.Error("failed to ensure bootstrap token", slog.Any("error", err))
+	} else if generated {
+		slog.Warn("zcid first-admin bootstrap token generated", slog.String("token", token), slog.Duration("ttl", auth.BootstrapTokenTTL))
+	}
 
 	authLimiter := middleware.NewRateLimiter(rdb, 20, time.Minute)
 
@@ -256,10 +266,9 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret
 	handler.RegisterRoutes(authGroup)
 }
 
-func registerAdminRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service) {
-	repo := auth.NewRepo(db, rdb)
-	service := auth.NewService(repo, jwtSecret)
+func registerAdminRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service, service *auth.Service, tokenService *auth.TokenService, signalSvc *healthsignal.Service) {
 	handler := auth.NewHandler(service)
+	tokenHandler := auth.NewTokenHandler(tokenService)
 
 	enforcer, err := rbac.NewEnforcer(db)
 	if err != nil {
@@ -270,22 +279,24 @@ func registerAdminRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *r
 
 	v1 := r.Group("/api/v1")
 	adminUsers := v1.Group("/admin")
-	adminUsers.Use(middleware.RequireCasbinRBAC(jwtSecret, enforcer))
+	adminUsers.Use(middleware.AdminJWTOrTokenReadAuth(jwtSecret, tokenService, auth.ScopeAdminRead))
 	adminUsers.Use(audit.Middleware(auditSvc))
 	handler.RegisterAdminUserRoutes(adminUsers)
+	tokenHandler.RegisterRoutes(adminUsers)
 
 	varRepo := variable.NewRepo(db)
 	varService := variable.NewService(varRepo, aesCrypto)
 	varHandler := variable.NewHandler(varService)
 
 	adminVars := v1.Group("/admin/variables")
-	adminVars.Use(middleware.RequireAdminRBAC(jwtSecret))
+	adminVars.Use(middleware.AdminJWTOrTokenReadAuth(jwtSecret, tokenService, auth.ScopeAdminRead))
 	adminVars.Use(audit.Middleware(auditSvc))
 	varHandler.RegisterGlobalRoutes(adminVars)
 
 	adminHandler := admin.NewAdminHandler(db, rdb)
+	adminHandler.SetSignalService(signalSvc)
 	adminAPI := v1.Group("/admin")
-	adminAPI.Use(middleware.RequireAdminRBAC(jwtSecret))
+	adminAPI.Use(middleware.AdminJWTOrTokenReadAuth(jwtSecret, tokenService, auth.ScopeAdminRead))
 	adminAPI.Use(audit.Middleware(auditSvc))
 	adminAPI.GET("/settings", adminHandler.GetSettings)
 	adminAPI.PUT("/settings", adminHandler.UpdateSettings)
@@ -296,7 +307,7 @@ func registerAdminRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *r
 	adminAPI.GET("/audit-logs", auditHandler.List)
 
 	admin := r.Group("/admin")
-	admin.Use(middleware.RequireAdminRBAC(jwtSecret))
+	admin.Use(middleware.AdminJWTOrTokenReadAuth(jwtSecret, tokenService, auth.ScopeAdminRead))
 	admin.POST("/log-level", func(c *gin.Context) {
 		var req struct {
 			Level string `json:"level"`
@@ -315,7 +326,7 @@ func registerAdminRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *r
 	})
 }
 
-func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, minioClient *minio.Client, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface, stepRepo stepexec.Repository, pipelineWatcher *ws.PipelineWatcher) {
+func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, minioClient *minio.Client, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface, stepRepo stepexec.Repository, pipelineWatcher *ws.PipelineWatcher, tokenService *auth.TokenService, signalSvc *healthsignal.Service) {
 	projRepo := project.NewRepo(db)
 	projService := project.NewService(projRepo, pipelineWatcher)
 	registerExistingProjectNamespaces(ctx, projRepo, pipelineWatcher)
@@ -323,6 +334,7 @@ func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb 
 
 	envRepo := environment.NewRepo(db)
 	envService := environment.NewService(envRepo)
+	envService.SetSignalService(signalSvc)
 	envHandler := environment.NewHandler(envService)
 
 	svcRepo := svcdef.NewRepo(db)
@@ -331,7 +343,7 @@ func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb 
 
 	v1 := r.Group("/api/v1")
 	projects := v1.Group("/projects")
-	projects.Use(middleware.JWTAuth(jwtSecret))
+	projects.Use(middleware.JWTOrMappedTokenAuth(jwtSecret, tokenService, projectTokenScopeForRoute))
 	projHandler.RegisterCollectionRoutes(projects)
 
 	projectScope := projects.Group("/:id")
@@ -365,6 +377,15 @@ func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb 
 	pipelineVarsGroup := pipelineGroup.Group("/:pipelineId/variables")
 	varHandler.RegisterPipelineRoutes(pipelineVarsGroup)
 
+	notifRepo := notification.NewRepo(db)
+	var notifIdemCache *cache.RedisCache
+	if rdb != nil {
+		notifIdemCache = cache.NewRedisCache(rdb, "notification", 5*time.Minute)
+	}
+	notifSvc := notification.NewService(notifRepo, notifIdemCache)
+	notifSvc.SetCrypto(aesCrypto)
+	notifSvc.SetSlackBaseURL(cfg.Notification.SlackBaseURL)
+
 	runRepo := pipelinerun.NewRepo(db)
 	runTranslator := tekton.NewTranslator()
 	var runK8s pipelinerun.K8sClient
@@ -377,6 +398,8 @@ func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb 
 		runSecretInjector = &pipelinerun.MockSecretInjector{}
 	}
 	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector, stepRepo)
+	runService.SetSignalService(signalSvc)
+	runService.SetNotificationService(notifSvc)
 	runHandler := pipelinerun.NewHandler(runService)
 	runsGroup := pipelineGroup.Group("/:pipelineId/runs")
 	runHandler.RegisterRoutes(runsGroup)
@@ -397,19 +420,20 @@ func registerProjectRoutes(ctx context.Context, r *gin.Engine, db *gorm.DB, rdb 
 		slog.Info("ArgoCD: 使用 Mock 客户端")
 	}
 	deploySvc := deployment.NewService(deployRepo, envService, argoClient)
+	deploySvc.SetSignalService(signalSvc)
+	deploySvc.SetNotificationService(notifSvc)
 	deployHandler := deployment.NewHandler(deploySvc, envService)
 	deployGroup := projectScope.Group("/deployments")
 	deployHandler.RegisterRoutes(deployGroup)
 
-	notifRepo := notification.NewRepo(db)
-	var notifIdemCache *cache.RedisCache
-	if rdb != nil {
-		notifIdemCache = cache.NewRedisCache(rdb, "notification", 5*time.Minute)
-	}
-	notifSvc := notification.NewService(notifRepo, notifIdemCache)
 	notifHandler := notification.NewHandler(notifSvc)
 	notifGroup := projectScope.Group("/notification-rules")
 	notifHandler.RegisterRoutes(notifGroup)
+
+	analyticsSvc := analytics.NewService(analytics.NewRepo(db))
+	analyticsHandler := analytics.NewHandler(analyticsSvc)
+	analyticsGroup := projectScope.Group("/analytics")
+	analyticsHandler.RegisterRoutes(analyticsGroup)
 
 	templateGroup := v1.Group("/pipeline-templates")
 	templateGroup.Use(middleware.JWTAuth(jwtSecret))
@@ -432,7 +456,36 @@ func registerExistingProjectNamespaces(ctx context.Context, repo *project.Repo, 
 	_ = ctx
 }
 
-func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface, stepRepo stepexec.Repository) {
+func projectTokenScopeForRoute(c *gin.Context) (string, bool) {
+	path := c.FullPath()
+	method := c.Request.Method
+	switch {
+	case method == http.MethodPost && strings.HasSuffix(path, "/pipelines/:pipelineId/runs"):
+		return auth.ScopePipelinesTrigger, true
+	case method == http.MethodPost && strings.HasSuffix(path, "/pipelines/from-template"):
+		return auth.ScopePipelinesTrigger, true
+	case method == http.MethodGet && strings.Contains(path, "/pipelines/:pipelineId/runs"):
+		return auth.ScopePipelinesRead, true
+	case method == http.MethodGet && strings.Contains(path, "/pipeline-runs/:runId"):
+		return auth.ScopePipelinesRead, true
+	case method == http.MethodPost && strings.HasSuffix(path, "/deployments"):
+		return auth.ScopeDeploymentsWrite, true
+	case (method == http.MethodPut || method == http.MethodDelete) && strings.Contains(path, "/deployments"):
+		return auth.ScopeDeploymentsWrite, true
+	case method == http.MethodGet && strings.Contains(path, "/deployments"):
+		return auth.ScopeDeploymentsRead, true
+	case method == http.MethodGet && strings.Contains(path, "/variables"):
+		return auth.ScopeVariablesRead, true
+	case method == http.MethodGet && strings.Contains(path, "/notification-rules"):
+		return auth.ScopeNotificationsRead, true
+	case method == http.MethodGet && strings.Contains(path, "/analytics"):
+		return auth.ScopePipelinesRead, true
+	default:
+		return "", false
+	}
+}
+
+func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jwtSecret string, aesCrypto *crypto.AESCrypto, auditSvc *audit.Service, cfg *config.Config, coreClient kubernetes.Interface, dynClient dynamic.Interface, stepRepo stepexec.Repository, tokenService *auth.TokenService, signalSvc *healthsignal.Service) {
 	gitRepo := gitmod.NewRepo(db)
 	gitService := gitmod.NewService(gitRepo, aesCrypto)
 
@@ -446,11 +499,12 @@ func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jw
 
 	registryRepo := registry.NewRepo(db)
 	registryService := registry.NewService(registryRepo, aesCrypto)
+	registryService.SetSignalService(signalSvc)
 	registryHandler := registry.NewHandler(registryService)
 
 	v1 := r.Group("/api/v1")
 	integrations := v1.Group("/admin/integrations")
-	integrations.Use(middleware.RequireAdminRBAC(jwtSecret))
+	integrations.Use(middleware.AdminJWTOrTokenReadAuth(jwtSecret, tokenService, auth.ScopeAdminRead))
 	integrations.Use(audit.Middleware(auditSvc))
 	gitHandler.RegisterRoutes(integrations)
 
@@ -469,6 +523,14 @@ func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jw
 	varService := variable.NewService(varRepo, aesCrypto)
 	runRepo := pipelinerun.NewRepo(db)
 	runTranslator := tekton.NewTranslator()
+	notifRepo := notification.NewRepo(db)
+	var notifIdemCache *cache.RedisCache
+	if rdb != nil {
+		notifIdemCache = cache.NewRedisCache(rdb, "notification", 5*time.Minute)
+	}
+	notifSvc := notification.NewService(notifRepo, notifIdemCache)
+	notifSvc.SetCrypto(aesCrypto)
+	notifSvc.SetSlackBaseURL(cfg.Notification.SlackBaseURL)
 	var runK8s pipelinerun.K8sClient
 	var runSecretInjector pipelinerun.SecretInjector
 	if cfg.K8s.Enabled && dynClient != nil {
@@ -479,6 +541,8 @@ func registerIntegrationRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, jw
 		runSecretInjector = &pipelinerun.MockSecretInjector{}
 	}
 	runService := pipelinerun.NewService(runRepo, pipelineRepo, varService, runTranslator, runK8s, runSecretInjector, stepRepo)
+	runService.SetSignalService(signalSvc)
+	runService.SetNotificationService(notifSvc)
 	webhookLimiter := middleware.NewRateLimiter(rdb, 60, time.Minute)
 	webhookHandler := gitmod.NewWebhookHandler(gitService, idempotentCache, matcher, runService)
 	webhooks := v1.Group("/webhooks")

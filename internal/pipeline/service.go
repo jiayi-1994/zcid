@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/xjy/zcid/pkg/response"
@@ -32,6 +33,17 @@ func (s *Service) GetTemplate(templateID string) (*PipelineTemplate, error) {
 		return nil, response.NewBizError(response.CodeNotFound, "模板不存在", fmt.Sprintf("未找到模板: %s", templateID))
 	}
 	return t, nil
+}
+
+func (s *Service) CreateFromTemplate(ctx context.Context, projectID string, req FromTemplateRequest, createdBy string) (*Pipeline, error) {
+	if strings.TrimSpace(req.TemplateID) == "" || strings.TrimSpace(req.Name) == "" {
+		return nil, response.NewBizError(response.CodeValidation, "请求参数错误", "templateId and name are required")
+	}
+	return s.CreatePipeline(ctx, projectID, CreatePipelineRequest{
+		Name:           strings.TrimSpace(req.Name),
+		TemplateID:     strings.TrimSpace(req.TemplateID),
+		TemplateParams: req.Params,
+	}, createdBy)
 }
 
 func (s *Service) CreatePipeline(ctx context.Context, projectID string, req CreatePipelineRequest, createdBy string) (*Pipeline, error) {

@@ -101,7 +101,7 @@ func (h *Handler) Get(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, ToEnvironmentResponse(env))
+	response.Success(c, ToEnvironmentResponseWithHealth(env, h.service.Health(c.Request.Context(), projectID, env.ID)))
 }
 
 // List godoc
@@ -133,7 +133,7 @@ func (h *Handler) List(c *gin.Context) {
 
 	items := make([]EnvironmentResponse, len(envs))
 	for i, e := range envs {
-		items[i] = ToEnvironmentResponse(e)
+		items[i] = ToEnvironmentResponseWithHealth(e, h.service.Health(c.Request.Context(), projectID, e.ID))
 	}
 
 	response.Success(c, EnvironmentListResponse{

@@ -28,6 +28,7 @@ export interface StepConfig {
 export interface ParamConfig {
   name: string;
   type: string;
+  options?: string[];
   defaultValue?: string;
   description?: string;
   required: boolean;
@@ -94,6 +95,15 @@ export async function createPipeline(projectId: string, data: {
   templateParams?: Record<string, string>;
 }): Promise<Pipeline> {
   const res = await http.post<ApiResponse<Pipeline>>(`/projects/${projectId}/pipelines`, data);
+  return res.data.data;
+}
+
+export async function createPipelineFromTemplate(projectId: string, data: {
+  name: string;
+  templateId: string;
+  params?: Record<string, string>;
+}): Promise<Pipeline> {
+  const res = await http.post<ApiResponse<Pipeline>>(`/projects/${projectId}/pipelines/from-template`, data);
   return res.data.data;
 }
 

@@ -10,7 +10,7 @@ import { Card } from '../../../components/ui/Card';
 import { Metric } from '../../../components/ui/Metric';
 import { Btn } from '../../../components/ui/Btn';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
-import { StepsWaterfall } from '../../../components/pipeline/StepsWaterfall';
+import { StepTimeline } from '../../../components/pipeline/StepTimeline';
 import { IArrL, IPlay, IClock, IUser, ICode } from '../../../components/ui/icons';
 
 function formatDuration(start?: string, end?: string): string {
@@ -174,9 +174,9 @@ export default function PipelineRunDetailPage() {
           </Card>
         )}
 
-        {/* Step execution waterfall */}
-        <Card title="Step Execution Waterfall">
-          <StepsWaterfall items={stepExecutions} error={stepError} />
+        {/* Step execution timeline */}
+        <Card title="Step Execution Timeline">
+          <StepTimeline steps={stepExecutions} error={stepError} runStartedAt={run.startedAt} />
         </Card>
 
         {/* Build log terminal */}

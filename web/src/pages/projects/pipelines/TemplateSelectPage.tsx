@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Message } from '@arco-design/web-react';
-import { fetchTemplates, createPipeline, type PipelineTemplate } from '../../../services/pipeline';
+import { fetchTemplates, createPipelineFromTemplate, type PipelineTemplate, type ParamConfig } from '../../../services/pipeline';
 import { configToJson } from '../../../lib/pipeline/configJson';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Card } from '../../../components/ui/Card';
@@ -50,7 +50,7 @@ export default function TemplateSelectPage() {
     if (missing.length > 0) { Message.error(`请填写必填参数: ${missing.join(', ')}`); return; }
     setCreating(true);
     try {
-      const created = await createPipeline(projectId, { name: pipelineName.trim(), description: pipelineDesc.trim(), templateId: selectedTemplate.id, templateParams });
+      const created = await createPipelineFromTemplate(projectId, { name: pipelineName.trim(), templateId: selectedTemplate.id, params: templateParams });
       Message.success('创建成功');
       navigate(`/projects/${projectId}/pipelines/${created.id}`);
     } catch {
@@ -61,6 +61,28 @@ export default function TemplateSelectPage() {
   }, [projectId, selectedTemplate, pipelineName, pipelineDesc, templateParams, navigate]);
 
   const currentStep = selectedTemplate ? 2 : 1;
+
+  const renderParamInput = (param: ParamConfig) => {
+    const value = templateParams[param.name] || '';
+    const onChange = (next: string) => setTemplateParams((prev) => ({ ...prev, [param.name]: next }));
+    if (param.type === 'enum' && param.options?.length) {
+      return (
+        <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value="">请选择 {param.name}</option>
+          {param.options.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      );
+    }
+    return (
+      <input
+        className="input"
+        type={param.type === 'secret' ? 'password' : 'text'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={param.defaultValue || `请输入 ${param.name}`}
+      />
+    );
+  };
 
   return (
     <>
@@ -161,12 +183,7 @@ export default function TemplateSelectPage() {
                       {selectedTemplate.params.map((param) => (
                         <div key={param.name} style={{ gridColumn: param.name === 'repoUrl' ? '1 / -1' : undefined }}>
                           <Field label={<>{param.name}{param.required && <span style={{ color: 'var(--red-ink)', marginLeft: 2 }}>*</span>}</>}>
-                            <input
-                              className="input"
-                              value={templateParams[param.name] || ''}
-                              onChange={(e) => setTemplateParams((prev) => ({ ...prev, [param.name]: e.target.value }))}
-                              placeholder={param.defaultValue || `请输入 ${param.name}`}
-                            />
+                            {renderParamInput(param)}
                             {param.description && <div style={{ fontSize: 11, color: 'var(--z-400)', marginTop: 3 }}>{param.description}</div>}
                           </Field>
                         </div>

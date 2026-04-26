@@ -25,8 +25,11 @@ const PipelineEditorPage = lazy(() => import('./pages/projects/pipelines/Pipelin
 const PipelineRunListPage = lazy(() => import('./pages/projects/pipelines/PipelineRunListPage'));
 const PipelineRunDetailPage = lazy(() => import('./pages/projects/pipelines/PipelineRunDetailPage'));
 const TemplateSelectPage = lazy(() => import('./pages/projects/pipelines/TemplateSelectPage'));
+const AnalyticsPage = lazy(() => import('./pages/projects/analytics/AnalyticsPage'));
+const ServiceVitalsPage = lazy(() => import('./pages/projects/services/ServiceVitalsPage'));
 const NotificationRulesPage = lazy(() => import('./pages/projects/notifications/NotificationRulesPage'));
 const AuditLogPage = lazy(() => import('./pages/admin/audit/AuditLogPage'));
+const AccessTokensPage = lazy(() => import('./pages/access-tokens/AccessTokensPage'));
 const SystemSettingsPage = lazy(() => import('./pages/admin/settings/SystemSettingsPage'));
 
 function App() {
@@ -74,9 +77,11 @@ function App() {
             <Route path="deployments" element={<DeploymentListPage />} />
             <Route path="deployments/:deployId" element={<DeploymentDetailPage />} />
             <Route path="services" element={<ServiceListPage />} />
+            <Route path="services/:serviceId" element={<Suspense fallback={<PageSkeleton />}><ServiceVitalsPage /></Suspense>} />
             <Route path="members" element={<MemberListPage />} />
             <Route path="variables" element={<VariableListPage />} />
             <Route path="pipelines" element={<Suspense fallback={<PageSkeleton />}><PipelineListPage /></Suspense>} />
+            <Route path="analytics" element={<Suspense fallback={<PageSkeleton />}><AnalyticsPage /></Suspense>} />
             <Route path="pipelines/new" element={<Suspense fallback={<PageSkeleton />}><TemplateSelectPage /></Suspense>} />
             <Route path="pipelines/:pipelineId/runs" element={<Suspense fallback={<PageSkeleton />}><PipelineRunListPage /></Suspense>} />
             <Route path="pipelines/:pipelineId/runs/:runId" element={<Suspense fallback={<PageSkeleton />}><PipelineRunDetailPage /></Suspense>} />
@@ -125,6 +130,16 @@ function App() {
               <RequireAuth>
                 <RequirePermission permission="route:admin-audit:view">
                   <Suspense fallback={<PageSkeleton />}><AuditLogPage /></Suspense>
+                </RequirePermission>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/access-tokens"
+            element={
+              <RequireAuth>
+                <RequirePermission permission="route:access-tokens:view">
+                  <Suspense fallback={<PageSkeleton />}><AccessTokensPage /></Suspense>
                 </RequirePermission>
               </RequireAuth>
             }

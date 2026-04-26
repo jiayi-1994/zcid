@@ -9,12 +9,24 @@ import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { IUser, ICalendar, IFilter, IChevL, IChevR } from '../../../components/ui/icons';
 
 function extractMethod(action: string): string {
+  if (action.startsWith('auth.')) return 'AUTH';
   const m = action.match(/^(GET|POST|PUT|DELETE|PATCH)/);
   return m ? m[1] : 'GET';
 }
 
 function extractPath(action: string): string {
+  if (action.startsWith('auth.')) return action;
   return action.replace(/^(GET|POST|PUT|DELETE|PATCH)\s+/, '').replace(/\/api\/v1\//, '');
+}
+
+function detailReason(detail?: string): string {
+  if (!detail) return '';
+  try {
+    const parsed = JSON.parse(detail) as { reason?: string };
+    return parsed.reason ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function AuditLogPage() {
@@ -48,6 +60,12 @@ export function AuditLogPage() {
             options={[{ value: '', label: '全部方法' }, 'GET', 'POST', 'PUT', 'DELETE']}
             onChange={(v) => updateFilter('action', v)}
           />
+          <ZSelect
+            width={150}
+            value={filters.category ?? ''}
+            options={[{ value: '', label: '全部类别' }, { value: 'auth_security', label: '认证与访问' }]}
+            onChange={(v) => updateFilter('category', v)}
+          />
           <div className="input-wrap">
             <IUser size={13} />
             <input className="input input--with-icon" style={{ width: 160 }} placeholder="用户名..." onChange={(e) => updateFilter('userId', e.target.value)} />
@@ -75,7 +93,7 @@ export function AuditLogPage() {
                       <td><span className="sub mono" style={{ fontSize: 11 }}>{new Date(a.createdAt).toLocaleString()}</span></td>
                       <td><span className="mono" style={{ fontSize: 11.5 }}>{a.userId?.replace('admin-bootstrap-', '#') || '-'}</span></td>
                       <td><StatusBadge status={method} /></td>
-                      <td><span className="code" style={{ maxWidth: 240, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{path}</span></td>
+                      <td><span className="code" title={detailReason(a.detail)} style={{ maxWidth: 240, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{path}</span></td>
                       <td><span className="sub">{a.resourceType || '-'}</span></td>
                       <td><span className="mono" style={{ fontSize: 11 }}>{a.resourceId ? a.resourceId.substring(0, 8) + '…' : '-'}</span></td>
                       <td><StatusBadge status={a.result === 'success' ? 'ok' : 'err'} /></td>

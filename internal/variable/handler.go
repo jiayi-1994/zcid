@@ -340,6 +340,10 @@ func isAdminOrProjectAdmin(c *gin.Context) bool {
 }
 
 func getUserRole(c *gin.Context) string {
+	projRole, _ := c.Get(middleware.ContextKeyProjectRole)
+	if role, ok := projRole.(string); ok && role == "project_token" {
+		return "project_token"
+	}
 	userRole, _ := c.Get(middleware.ContextKeyRole)
 	role, _ := userRole.(string)
 	return role

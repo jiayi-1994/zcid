@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -59,6 +60,76 @@ func TestService_LogAction(t *testing.T) {
 	assert.Equal(t, "POST /test", c.Action)
 	assert.Equal(t, "project", c.ResourceType)
 	assert.Equal(t, "p1", *c.ResourceID)
+}
+
+func TestService_LogAuthSecurityEvent(t *testing.T) {
+	ctx := context.Background()
+	var (
+		mu      sync.Mutex
+		created *AuditLog
+	)
+	repo := &mockAuditRepo{
+		create: func(ctx context.Context, log *AuditLog) error {
+			mu.Lock()
+			defer mu.Unlock()
+			created = log
+			return nil
+		},
+	}
+	svc := NewService(repo)
+	svc.LogAuthSecurityEvent(ctx, AuthSecurityEvent{
+		UserID:     "u1",
+		Action:     "auth.login_failed",
+		ResourceID: "u1",
+		Result:     ResultFailure,
+		IP:         "127.0.0.1",
+		Detail: AuthSecurityDetail{
+			PrincipalType: "user",
+			Reason:        "invalid_credentials",
+			Fields:        map[string]any{"username": "alice"},
+		},
+	})
+	time.Sleep(100 * time.Millisecond)
+
+	mu.Lock()
+	c := created
+	mu.Unlock()
+
+	require.NotNil(t, c)
+	assert.Equal(t, "u1", *c.UserID)
+	assert.Equal(t, "auth.login_failed", c.Action)
+	assert.Equal(t, ResourceTypeAuthSecurity, c.ResourceType)
+	assert.Equal(t, ResultFailure, c.Result)
+	assert.Equal(t, "u1", *c.ResourceID)
+	assert.Equal(t, "127.0.0.1", *c.IP)
+	require.NotNil(t, c.Detail)
+
+	var detail AuthSecurityDetail
+	require.NoError(t, json.Unmarshal([]byte(*c.Detail), &detail))
+	assert.Equal(t, "auth.login_failed", detail.EventType)
+	assert.Equal(t, "user", detail.PrincipalType)
+	assert.Equal(t, "invalid_credentials", detail.Reason)
+	assert.NotContains(t, *c.Detail, "password")
+	assert.NotContains(t, *c.Detail, "token")
+}
+
+func TestService_LogAuthSecurityEventDefaults(t *testing.T) {
+	ctx := context.Background()
+	var created *AuditLog
+	repo := &mockAuditRepo{
+		create: func(ctx context.Context, log *AuditLog) error {
+			created = log
+			return nil
+		},
+	}
+	svc := NewService(repo)
+	svc.LogAuthSecurityEvent(ctx, AuthSecurityEvent{Detail: AuthSecurityDetail{EventType: "auth.logout"}})
+	time.Sleep(100 * time.Millisecond)
+
+	require.NotNil(t, created)
+	assert.Equal(t, "auth.logout", created.Action)
+	assert.Equal(t, ResourceTypeAuthSecurity, created.ResourceType)
+	assert.Equal(t, ResultSuccess, created.Result)
 }
 
 func TestService_List(t *testing.T) {

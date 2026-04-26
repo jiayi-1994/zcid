@@ -28,6 +28,19 @@ func RequireProjectScope(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		principalType, _ := c.Get(ContextKeyPrincipalType)
+		if principalType == PrincipalTypeProjectToken {
+			tokenProjectID, _ := c.Get(ContextKeyTokenProjectID)
+			if tokenProjectID == projectID {
+				c.Set(ContextKeyProjectRole, "project_token")
+				c.Next()
+				return
+			}
+			response.HandleError(c, response.NewBizError(response.CodeForbidden, "无权访问该项目", "project token is scoped to another project"))
+			c.Abort()
+			return
+		}
+
 		userID, _ := c.Get(ContextKeyUserID)
 		userIDStr, _ := userID.(string)
 		if userIDStr == "" {

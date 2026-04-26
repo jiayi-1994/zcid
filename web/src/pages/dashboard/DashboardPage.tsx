@@ -49,8 +49,8 @@ export function DashboardPage() {
     <AppLayout>
       <PageHeader
         crumb="Cloud-Native Overview"
-        title={`${greet()}，${user?.username ?? 'User'}`}
-        sub="Global infrastructure health and deployment telemetry. 当前 CI/CD 工作台概览。"
+        title="Dashboard"
+        sub={`${greet()}，${user?.username ?? 'User'} · Global infrastructure health and deployment telemetry. 当前 CI/CD 工作台概览。`}
         actions={
           <>
             <Btn size="sm" icon={<IRefresh size={13} />} onClick={() => setReloadKey((k) => k + 1)}>Refresh</Btn>

@@ -135,8 +135,19 @@ func mustUnmarshalData(t *testing.T, resp *APIResponse, v interface{}) {
 func adminClient(t *testing.T) *APIClient {
 	t.Helper()
 	c := NewAPIClient()
-	c.Login(t, "admin", "admin123")
+	username, password := adminCredentials(t)
+	c.Login(t, username, password)
 	return c
+}
+
+func adminCredentials(t *testing.T) (string, string) {
+	t.Helper()
+	username := os.Getenv("ZCID_ADMIN_USERNAME")
+	password := os.Getenv("ZCID_ADMIN_PASSWORD")
+	if username == "" || password == "" {
+		t.Skip("set ZCID_ADMIN_USERNAME and ZCID_ADMIN_PASSWORD for e2e tests; default admin credentials are intentionally disabled")
+	}
+	return username, password
 }
 
 func uniqueName(prefix string) string {
@@ -157,14 +168,13 @@ func waitForServer(t *testing.T) {
 	t.Helper()
 	client := &http.Client{Timeout: 2 * time.Second}
 	for i := 0; i < 60; i++ {
-		resp, err := client.Post(
-			apiBaseURL+"/api/v1/auth/login",
-			"application/json",
-			bytes.NewReader([]byte(`{"username":"admin","password":"admin123"}`)),
-		)
+		resp, err := client.Get(apiBaseURL + "/healthz")
 		if err == nil {
+			statusCode := resp.StatusCode
 			resp.Body.Close()
-			return
+			if statusCode == http.StatusOK {
+				return
+			}
 		}
 		time.Sleep(time.Second)
 	}
