@@ -144,10 +144,21 @@ jobs:
             }
             defer db.Close()
             const passwordHash = "$2a$10$ndEii.uLBDvrbVvV/G6wO.F1N7gX5PXIbMec0KGBYqSIgYcpoX3Qa"
+            if _, err := db.Exec(`UPDATE users SET username = 'admin-bootstrap-disabled', status = 'disabled', updated_at = CURRENT_TIMESTAMP WHERE id = 'admin-bootstrap-001'`); err != nil {
+              log.Fatal(err)
+            }
             if _, err := db.Exec(`
-              UPDATE users
-              SET username = 'admin', password_hash = $1, role = 'admin', status = 'active', updated_at = CURRENT_TIMESTAMP
-              WHERE id = 'admin-bootstrap-001'`, passwordHash); err != nil {
+              INSERT INTO users (id, username, password_hash, role, status, created_at, updated_at)
+              VALUES ('ci-admin-001', 'admin', $1, 'admin', 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              ON CONFLICT (id) DO UPDATE
+              SET username = EXCLUDED.username,
+                  password_hash = EXCLUDED.password_hash,
+                  role = EXCLUDED.role,
+                  status = EXCLUDED.status,
+                  updated_at = CURRENT_TIMESTAMP`, passwordHash); err != nil {
+              log.Fatal(err)
+            }
+            if _, err := db.Exec(`INSERT INTO casbin_rule (ptype, v0, v1) VALUES ('g', 'ci-admin-001', 'admin')`); err != nil {
               log.Fatal(err)
             }
           }
